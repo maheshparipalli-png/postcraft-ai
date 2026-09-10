@@ -25,7 +25,7 @@ function extractArticleBody(html: string) {
 
 async function fetchArticle(url?: string) {
   if (!url || !/^https?:\/\//i.test(url)) return "";
-  try { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PostCraftAI/1.0)", Accept: "text/html,application/xhtml+xml" }, cache: "no-store", signal: AbortSignal.timeout(7_000), redirect: "follow" }); if (!response.ok) return ""; return extractArticleBody(await response.text()).slice(0, 4_500); }
+  try { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PostCraftAI/1.0)", Accept: "text/html,application/xhtml+xml" }, cache: "no-store", signal: AbortSignal.timeout(7_000), redirect: "follow" }); if (!response.ok) return ""; return extractArticleBody(await response.text()).slice(0, 3_200); }
   catch (error) { console.warn("[PostCraft] article_fetch_failed", error instanceof Error ? error.message : "unknown error"); return ""; }
 }
 
@@ -38,7 +38,7 @@ function parseEvidence(value: unknown): Evidence[] {
     const support = typeof v.support === "string" ? v.support.trim() : "";
     const type = v.type === "fact" || v.type === "interpretation" || v.type === "uncertainty" ? v.type : "fact";
     return claim && support ? { claim, support, type } : null;
-  }).filter((x): x is Evidence => Boolean(x)).slice(0, 5);
+  }).filter((x): x is Evidence => Boolean(x)).slice(0, 3);
 }
 
 function fallbackEvidence(story: Story, articleText: string): Evidence[] {
@@ -46,7 +46,7 @@ function fallbackEvidence(story: Story, articleText: string): Evidence[] {
   if (story.headline.trim()) evidence.push({ claim: story.headline.trim(), support: "Publisher headline.", type: "fact" });
   if (story.summary.trim()) evidence.push({ claim: story.summary.trim(), support: "Publisher-provided story summary.", type: "fact" });
   if (articleText.trim()) evidence.push({ claim: "The source article was retrieved successfully.", support: `Retrieved source text (${articleText.length} characters).`, type: "fact" });
-  return evidence.slice(0, 5);
+  return evidence.slice(0, 3);
 }
 
 function parseAngles(value: unknown): Angle[] {
@@ -63,8 +63,8 @@ function parseAngles(value: unknown): Angle[] {
 
 async function buildEditorialPass(story: Story, articleText: string) {
   const source = articleText ? `ARTICLE:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
-  const prompt = `You are PostCraft AI, an editorial thinking partner. Your job is not to summarize the story. First extract the most important concrete facts. Then identify the strongest relationships, contrasts, or tensions between those facts. Finally select exactly 3 editorial angles.\n\n${source}\n\nRules: each angle must make one precise claim, be directly supported by the source, and use a materially different relationship or contrast. Do not create three variations of the same idea. Prefer numbers, comparisons, mechanisms, affected groups, or differences between scenarios. Do not add outside facts. Do not turn scenarios into forecasts. Avoid generic ideas such as "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". If two candidate angles use essentially the same relationship, keep the stronger one and replace it with a genuinely different relationship.\n\nA strong angle can look like: "An economy can become dramatically richer while workers receive a smaller share of the wealth it creates."\n\nReturn ONLY compact JSON with exactly this shape: {"evidence":[{"claim":"short factual claim","support":"short source support","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"}]}`;
-  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 900 }));
+  const prompt = `You are PostCraft AI, an editorial thinking partner. Do not summarize. From the source below, extract 3 concrete facts and then choose exactly 3 distinct editorial angles. Each angle must make one precise, evidence-backed claim and use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. Do not repeat the same idea. Do not add outside facts. Do not turn scenarios into forecasts. Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". Prefer the strongest specific relationship in the evidence.\n\n${source}\n\nReturn ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"},{"claim":"short fact","support":"short source anchor","type":"fact"},{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"}]}`;
+  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 600 }));
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
 
