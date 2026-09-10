@@ -69,6 +69,8 @@ const searchQueries: Record<string, string[]> = {
   ],
 };
 
+const genericGoogleNewsText = /comprehensive, up-to-date news coverage, aggregated from sources all over the world by google news/i;
+
 function decodeHtml(value: string) {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -117,7 +119,8 @@ function cleanDescription(value: string, title: string, source: string) {
   if (
     !normalizedDescription ||
     normalizedDescription === normalizedTitle ||
-    normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim()
+    normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim() ||
+    genericGoogleNewsText.test(description)
   ) {
     return "";
   }
@@ -125,7 +128,7 @@ function cleanDescription(value: string, title: string, source: string) {
   return description;
 }
 
-function extractMetaDescription(html: string) {
+function extractArticleText(html: string) {
   const candidates: string[] = [];
   const patterns = [
     /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i,
@@ -141,16 +144,20 @@ function extractMetaDescription(html: string) {
 
   const paragraphs = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
     .map((match) => decodeHtml(match[1]))
-    .filter((text) => text.length >= 60 && text.length <= 500)
-    .slice(0, 2);
+    .filter((text) => text.length >= 60 && text.length <= 1000)
+    .filter((text) => !genericGoogleNewsText.test(text))
+    .slice(0, 5);
 
   candidates.push(...paragraphs);
+  return candidates.find((text) => text.length >= 60 && !genericGoogleNewsText.test(text)) ?? "";
+}
 
-  return candidates.find((text) => text.length >= 60) ?? "";
+function hasUsableEvidence(item: ResearchItem) {
+  return Boolean(item.snippet && item.snippet.length >= 80 && !genericGoogleNewsText.test(item.snippet));
 }
 
 async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
-  if (item.snippet.length >= 80) return item;
+  if (hasUsableEvidence(item)) return item;
 
   try {
     const response = await fetch(item.url, {
@@ -162,10 +169,11 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
 
     if (!response.ok) return item;
     const html = await response.text();
-    const description = extractMetaDescription(html);
+    const description = extractArticleText(html);
     if (!description) return item;
 
-    return { ...item, snippet: description.slice(0, 700) };
+    const resolvedUrl = response.url && !response.url.includes("news.google.com") ? response.url : item.url;
+    return { ...item, url: resolvedUrl, snippet: description.slice(0, 900) };
   } catch {
     return item;
   }
@@ -211,7 +219,7 @@ function isLowValueStory(item: ResearchItem) {
   ].some((term) => text.includes(term));
 }
 
-function scoreStory(item: ResearchItem) {
+function scoreStory(item: ResearchItem, mode: string) {
   const title = item.title.toLowerCase();
   const publishedTime = Date.parse(item.publishedAt);
   const ageHours = Number.isFinite(publishedTime)
@@ -223,7 +231,7 @@ function scoreStory(item: ResearchItem) {
     "why", "how", "could", "will", "change", "risk", "impact", "shift", "surge",
     "crisis", "warning", "rethink", "future", "breakthrough", "decision", "policy",
     "investment", "jobs", "concern", "threat", "pressure", "decline", "rise", "fall",
-    "reversal", "controversy",
+    "reversal", "controversy", "question", "debate", "security", "benefit", "cost",
   ];
   const weakSignals = [
     "showcase", "showcases", "announces", "announced", "launches", "launch", "portfolio",
@@ -236,8 +244,17 @@ function scoreStory(item: ResearchItem) {
   if (title.includes("?")) score += 8;
   if (/^.*\bto (showcase|announce|launch|unveil)\b/i.test(title)) score -= 12;
   if (/reuters|bbc|bloomberg|associated press|the hindu|indian express|mint|business standard|financial times|economist/i.test(item.source)) score += 5;
-  if (item.snippet.length >= 80) score += 5;
+  if (hasUsableEvidence(item)) score += 12;
+  else score -= mode === "PostCraft Recommended" ? 18 : 5;
   if (title.length >= 45 && title.length <= 140) score += 3;
+
+  if (mode === "AI & Technology" && /\b(ai|artificial intelligence|technology|tech|robot|model|chip|semiconductor|software|cyber)\b/i.test(title)) score += 12;
+  if (mode === "India" && /\b(india|indian|delhi|mumbai|bengaluru|hyderabad|modi|government|rupee|rbi|upi)\b/i.test(title)) score += 12;
+  if (mode === "PostCraft Recommended") {
+    if (/\b(why|how|could|question|debate|risk|trade[- ]?off|benefit|cost|impact|change)\b/i.test(title)) score += 8;
+    if (hasUsableEvidence(item)) score += Math.min(12, Math.floor(item.snippet.length / 120) * 3);
+  }
+
   return score;
 }
 
@@ -264,7 +281,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
       seen.add(key);
       return true;
     })
-    .map((item) => ({ ...item, score: scoreStory(item) }))
+    .map((item) => ({ ...item, score: scoreStory(item, topic) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   const selected: ResearchItem[] = [];
@@ -278,7 +295,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     });
 
     if (!tooSimilar) selected.push(item);
-    if (selected.length >= 12) break;
+    if (selected.length >= (topic === "PostCraft Recommended" ? 15 : 12)) break;
   }
 
   if (selected.length < 5) {
@@ -289,8 +306,15 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     }
   }
 
-  const enriched = await Promise.all(selected.slice(0, 8).map(enrichItem));
-  return [...enriched, ...selected.slice(8)];
+  // Google News search RSS commonly supplies a generic description rather than article evidence.
+  // Enrich the shortlist before final ranking so Recommended does not reward headline drama alone.
+  const enriched = await Promise.all(selected.map(enrichItem));
+  const reranked = enriched
+    .map((item) => ({ ...item, score: scoreStory(item, topic) }))
+    .filter((item) => topic !== "PostCraft Recommended" || hasUsableEvidence(item))
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+  return reranked.slice(0, 12);
 }
 
 function titleTokens(title: string) {
