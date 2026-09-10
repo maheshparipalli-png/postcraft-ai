@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
 import { generatePostCraftAngles, generatePostCraftPost } from "@/lib/ai/postcraft";
+import { auditPostCraftAngles } from "@/lib/ai/grounding";
 
 function isPostCraftAnglePrompt(prompt: string) {
   return prompt.includes("You are PostCraft AI, an editorial thinking partner.") &&
@@ -47,20 +48,27 @@ export async function POST(request: Request) {
 
     if (angleRequest) {
       const startedAt = Date.now();
-      const angles = await generatePostCraftAngles({
+      const story = {
         topic: extractField(prompt, "Topic"),
         headline: extractField(prompt, "Headline"),
         source: extractField(prompt, "Source"),
         summary: extractField(prompt, "Summary"),
-      });
+      };
+      const angles = await generatePostCraftAngles(story);
+      const auditedAngles = await auditPostCraftAngles(story, angles);
 
-      if (!angles.length) {
-        return NextResponse.json({ error: "AI could not find a useful angle for this story" }, { status: 502 });
+      if (!auditedAngles.length) {
+        return NextResponse.json(
+          { error: "PostCraft could not find a sufficiently grounded thesis in this story. Try another story." },
+          { status: 502 }
+        );
       }
 
-      console.info(`[PostCraft] angle_route_ms=${Date.now() - startedAt} returned=${angles.length}`);
+      console.info(
+        `[PostCraft] angle_route_ms=${Date.now() - startedAt} returned=${auditedAngles.length} audited_from=${angles.length}`
+      );
       return NextResponse.json({
-        text: JSON.stringify(angles.map((item) => ({ angle: item.angle, why: item.why }))),
+        text: JSON.stringify(auditedAngles.map((item) => ({ angle: item.angle, why: item.why }))),
       });
     }
 
