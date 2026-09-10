@@ -81,53 +81,40 @@ Summary: ${input.summary || "No reliable summary was supplied."}
 EDITORIAL LENS
 ${lens}
 
-Work through this privately in three steps:
+Privately do three steps:
 1. Find ONE concrete detail explicitly present in the story.
-2. State ONE interesting observation that follows directly from that detail.
+2. State ONE useful observation that follows directly from it.
 3. Turn that observation into ONE specific, debatable thesis.
 
-A strong thesis:
-- makes one claim rather than summarizing;
-- contains tension, contradiction, trade-off, hidden cost, or second-order consequence;
-- is specific to this story;
-- could be challenged by an intelligent reader;
-- does not require any fact outside the supplied story.
-
 Rules:
+- Use only the supplied story.
 - Do not invent facts, statistics, examples, people, companies, outcomes, or experiences.
-- Do not use general knowledge about the topic.
 - Do not turn the headline into a fact unless the summary supports it.
-- Do not make generic claims about AI, business, jobs, innovation, risk, or leadership.
-- Keep the fact faithful to the supplied story.
-- The observation may interpret the fact, but must follow directly from it.
+- The thesis must contain a real tension, trade-off, hidden cost, contradiction, or second-order consequence.
+- Avoid generic claims about AI, business, jobs, innovation, risk, or leadership.
 
 Return ONLY this JSON object:
-{"fact":"one concrete story detail","observation":"one useful interpretation of that detail","angle":"one precise debatable thesis","why":"why this thesis follows from the story"}`;
+{"fact":"one concrete story detail","observation":"one useful interpretation","angle":"one precise debatable thesis","why":"why the thesis follows from the story"}`;
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const parsed = parseJsonObject(await ask(prompt));
-    const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
-    const observation = typeof parsed?.observation === "string" ? parsed.observation.trim() : "";
-    const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
-    const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
-    if (fact && observation && angle) return { fact, observation, angle, why };
-  }
+  const parsed = parseJsonObject(await ask(prompt));
+  const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
+  const observation = typeof parsed?.observation === "string" ? parsed.observation.trim() : "";
+  const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
+  const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
 
-  return null;
+  return fact && observation && angle ? { fact, observation, angle, why } : null;
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
   const startedAt = Date.now();
   const lenses = [
     "Look for the most surprising mechanism or scenario in the story.",
-    "Look for a trade-off: what becomes easier, faster, cheaper, harder, riskier, or less valuable?",
+    "Look for the strongest trade-off: what becomes easier, faster, cheaper, harder, riskier, or less valuable?",
     "Look for a mismatch between the obvious headline interpretation and a specific story detail.",
-    "Look for a change in who benefits, who bears a cost, or where value goes.",
-    "Look for a second-order consequence that makes the story more interesting than its headline.",
   ];
 
-  // These are independent calls, so run them concurrently rather than building
-  // a long sequential chain of Ollama requests.
+  // Three independent candidate calls are enough to create a useful choice set.
+  // Keeping this bounded is important for local Ollama performance.
   const results = await Promise.all(lenses.map((lens) => generateCandidate(input, lens)));
   const candidates = normalizeCandidates(
     results.filter((item): item is ThesisCandidate => Boolean(item))
@@ -137,6 +124,7 @@ export async function generatePostCraftAngles(input: IdeaInput) {
     throw new Error("AI could not find a grounded thesis in this story; please try again");
   }
 
+  // With one candidate there is nothing useful to rank, so avoid another model call.
   if (candidates.length === 1) {
     console.info(`[PostCraft] angles_ms=${Date.now() - startedAt} candidates=1 scoring=skipped`);
     return candidates;
@@ -234,9 +222,7 @@ export async function generatePostCraftPost(input: IdeaInput, modeInstruction: s
   const thesis = (input.angle || "").trim();
   if (!thesis) throw new Error("A selected angle is required to create a post");
 
-  // Deliberately keep post creation to one model call. Refinement buttons are
-  // explicit user actions, so they can each make their own single call instead
-  // of hiding multiple blocking calls behind one click.
+  // One model call only. Regenerate/sharper/human are explicit one-call actions.
   const post = await writePost(input, thesis, modeInstruction);
   console.info(`[PostCraft] post_ms=${Date.now() - startedAt} mode=${modeInstruction.slice(0, 24)}`);
   return post;
