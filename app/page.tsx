@@ -7,7 +7,7 @@ type Evidence = { claim: string; support: string; type: "fact" | "interpretation
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
 
-const topics = ["AI & Technology", "India", "PostCraft Recommended", "Custom topic"];
+const topics = ["AI & Technology", "India", "Custom topic"];
 const perspectives: { id: Perspective; label: string; description: string }[] = [
   { id: "agree", label: "I agree", description: "Build on the argument." },
   { id: "disagree", label: "I disagree", description: "Challenge the argument." },
@@ -26,7 +26,7 @@ function cleanGeneratedPost(value: string) {
 }
 
 export default function Home() {
-  const [topic, setTopic] = useState("PostCraft Recommended");
+  const [topic, setTopic] = useState("AI & Technology");
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [angle, setAngle] = useState("");
@@ -62,7 +62,11 @@ export default function Home() {
     resetFromStory();
     try {
       const selectedTopic = topic === "Custom topic" ? customTopic.trim() : topic;
-      const response = await fetch("/api/discover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: selectedTopic }) });
+      const response = await fetch("/api/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: selectedTopic }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "Discovery failed");
       setIdeas(Array.isArray(data?.ideas) ? data.ideas : []);
@@ -85,11 +89,18 @@ export default function Home() {
     try {
       const selectedTopic = topic === "Custom topic" ? customTopic.trim() : topic;
       const prompt = `You are PostCraft AI, an editorial thinking partner. Analyze this exact news story and its source article. Find thoughtful, evidence-led LinkedIn angles. Do not rely on outside knowledge.\n\nTopic: ${selectedTopic}\nHeadline: ${idea.title}\nSource: ${idea.source}\nURL: ${idea.url}\nSummary: ${idea.description || "No reliable summary was supplied."}\n\nThe server will retrieve the source article and build an evidence ledger before generating angles. Return ONLY valid JSON. The system will return the strongest three grounded angles.`;
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "angles", prompt }), signal: controller.signal });
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "angles", prompt }),
+        signal: controller.signal,
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Angle generation failed");
       let parsed: unknown;
-      try { parsed = JSON.parse(data.text); } catch {
+      try {
+        parsed = JSON.parse(data.text);
+      } catch {
         const match = String(data.text).match(/\[[\s\S]*\]/);
         if (!match) throw new Error("PostCraft could not finish reading this story. Try again, or choose another story.");
         parsed = JSON.parse(match[0]);
@@ -128,13 +139,22 @@ export default function Home() {
     const selectedTopic = topic === "Custom topic" ? customTopic.trim() : topic;
     const prompt = `You are PostCraft AI, an editorial thinking partner. Turn ONE news development, ONE selected angle, and the user's point of view into a LinkedIn post.\n\nTopic: ${selectedTopic}\nHeadline: ${selectedIdea.title}\nSource: ${selectedIdea.source}\nURL: ${selectedIdea.url}\nSummary: ${selectedIdea.description || "No reliable summary was supplied."}\nSelected angle: ${angle}\nWhy this angle works: ${selectedAngle?.why || "It gives the story a specific point of view."}\nUser perspective: ${selectedPerspective?.label}\nPerspective guidance: ${selectedPerspective?.description}\nUser's own note: ${perspectiveNote || "No additional note supplied."}\nEvidence JSON: ${JSON.stringify(evidence)}\n\nThe evidence JSON above is the complete factual source. Do not invent additional context, personal experience, statistics, motives, or examples. Keep the selected angle intact. Make the thesis clear early. Use plain language and natural sentence rhythm. Avoid generic phrases such as "raises important questions", "future of work", "need to strike a balance", or "in today's rapidly changing world". Do not add a generic policy conclusion. Return ONLY the finished LinkedIn post.`;
     try {
-      const response = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "post", prompt }) });
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "post", prompt }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "Post generation failed");
       const generatedPost = cleanGeneratedPost(typeof data?.text === "string" ? data.text : "");
       if (!generatedPost) throw new Error("PostCraft could not create the post. Please try again.");
       let value = generatedPost;
-      try { const parsed = JSON.parse(generatedPost); if (typeof parsed?.post === "string") value = parsed.post.trim(); } catch {}
+      try {
+        const parsed = JSON.parse(generatedPost);
+        if (typeof parsed?.post === "string") value = parsed.post.trim();
+      } catch {
+        // Plain-text response is expected.
+      }
       setPost(value);
     } catch (err) {
       setError(err instanceof Error ? err.message : "PostCraft could not create the post. Please try again.");
@@ -145,8 +165,13 @@ export default function Home() {
 
   async function copyPost() {
     if (!post) return;
-    try { await navigator.clipboard.writeText(post); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
-    catch { setError("Could not copy the post to your clipboard."); }
+    try {
+      await navigator.clipboard.writeText(post);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("Could not copy the post to your clipboard.");
+    }
   }
 
   const step = post ? 4 : angle ? 3 : selectedIdea ? 2 : ideas.length ? 1 : 0;
@@ -176,11 +201,11 @@ export default function Home() {
         <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-[0_12px_40px_rgba(0,0,0,0.04)] sm:p-7">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">Step 1</div>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">Find a story</h2>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {topics.slice(0, 3).map((item) => {
-              const description = item === "AI & Technology" ? "AI, technology and the developments worth paying attention to." : item === "India" ? "Indian business, policy, technology and social stories worth knowing." : "The stories PostCraft thinks are most worth saying something about.";
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {topics.slice(0, 2).map((item) => {
+              const description = item === "AI & Technology" ? "AI, technology and the developments worth paying attention to." : "Indian business, policy, technology and social stories worth knowing.";
               const selected = topic === item;
-              return <button key={item} onClick={() => setTopic(item)} className={`rounded-2xl border p-4 text-left transition ${selected ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 hover:border-neutral-400"}`}><div className="text-sm font-semibold">{item === "AI & Technology" ? "🤖 " : item === "India" ? "🇮🇳 " : "⭐ "}{item}</div><div className={`mt-2 text-xs leading-5 ${selected ? "text-neutral-300" : "text-neutral-500"}`}>{description}</div></button>;
+              return <button key={item} onClick={() => setTopic(item)} className={`rounded-2xl border p-4 text-left transition ${selected ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 hover:border-neutral-400"}`}><div className="text-sm font-semibold">{item === "AI & Technology" ? "🤖 " : "🇮🇳 "}{item}</div><div className={`mt-2 text-xs leading-5 ${selected ? "text-neutral-300" : "text-neutral-500"}`}>{description}</div></button>;
             })}
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
