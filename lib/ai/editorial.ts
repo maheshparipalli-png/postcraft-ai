@@ -63,8 +63,8 @@ function parseAngles(value: unknown): Angle[] {
 
 async function buildEditorialPass(story: Story, articleText: string) {
   const source = articleText ? `ARTICLE:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
-  const prompt = `You are PostCraft AI. Find what is worth saying in this story.\n\n${source}\n\nExtract 4-5 concrete evidence items, then give exactly 3 distinct LinkedIn angles using only that evidence. Prefer numbers, comparisons, mechanisms, decisions, affected groups and differences between outcomes. Do not add outside facts. Do not turn scenarios into forecasts. Avoid generic ideas such as "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". Each angle needs a precise thesis, why it matters, and one concrete evidence anchor. Keep each field concise.\n\nReturn ONLY JSON: {"evidence":[{"claim":"...","support":"...","type":"fact"}],"angles":[{"angle":"...","why":"...","evidence":"item 0 — concrete detail"}]}`;
-  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 400 }));
+  const prompt = `You are PostCraft AI. Find what is genuinely worth saying in this story.\n\n${source}\n\nExtract 3-4 concrete evidence items and exactly 3 distinct LinkedIn angles. Use only the source. Prefer numbers, comparisons, mechanisms, decisions, affected groups and differences between outcomes. Do not add outside facts. Do not turn scenarios into forecasts. Avoid generic ideas such as "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". Each angle must state a precise thesis, why it matters, and one concrete evidence anchor. Keep every field short so the complete JSON fits in the response.\n\nReturn ONLY compact JSON with exactly this shape: {"evidence":[{"claim":"short factual claim","support":"short source support","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"item 0"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"item 1"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"item 2"}]}`;
+  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 650 }));
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
 
@@ -77,8 +77,7 @@ function isForbiddenAngle(angle: Angle) {
 }
 
 function selectSafeAngles(angles: Angle[]) {
-  const accepted = angles.filter((angle) => !isForbiddenAngle(angle));
-  return accepted.slice(0, 3);
+  return angles.filter((angle) => !isForbiddenAngle(angle)).slice(0, 3);
 }
 
 export async function generateEditorialAngles(story: Story) {
