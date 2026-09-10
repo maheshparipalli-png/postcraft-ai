@@ -1,10 +1,10 @@
-import type { AIProvider } from "./types";
+import type { AIGenerateOptions, AIProvider } from "./types";
 
 const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
 const model = process.env.OLLAMA_MODEL ?? "llama3.2";
 
 export const ollamaProvider: AIProvider = {
-  async generateText(prompt) {
+  async generateText(prompt, options: AIGenerateOptions = {}) {
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -12,13 +12,12 @@ export const ollamaProvider: AIProvider = {
         model,
         messages: [{ role: "user", content: prompt }],
         stream: false,
+        ...(options.format ? { format: options.format } : {}),
         options: {
-          temperature: 0.78,
-          // PostCraft asks for short JSON objects or 120-180 word posts.
-          // Keeping the generation ceiling below the previous 650 tokens
-          // reduces unnecessary local-model work while leaving headroom for
-          // structured angle responses.
-          num_predict: 400,
+          temperature: options.temperature ?? 0.78,
+          // Keep local generation bounded. Structured angle/judge calls are
+          // shorter still when their JSON response finishes early.
+          num_predict: options.numPredict ?? 400,
         },
       }),
       cache: "no-store",

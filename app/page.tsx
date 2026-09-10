@@ -63,6 +63,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [customTopic, setCustomTopic] = useState("");
   const angleRequestRef = useRef(0);
+  const angleAbortRef = useRef<AbortController | null>(null);
 
   async function discoverIdeas() {
     setLoading(true);
@@ -90,6 +91,9 @@ export default function Home() {
 
   async function generateAngles(idea: Idea) {
     const requestId = ++angleRequestRef.current;
+    angleAbortRef.current?.abort();
+    const controller = new AbortController();
+    angleAbortRef.current = controller;
     setAngleLoading(true);
     setAngle("");
     setError("");
@@ -125,7 +129,8 @@ Return ONLY valid JSON in this exact shape:
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ action: "angles", prompt }),
+        signal: controller.signal,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Angle generation failed");
@@ -160,13 +165,14 @@ Return ONLY valid JSON in this exact shape:
         new Map(generatedAngles.map((item) => [item.text.toLowerCase(), item])).values()
       ).slice(0, 3);
 
-      if (uniqueAngles.length !== 3) {
-        throw new Error("AI returned fewer than three useful angles for this story");
+      if (uniqueAngles.length === 0) {
+        throw new Error("AI could not find a useful angle for this story");
       }
       if (requestId !== angleRequestRef.current) return;
       setSuggestedAngles(uniqueAngles);
       setAngle(uniqueAngles[0].text);
     } catch (err) {
+      if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
         setError(err instanceof Error ? err.message : "Angle generation failed");
       }
@@ -229,7 +235,7 @@ WRITING RULES
 
 ${modeInstruction}
 
-BANNED AI-LINKEDIN PATTERNS
+BANNED AI-LINKED PATTERNS
 - "It's crucial to strike a balance..."
 - "This highlights the need..."
 - "This phenomenon..."
@@ -247,11 +253,13 @@ Return ONLY the finished post. No commentary about how you wrote it.`;
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ action: "post", prompt }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error ?? "Post generation failed");
-      setPost(cleanGeneratedPost(typeof data?.text === "string" ? data.text : ""));
+      const generatedPost = cleanGeneratedPost(typeof data?.text === "string" ? data.text : "");
+      if (!generatedPost) throw new Error("AI returned an empty post");
+      setPost(generatedPost);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Post generation failed");
     } finally {
@@ -347,7 +355,7 @@ Return ONLY the finished post. No commentary about how you wrote it.`;
             <p className="mt-1 text-sm text-neutral-500">PostCraft found a few ways into this story. Pick the one you actually want to argue.</p>
             <div className="mt-3">
               {angleLoading ? (
-                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-500">Finding three angles worth exploring...</div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-500">Finding useful angles worth exploring...</div>
               ) : suggestedAngles.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-3">
                   {suggestedAngles.map((item) => (

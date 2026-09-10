@@ -19,8 +19,11 @@ type ThesisCandidate = {
 
 const provider = () => getAIProvider();
 
-async function ask(prompt: string) {
-  return provider().generateText(prompt);
+async function ask(
+  prompt: string,
+  options?: Parameters<ReturnType<typeof provider>["generateText"]>[1]
+) {
+  return provider().generateText(prompt, options);
 }
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
@@ -96,13 +99,20 @@ Rules:
 Return ONLY this JSON object:
 {"fact":"one concrete story detail","observation":"one useful interpretation","angle":"one precise debatable thesis","why":"why the thesis follows from the story"}`;
 
-  const parsed = parseJsonObject(await ask(prompt));
-  const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
-  const observation = typeof parsed?.observation === "string" ? parsed.observation.trim() : "";
-  const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
-  const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
+  try {
+    const parsed = parseJsonObject(
+      await ask(prompt, { format: "json", temperature: 0.45, numPredict: 300 })
+    );
+    const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
+    const observation = typeof parsed?.observation === "string" ? parsed.observation.trim() : "";
+    const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
+    const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
 
-  return fact && observation && angle ? { fact, observation, angle, why } : null;
+    return fact && observation && angle ? { fact, observation, angle, why } : null;
+  } catch (error) {
+    console.warn("[PostCraft] candidate_failed", error instanceof Error ? error.message : "unknown error");
+    return null;
+  }
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
@@ -113,8 +123,9 @@ export async function generatePostCraftAngles(input: IdeaInput) {
     "Look for a mismatch between the obvious headline interpretation and a specific story detail.",
   ];
 
-  // Three independent candidate calls are enough to create a useful choice set.
-  // Keeping this bounded is important for local Ollama performance.
+  // Keep the three independent calls concurrent. allSettled-style behavior is
+  // handled inside generateCandidate so one malformed/failed response does
+  // not discard the other grounded candidates.
   const results = await Promise.all(lenses.map((lens) => generateCandidate(input, lens)));
   const candidates = normalizeCandidates(
     results.filter((item): item is ThesisCandidate => Boolean(item))
@@ -152,9 +163,18 @@ TOTAL is the sum of the five scores.
 Return ONLY:
 {"scores":[{"index":0,"total":37}]}`;
 
-  const scores = extractScores(parseJsonObject(await ask(scoringPrompt)))
-    .filter((item) => item.index < candidates.length)
-    .sort((a, b) => b.total - a.total);
+  let scores: { index: number; total: number }[] = [];
+  try {
+    scores = extractScores(
+      parseJsonObject(
+        await ask(scoringPrompt, { format: "json", temperature: 0.2, numPredict: 180 })
+      )
+    )
+      .filter((item) => item.index < candidates.length)
+      .sort((a, b) => b.total - a.total);
+  } catch (error) {
+    console.warn("[PostCraft] scoring_failed", error instanceof Error ? error.message : "unknown error");
+  }
 
   const ranked = scores.length
     ? scores.map((item) => candidates[item.index]).filter(Boolean)
@@ -214,7 +234,7 @@ ${modeInstruction}
 
 Return ONLY the finished post.`;
 
-  return (await ask(prompt)).trim();
+  return (await ask(prompt, { temperature: 0.78, numPredict: 400 })).trim();
 }
 
 export async function generatePostCraftPost(input: IdeaInput, modeInstruction: string) {

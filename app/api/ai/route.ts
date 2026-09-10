@@ -3,11 +3,14 @@ import { getAIProvider } from "@/lib/ai/provider";
 import { generatePostCraftAngles, generatePostCraftPost } from "@/lib/ai/postcraft";
 
 function isPostCraftAnglePrompt(prompt: string) {
-  return prompt.includes("Generate SIX genuinely different, specific points of view") && prompt.includes("Return ONLY valid JSON");
+  return prompt.includes("You are PostCraft AI, an editorial thinking partner.") &&
+    prompt.includes("Analyze this exact news story") &&
+    prompt.includes("Return ONLY valid JSON");
 }
 
 function isPostCraftPostPrompt(prompt: string) {
-  return prompt.includes("Turn ONE news development and ONE selected angle into a LinkedIn post") && prompt.includes("Selected angle:");
+  return prompt.includes("Turn ONE news development and ONE selected angle into a LinkedIn post") &&
+    prompt.includes("Selected angle:");
 }
 
 function extractField(prompt: string, field: string) {
@@ -26,6 +29,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+    const action = typeof body?.action === "string" ? body.action : "";
 
     if (!prompt) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
@@ -38,7 +42,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isPostCraftAnglePrompt(prompt)) {
+    const angleRequest = action === "angles" || (!action && isPostCraftAnglePrompt(prompt));
+    const postRequest = action === "post" || (!action && isPostCraftPostPrompt(prompt));
+
+    if (angleRequest) {
       const startedAt = Date.now();
       const angles = await generatePostCraftAngles({
         topic: extractField(prompt, "Topic"),
@@ -47,8 +54,6 @@ export async function POST(request: Request) {
         summary: extractField(prompt, "Summary"),
       });
 
-      // The model does not have to produce exactly three candidates. Returning
-      // one or two grounded candidates is better than discarding useful work.
       if (!angles.length) {
         return NextResponse.json({ error: "AI could not find a useful angle for this story" }, { status: 502 });
       }
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (isPostCraftPostPrompt(prompt)) {
+    if (postRequest) {
       const text = await generatePostCraftPost(
         {
           topic: extractField(prompt, "Topic"),
@@ -80,6 +85,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ text });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI request failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("Ollama request failed") || message.includes("Ollama returned")
+      ? 502
+      : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
