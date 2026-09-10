@@ -164,7 +164,7 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
       cache: "no-store",
       redirect: "follow",
       headers: { "User-Agent": "PostCraft AI/1.0" },
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(3500),
     });
 
     if (!response.ok) return item;
@@ -179,13 +179,20 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
   }
 }
 
-async function fetchFeed(query: string): Promise<ResearchItem[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+function sourceFromBingTitle(title: string) {
+  const separator = title.lastIndexOf(" - ");
+  if (separator > 0) return title.slice(separator + 3).trim();
+  return "";
+}
+
+async function fetchBingFeed(query: string): Promise<ResearchItem[]> {
+  const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&mkt=en-IN`;
 
   try {
     const response = await fetch(url, {
       cache: "no-store",
       headers: { "User-Agent": "PostCraft AI/1.0" },
+      signal: AbortSignal.timeout(3500),
     });
 
     if (!response.ok) return [];
@@ -193,6 +200,41 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
     const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
 
     return blocks
+      .map((block) => {
+        const rawTitle = getTag(block, "title");
+        const source = getTag(block, "news:Source") || sourceFromBingTitle(rawTitle);
+        const title = source && rawTitle.endsWith(` - ${source}`)
+          ? rawTitle.slice(0, -(source.length + 3)).trim()
+          : rawTitle;
+        return {
+          title,
+          source,
+          url: getTag(block, "link"),
+          publishedAt: getTag(block, "pubDate"),
+          snippet: cleanDescription(getTag(block, "description"), title, source),
+        };
+      })
+      .filter((item) => item.title && item.url);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchFeed(query: string): Promise<ResearchItem[]> {
+  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+
+  try {
+    const response = await fetch(googleUrl, {
+      cache: "no-store",
+      headers: { "User-Agent": "PostCraft AI/1.0" },
+      signal: AbortSignal.timeout(3500),
+    });
+
+    if (!response.ok) return fetchBingFeed(query);
+    const xml = await response.text();
+    const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
+
+    const googleItems = blocks
       .map((block) => {
         const title = getTag(block, "title");
         const source = getTag(block, "source");
@@ -205,8 +247,11 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
         };
       })
       .filter((item) => item.title && item.url);
+
+    const bingItems = await fetchBingFeed(query);
+    return [...googleItems, ...bingItems];
   } catch {
-    return [];
+    return fetchBingFeed(query);
   }
 }
 
@@ -306,8 +351,8 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     }
   }
 
-  // Google News search RSS commonly supplies a generic description rather than article evidence.
-  // Enrich the shortlist before final ranking so Recommended does not reward headline drama alone.
+  // Google News currently uses opaque article links and may return only generic RSS descriptions.
+  // A second RSS source gives us direct publisher URLs and actual feed descriptions when available.
   const enriched = await Promise.all(selected.map(enrichItem));
   const reranked = enriched
     .map((item) => ({ ...item, score: scoreStory(item, topic) }))
