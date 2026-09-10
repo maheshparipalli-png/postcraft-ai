@@ -29,26 +29,6 @@ async function fetchArticle(url?: string) {
   catch (error) { console.warn("[PostCraft] article_fetch_failed", error instanceof Error ? error.message : "unknown error"); return ""; }
 }
 
-const STOP_WORDS = new Set(["about", "after", "again", "also", "because", "being", "could", "from", "have", "into", "more", "only", "other", "over", "said", "that", "than", "their", "there", "these", "they", "this", "through", "under", "what", "when", "where", "which", "while", "with", "would", "your", "india", "indian", "today", "latest"]);
-
-function meaningfulTokens(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length >= 4 && !STOP_WORDS.has(token));
-}
-
-function hasStoryOverlap(value: string, story: Story, articleText: string) {
-  const tokens = Array.from(new Set(meaningfulTokens(`${story.headline} ${story.topic} ${value}`)));
-  if (!tokens.length) return true;
-  const haystack = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
-  return tokens.filter((token) => haystack.includes(token)).length >= Math.min(2, tokens.length);
-}
-
-function evidenceIsGrounded(angle: Angle, story: Story, articleText: string) {
-  const anchorTokens = Array.from(new Set(meaningfulTokens(angle.evidence)));
-  if (!anchorTokens.length) return false;
-  const haystack = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
-  return anchorTokens.filter((token) => haystack.includes(token)).length >= Math.min(2, anchorTokens.length);
-}
-
 function parseEvidence(value: unknown): Evidence[] {
   if (!Array.isArray(value)) return [];
   return value.map((item): Evidence | null => {
@@ -81,18 +61,41 @@ function parseAngles(value: unknown): Angle[] {
   }).filter((x): x is Angle => Boolean(x)).slice(0, 3);
 }
 
+function tokenize(value: string) {
+  const stopwords = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "about", "after", "before", "than", "they", "their", "there", "have", "has", "are", "was", "were", "will", "could", "would", "should", "more", "less", "into", "over", "under", "india", "ai"]);
+  return Array.from(new Set(value.toLowerCase().match(/[a-z0-9]+/g)?.filter((word) => word.length >= 4 && !stopwords.has(word)) ?? []));
+}
+
+function sourceTerms(story: Story, articleText: string) {
+  return tokenize(`${story.headline} ${story.summary} ${articleText}`);
+}
+
+function angleIsGrounded(angle: Angle, story: Story, articleText: string) {
+  const source = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
+  const angleTerms = tokenize(`${angle.angle} ${angle.why} ${angle.evidence}`);
+  if (!angleTerms.length) return false;
+  const matched = angleTerms.filter((term) => source.includes(term));
+  const ratio = matched.length / angleTerms.length;
+  const evidenceTerms = tokenize(angle.evidence);
+  const evidenceMatched = evidenceTerms.filter((term) => source.includes(term)).length;
+  return evidenceMatched >= Math.min(2, evidenceTerms.length) && (ratio >= 0.25 || matched.length >= 3);
+}
+
 async function buildEditorialPass(story: Story, articleText: string) {
-  const source = articleText ? `SELECTED STORY\nHeadline: ${story.headline}\nSource: ${story.source}\nTopic: ${story.topic}\n\nARTICLE:\n${articleText}` : `SELECTED STORY\nHeadline: ${story.headline}\nSource: ${story.source}\nTopic: ${story.topic}\n\nHEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
-  const prompt = `You are PostCraft AI, an editorial thinking partner. You are analyzing ONE SPECIFIC SELECTED STORY. Do not summarize a general topic and do not import facts from another story. Use only the selected story source below.
+  const source = articleText ? `ARTICLE:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
+  const prompt = `You are PostCraft AI, an editorial thinking partner. Analyze ONLY the selected story below. The headline, source and topic identify the story you must stay inside. Do not import ideas from other stories, general knowledge, or the topic alone.
 
-First extract 3 concrete facts from this source. Then choose exactly 3 distinct editorial angles about THIS SAME STORY. Each angle must make one precise, evidence-backed claim and use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. Do not repeat the same idea. Do not add outside facts. Do not turn scenarios into forecasts. Every evidence field must point to something actually present in the supplied source. If the source does not support three defensible angles, return fewer angles rather than inventing them.
-
-Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation" unless the source itself contains a specific fact that makes the claim precise.
+SELECTED STORY
+Topic: ${story.topic}
+Headline: ${story.headline}
+Source: ${story.source}
 
 ${source}
 
-Return ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis about this selected story","why":"why this relationship matters","evidence":"short source anchor using words/details actually present in the source"}]}`;
-  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 600 }));
+First extract 3 concrete facts actually present in this source. Then choose exactly 3 distinct editorial angles that arise from those facts. Every angle must make one precise, evidence-backed claim about THIS story. Each angle must use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. The angle's evidence field must quote or closely paraphrase a concrete detail from the supplied source so it can be checked. If the source does not support three distinct angles, return only the grounded angles you can support rather than inventing the rest. Do not repeat the topic as an angle. Do not use outside facts. Do not turn scenarios into forecasts. Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation".
+
+Return ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"concrete source detail from this story"}]}`;
+  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 650 }));
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
 
@@ -105,13 +108,14 @@ function isForbiddenAngle(angle: Angle) {
 }
 
 function selectSafeAngles(angles: Angle[], story: Story, articleText: string) {
-  return angles.filter((angle) => !isForbiddenAngle(angle) && hasStoryOverlap(`${angle.angle} ${angle.why}`, story, articleText) && evidenceIsGrounded(angle, story, articleText)).slice(0, 3);
+  const grounded = angles.filter((angle) => !isForbiddenAngle(angle) && angleIsGrounded(angle, story, articleText));
+  const unique = Array.from(new Map(grounded.map((angle) => [angle.angle.toLowerCase(), angle])).values());
+  return unique.slice(0, 3);
 }
 
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
   const articleText = await fetchArticle(story.url);
-  if (!articleText && !story.summary.trim()) throw new Error("PostCraft could not retrieve enough of the selected source to analyze it reliably. Try opening the source or choose another story.");
   const editorial = await buildEditorialPass(story, articleText);
   const evidence = editorial.evidence.length >= 3 ? editorial.evidence : fallbackEvidence(story, articleText);
   const angles = selectSafeAngles(editorial.angles, story, articleText);
