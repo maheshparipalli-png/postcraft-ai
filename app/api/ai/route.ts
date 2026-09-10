@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     }
 
     if (isPostCraftAnglePrompt(prompt)) {
+      const startedAt = Date.now();
       const angles = await generatePostCraftAngles({
         topic: extractField(prompt, "Topic"),
         headline: extractField(prompt, "Headline"),
@@ -46,12 +47,15 @@ export async function POST(request: Request) {
         summary: extractField(prompt, "Summary"),
       });
 
-      if (angles.length < 3) {
-        return NextResponse.json({ error: "AI returned fewer than three useful angles for this story" }, { status: 502 });
+      // The model does not have to produce exactly three candidates. Returning
+      // one or two grounded candidates is better than discarding useful work.
+      if (!angles.length) {
+        return NextResponse.json({ error: "AI could not find a useful angle for this story" }, { status: 502 });
       }
 
+      console.info(`[PostCraft] angle_route_ms=${Date.now() - startedAt} returned=${angles.length}`);
       return NextResponse.json({
-        text: JSON.stringify(angles),
+        text: JSON.stringify(angles.map((item) => ({ angle: item.angle, why: item.why }))),
       });
     }
 
