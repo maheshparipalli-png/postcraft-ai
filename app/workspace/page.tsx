@@ -7,6 +7,8 @@ type Idea = { title: string; description: string; whyItMatters: string; sourceIn
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type Angle = { text: string; why: string; evidence: string };
 
+type GeneratedImage = { dataUrl?: string; url?: string };
+
 const perspectives = [
   { id: "agree", label: "I agree", description: "Build on the argument." },
   { id: "disagree", label: "I disagree", description: "Challenge the argument." },
@@ -29,9 +31,11 @@ export default function Workspace() {
   const [perspective, setPerspective] = useState("mixed");
   const [perspectiveNote, setPerspectiveNote] = useState("");
   const [post, setPost] = useState("");
+  const [generatedImage, setGeneratedImage] = useState<GeneratedImage | null>(null);
   const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function discover() {
@@ -55,6 +59,7 @@ export default function Workspace() {
     setEvidence([]);
     setAngle("");
     setPost("");
+    setGeneratedImage(null);
     setError("");
     setAngleLoading(true);
     try {
@@ -85,6 +90,7 @@ export default function Workspace() {
     if (!idea || !angle) return;
     setPostLoading(true);
     setError("");
+    setGeneratedImage(null);
     const selectedPerspective = perspectives.find((item) => item.id === perspective);
     const prompt = `You are PostCraft AI. Turn ONE news development and ONE selected angle into a LinkedIn post. The user's perspective is editorial guidance, not evidence.\n\nTopic: PostCraft Recommended\nHeadline: ${idea.title}\nSource: ${idea.source}\nURL: ${idea.url}\nSummary: ${idea.description || "No reliable summary was supplied."}\nSelected angle: ${angle}\nWhy this angle works: ${angles.find((item) => item.text === angle)?.why || ""}\nPerspective: ${selectedPerspective?.label}\nPerspective guidance: ${selectedPerspective?.description}\nUser's own note: ${perspectiveNote || "No additional note supplied."}\nEvidence JSON: ${JSON.stringify(evidence)}\n\nRules: Ground factual claims only in the supplied evidence. Do not invent personal experience, examples, statistics, motives, or outside context. Keep the selected angle intact. Make the thesis clear early. Use plain language and natural sentence rhythm. Avoid generic phrases such as "raises important questions", "future of work", "need to strike a balance", or "in today's rapidly changing world". Do not add a generic policy conclusion. Return the post as plain text only.`;
     try {
@@ -107,6 +113,31 @@ export default function Workspace() {
     }
   }
 
+  async function generateImage() {
+    if (!idea || !angle || !post) return;
+    setImageLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `Create a professional editorial image for a LinkedIn post.\n\nStory: ${idea.title}\nSelected angle: ${angle}\nPost: ${post}\n\nVisual direction: translate the argument into a concrete, photorealistic editorial scene. Show the people, environment, behavior, object, or contrast that best represents the central idea. Prefer an authentic Indian context when the story is about India. Use cinematic natural light, realistic people, restrained composition, and clear visual storytelling. Do not add text, captions, charts, logos, watermarks, UI elements, or invented statistics. Do not literally illustrate every sentence; choose one strong visual metaphor or scene that makes the post worth stopping for. Landscape composition suitable for LinkedIn.`
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Image generation failed");
+      if (!data?.dataUrl && !data?.url) throw new Error("Image generation returned no image");
+      setGeneratedImage({ dataUrl: data.dataUrl, url: data.url });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image generation failed");
+    } finally {
+      setImageLoading(false);
+    }
+  }
+
+  const imageSrc = generatedImage?.dataUrl || generatedImage?.url;
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -127,7 +158,7 @@ export default function Workspace() {
         {idea && <section className="mt-12 border-t border-neutral-200 pt-10">
           <div className="text-sm font-medium text-neutral-700">1. Choose your angle</div>
           <p className="mt-1 text-sm text-neutral-500">PostCraft gives you three grounded ways into the story. Pick the one worth saying something about.</p>
-          {angleLoading ? <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">Reading the source and finding grounded angles...</div> : <div className="mt-4 grid gap-3 md:grid-cols-3">{angles.map((item) => <button key={item.text} onClick={() => { setAngle(item.text); setPost(""); }} className={`rounded-xl border p-4 text-left ${angle === item.text ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 hover:border-neutral-400"}`}><div className="text-sm font-medium leading-6">{item.text}</div><div className={`mt-3 text-xs leading-5 ${angle === item.text ? "text-neutral-300" : "text-neutral-500"}`}>{item.why}</div>{item.evidence && <div className={`mt-4 border-t pt-3 text-xs ${angle === item.text ? "border-neutral-700 text-neutral-300" : "border-neutral-100 text-neutral-500"}`}><span className="font-semibold uppercase tracking-wide">Evidence</span><div className="mt-1">{item.evidence}</div></div>}</button>)}</div>}
+          {angleLoading ? <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">Reading the source and finding grounded angles...</div> : <div className="mt-4 grid gap-3 md:grid-cols-3">{angles.map((item) => <button key={item.text} onClick={() => { setAngle(item.text); setPost(""); setGeneratedImage(null); }} className={`rounded-xl border p-4 text-left ${angle === item.text ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 hover:border-neutral-400"}`}><div className="text-sm font-medium leading-6">{item.text}</div><div className={`mt-3 text-xs leading-5 ${angle === item.text ? "text-neutral-300" : "text-neutral-500"}`}>{item.why}</div>{item.evidence && <div className={`mt-4 border-t pt-3 text-xs ${angle === item.text ? "border-neutral-700 text-neutral-300" : "border-neutral-100 text-neutral-500"}`}><span className="font-semibold uppercase tracking-wide">Evidence</span><div className="mt-1">{item.evidence}</div></div>}</button>)}</div>}
 
           <div className={`mt-10 transition ${angle ? "opacity-100" : "opacity-50"}`}><div className="text-sm font-medium text-neutral-700">2. What’s your take?</div><p className="mt-1 text-sm text-neutral-500">Now react to the angle. PostCraft should never invent this part for you.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{perspectives.map((item) => <button key={item.id} onClick={() => setPerspective(item.id)} disabled={!angle} className={`rounded-xl border p-4 text-left ${perspective === item.id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 hover:border-neutral-400"} disabled:cursor-not-allowed disabled:hover:border-neutral-200`}><div className="text-sm font-medium">{item.label}</div><div className={`mt-1 text-xs ${perspective === item.id ? "text-neutral-300" : "text-neutral-500"}`}>{item.description}</div></button>)}</div><textarea value={perspectiveNote} onChange={(event) => setPerspectiveNote(event.target.value)} disabled={!angle} placeholder="Optional: add the thought you want PostCraft to preserve..." rows={4} className="mt-4 w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm leading-6 outline-none focus:border-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-50" /></div>
 
@@ -135,6 +166,15 @@ export default function Workspace() {
         </section>}
 
         {post && <section className="mt-12 border-t border-neutral-200 pt-10"><div className="text-sm font-medium text-neutral-700">Your post</div><div className="mt-4 whitespace-pre-wrap rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-[15px] leading-7">{post}</div><div className="mt-4 flex gap-3"><button onClick={() => navigator.clipboard.writeText(post)} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:border-neutral-900">Copy</button><button onClick={createPost} disabled={postLoading} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:border-neutral-900 disabled:opacity-50">Regenerate from my take</button></div></section>}
+
+        {post && <section className="mt-12 border-t border-neutral-200 pt-10">
+          <div className="text-sm font-medium text-neutral-700">4. Create the visual</div>
+          <p className="mt-1 text-sm text-neutral-500">PostCraft turns the finished argument into a visual concept. The image should support the idea, not repeat the post.</p>
+          <button onClick={generateImage} disabled={imageLoading} className="mt-4 rounded-lg bg-neutral-900 px-5 py-3 text-sm font-medium text-white disabled:opacity-50">{imageLoading ? "Creating visual..." : generatedImage ? "Regenerate visual" : "Generate visual"}</button>
+          {imageLoading && <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">Creating an editorial image from the story, angle and post...</div>}
+          {imageSrc && <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50"><img src={imageSrc} alt={`Editorial visual for ${idea?.title || "PostCraft post"}`} className="h-auto w-full" /><div className="flex flex-wrap gap-3 border-t border-neutral-200 p-4"><a href={imageSrc} download="postcraft-visual.png" className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:border-neutral-900">Download image</a><button onClick={generateImage} disabled={imageLoading} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:border-neutral-900 disabled:opacity-50">Regenerate</button></div></div>}
+        </section>}
+
         {error && <div className="mt-8 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
       </div>
     </main>
