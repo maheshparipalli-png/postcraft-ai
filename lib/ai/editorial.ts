@@ -41,6 +41,14 @@ function parseEvidence(value: unknown): Evidence[] {
   }).filter((x): x is Evidence => Boolean(x)).slice(0, 5);
 }
 
+function fallbackEvidence(story: Story, articleText: string): Evidence[] {
+  const evidence: Evidence[] = [];
+  if (story.headline.trim()) evidence.push({ claim: story.headline.trim(), support: "Publisher headline.", type: "fact" });
+  if (story.summary.trim()) evidence.push({ claim: story.summary.trim(), support: "Publisher-provided story summary.", type: "fact" });
+  if (articleText.trim()) evidence.push({ claim: "The source article was retrieved successfully.", support: `Retrieved source text (${articleText.length} characters).`, type: "fact" });
+  return evidence.slice(0, 5);
+}
+
 function parseAngles(value: unknown): Angle[] {
   if (!Array.isArray(value)) return [];
   return value.map((item): Angle | null => {
@@ -71,10 +79,11 @@ function passesAngleHeuristics(angle: Angle) {
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
   const articleText = await fetchArticle(story.url);
-  const { evidence, angles: generatedAngles } = await buildEditorialPass(story, articleText);
+  const editorial = await buildEditorialPass(story, articleText);
+  const evidence = editorial.evidence.length >= 3 ? editorial.evidence : fallbackEvidence(story, articleText);
+  const angles = editorial.angles.filter(passesAngleHeuristics);
+  console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${editorial.angles.length} accepted_angles=${angles.length} fallback=${editorial.evidence.length < 3}`);
   if (evidence.length < 3) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
-  const angles = generatedAngles.filter(passesAngleHeuristics);
-  console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${generatedAngles.length} accepted_angles=${angles.length}`);
   if (!angles.length) throw new Error("PostCraft found evidence, but none of the generated angles met its editorial standard. Try another story.");
   return { angles, evidence };
 }
