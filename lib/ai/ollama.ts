@@ -13,11 +13,12 @@ export const ollamaProvider: AIProvider = {
         messages: [{ role: "user", content: prompt }],
         stream: false,
         options: {
-          // A little more variation helps PostCraft avoid producing the same
-          // safe LinkedIn phrasing on every run while the prompts still enforce
-          // grounding and a single clear argument.
           temperature: 0.78,
-          num_predict: 650,
+          // PostCraft asks for short JSON objects or 120-180 word posts.
+          // Keeping the generation ceiling below the previous 650 tokens
+          // reduces unnecessary local-model work while leaving headroom for
+          // structured angle responses.
+          num_predict: 400,
         },
       }),
       cache: "no-store",
