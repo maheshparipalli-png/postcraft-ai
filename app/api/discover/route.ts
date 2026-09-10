@@ -1,8 +1,29 @@
 import { NextResponse } from "next/server";
 import { searchNews } from "@/lib/research/news";
 
-function getWhyItStandsOut(title: string, snippet: string) {
+function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
+
+  if (topic === "PostCraft Recommended") {
+    if (/\b(why|how|could|risk|warning|impact|change|shift|controversy|debate|rethink)\b/.test(text)) {
+      return "PostCraft picked it because the story contains a concrete tension or change that can support a point of view, not just a summary.";
+    }
+    return "PostCraft picked it because the development is specific enough to explore and has room for a meaningful point of view.";
+  }
+
+  if (topic === "India") {
+    if (/\b(policy|government|jobs|economy|business|investment|technology|ai|education)\b/.test(text)) {
+      return "It connects a current Indian development to a decision, shift, or consequence that is worth examining more closely.";
+    }
+    return "It is a current India-focused development with enough substance to explore beyond the headline.";
+  }
+
+  if (topic === "AI & Technology") {
+    if (/\b(ai|artificial intelligence|agent|model|technology|tech|data|software|automation)\b/.test(text)) {
+      return "It shows a concrete development in AI or technology and gives you something specific to think through.";
+    }
+    return "It is a timely technology development with room for a specific point of view.";
+  }
 
   if (/\b(school|schools|student|students|children|education|teacher|teachers)\b/.test(text)) {
     if (/\b(ai|artificial intelligence|technology|tech)\b/.test(text)) {
@@ -47,7 +68,7 @@ export async function POST(request: Request) {
     const ideas = research.slice(0, 5).map((item, index) => ({
       title: item.title,
       description: item.snippet,
-      whyItMatters: getWhyItStandsOut(item.title, item.snippet),
+      whyItMatters: getWhyItStandsOut(item.title, item.snippet, topic),
       sourceIndexes: [index],
       source: item.source,
       url: item.url,
