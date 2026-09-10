@@ -3,41 +3,43 @@ import { searchNews } from "@/lib/research/news";
 
 function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
+  const hasEvidence = snippet.trim().length >= 80;
 
-  if (topic === "PostCraft Recommended") {
-    if (/\b(why|how|could|risk|warning|impact|change|shift|controversy|debate|rethink)\b/.test(text)) {
-      return "PostCraft picked it because the story contains a concrete tension or change that can support a point of view, not just a summary.";
-    }
-    return "PostCraft picked it because the development is specific enough to explore and has room for a meaningful point of view.";
+  if (!hasEvidence) {
+    return "PostCraft found the headline interesting, but the source did not provide enough usable evidence to confidently recommend a deeper argument yet.";
   }
 
-  if (topic === "India") {
-    if (/\b(policy|government|jobs|economy|business|investment|technology|ai|education)\b/.test(text)) {
-      return "It connects a current Indian development to a decision, shift, or consequence that is worth examining more closely.";
+  if (topic === "PostCraft Recommended") {
+    if (/\b(why|how|could|question|debate|risk|benefit|cost|impact|change)\b/i.test(title)) {
+      return "PostCraft picked it because the story contains a specific tension or unresolved question, and the available article evidence gives us enough substance to explore it without inventing context.";
     }
-    return "It is a current India-focused development with enough substance to explore beyond the headline.";
+    if (/\b(policy|decision|investment|jobs|business|government|security|technology|science)\b/i.test(text)) {
+      return "PostCraft picked it because the article connects a concrete development to a decision, trade-off, or consequence that can support a grounded point of view.";
+    }
+    return "PostCraft picked it because the article contains enough concrete detail to build a specific point of view rather than simply summarize the headline.";
   }
 
   if (topic === "AI & Technology") {
-    if (/\b(ai|artificial intelligence|agent|model|technology|tech|data|software|automation)\b/.test(text)) {
-      return "It shows a concrete development in AI or technology and gives you something specific to think through.";
-    }
-    return "It is a timely technology development with room for a specific point of view.";
+    return "It is a current AI or technology development with enough source detail to explore what is actually changing, rather than relying on the headline alone.";
+  }
+
+  if (topic === "India") {
+    return "It is an India-focused development with enough source detail to examine what is changing and why it matters beyond the immediate headline.";
   }
 
   if (/\b(school|schools|student|students|children|education|teacher|teachers)\b/.test(text)) {
     if (/\b(ai|artificial intelligence|technology|tech)\b/.test(text)) {
-      return "It creates a concrete tension between learning about AI and becoming too dependent on it, giving you a useful point to examine.";
+      return "It creates a concrete tension between using new technology and deciding where human judgment still matters, with enough evidence to explore that tension.";
     }
     return "It connects a current development to how people learn and adapt, giving you more to explore than the headline alone.";
   }
 
   if (/\b(risk|warning|crisis|concern|threat|pressure|controversy)\b/.test(text)) {
-    return "The story contains a clear tension or risk, which gives you something specific to examine rather than simply report.";
+    return "The article contains a concrete tension or risk, giving you something specific to examine rather than simply report.";
   }
 
   if (/\b(change|shift|impact|rethink|reversal|decline|rise|fall|surge)\b/.test(text)) {
-    return "It points to a change beyond the immediate event, creating room to ask what that shift means in practice.";
+    return "It points to a concrete change beyond the immediate event, creating room to examine what that shift actually means.";
   }
 
   if (/\b(policy|decision|investment|jobs|regulation|government|companies|business)\b/.test(text)) {
@@ -45,10 +47,10 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   }
 
   if (/\b(why|could|will|how)\b/.test(title)) {
-    return "The headline raises a real question or possibility, leaving room to examine what is actually changing and why it matters.";
+    return "The headline raises a real question or possibility, while the article provides enough detail to examine what is actually changing and why.";
   }
 
-  return "The development is specific enough to build a point of view around, rather than writing another generic post about the topic.";
+  return "The article contains enough specific detail to build a point of view around the development, rather than writing another generic post about the topic.";
 }
 
 export async function POST(request: Request) {
