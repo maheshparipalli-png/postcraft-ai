@@ -1,7 +1,7 @@
 import type { AIGenerateOptions, AIProvider } from "./types";
 
 const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
-const model = process.env.OLLAMA_MODEL ?? "llama3.2";
+const model = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
 
 export const ollamaProvider: AIProvider = {
   async generateText(prompt, options: AIGenerateOptions = {}) {
@@ -21,7 +21,7 @@ export const ollamaProvider: AIProvider = {
           },
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(75_000),
+        signal: AbortSignal.timeout(180_000),
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "TimeoutError") {
