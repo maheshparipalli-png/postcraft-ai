@@ -94,28 +94,38 @@ Summary: ${input.summary || "No reliable summary was supplied."}
 EDITORIAL LENS
 ${lens}
 
-Do this privately:
+Do this privately in five steps:
 1. Select ONE exact detail or short phrase explicitly present in the headline or summary.
-2. Explain ONE interpretation that follows from that evidence.
-3. Turn that interpretation into ONE specific, debatable thesis.
+2. State the factual observation that detail supports.
+3. Identify an unexpected relationship, tension, contradiction, trade-off, or distinction that follows from that observation.
+4. Turn that insight into ONE specific, debatable thesis.
+5. Explain why the thesis follows from the evidence.
 
 GROUNDING IS STRICT:
 - The headline and summary are the complete evidence set. You know nothing else about this story.
 - The evidence field MUST quote wording from the supplied headline or summary.
-- The thesis may interpret the evidence, but must not introduce a new event, consequence, group, statistic, outcome, example, or causal claim that the story does not support.
+- The observation may only restate or carefully interpret what that evidence supports.
+- The thesis may go beyond the headline's wording, but it must NOT introduce a new event, consequence, group, statistic, outcome, example, or causal claim that the story does not support.
 - Do NOT infer social unrest, inequality, job losses, wage stagnation, public reaction, political consequences, market consequences, or other second-order effects unless the supplied story explicitly supports them.
 - Never turn a "could", "may", "might", "warns", or "possible" claim into an established fact.
-- If the story is too thin to support a meaningful thesis, return empty strings rather than inventing context.
-- Avoid generic claims about AI, business, jobs, innovation, risk, or leadership.
+- If the story is too thin to support an interesting argument, return empty strings rather than inventing context.
+- Do not use outside knowledge to make a thin story sound deeper.
 
-QUALITY:
-- One clear claim.
-- Specific to this story.
-- Contains a real tension, trade-off, contradiction, hidden cost, or conditional consequence.
-- Debatable without becoming speculative.
+QUALITY — THIS IS CRITICAL:
+- The thesis MUST reveal something beyond simply repeating or paraphrasing the headline.
+- A generic "benefits vs costs" statement is NOT an angle.
+- A generic "AI is changing jobs" statement is NOT an angle.
+- A generic "we need to balance innovation and risk" statement is NOT an angle.
+- Do not turn two facts from the headline into a fake condition such as "X is good only if Y outweighs Z" unless the story explicitly establishes that condition.
+- Prefer a precise distinction, tension, mechanism, contradiction, hidden trade-off, or implication that is genuinely supported by the evidence.
+- The reader should learn a way of looking at the story, not merely hear the story again.
+- The thesis must be specific enough that it could not have been written for a random story about the same broad topic.
+- One clear claim. Debatable without becoming speculative.
+
+A useful mental test: if the thesis could be written without seeing this exact headline and summary, reject it.
 
 Return ONLY this JSON object:
-{"evidence":"exact short phrase from the headline or summary","observation":"one interpretation that follows from that evidence","angle":"one precise debatable thesis","why":"one sentence explaining why the thesis follows from the evidence"}`;
+{"evidence":"exact short phrase from the headline or summary","observation":"one factual observation or careful interpretation grounded in that evidence","angle":"one non-obvious, precise, debatable thesis that goes beyond the headline without adding unsupported facts","why":"one sentence explaining exactly how the thesis follows from the evidence"}`;
 
   try {
     const parsed = parseJsonObject(await ask(prompt, { format: "json", temperature: 0.35, numPredict: 300 }));
@@ -124,7 +134,7 @@ Return ONLY this JSON object:
     const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
     const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
 
-    if (!evidence || !observation || !angle || !isGroundedEvidence(evidence, input)) return null;
+    if (!evidence || !observation || !angle || !why || !isGroundedEvidence(evidence, input)) return null;
     return { evidence, observation, angle, why };
   } catch (error) {
     console.warn("[PostCraft] candidate_failed", error instanceof Error ? error.message : "unknown error");
@@ -135,9 +145,9 @@ Return ONLY this JSON object:
 export async function generatePostCraftAngles(input: IdeaInput) {
   const startedAt = Date.now();
   const lenses = [
-    "Look for the most surprising mechanism or scenario actually supported by the story.",
-    "Look for the strongest trade-off explicitly supported by the story: what becomes easier, harder, more valuable, or less valuable?",
-    "Look for a mismatch between the obvious headline interpretation and a specific detail in the story.",
+    "Look for the most surprising mechanism or scenario actually supported by the story. What does the evidence reveal that the headline makes easy to miss?",
+    "Look for the strongest trade-off explicitly supported by the story: what becomes easier, harder, more valuable, or less valuable at the same time?",
+    "Look for a mismatch between the obvious headline interpretation and a specific detail in the story. What distinction would make the story more interesting without adding facts?",
   ];
 
   const results = await Promise.all(lenses.map((lens) => generateCandidate(input, lens)));
@@ -152,7 +162,9 @@ export async function generatePostCraftAngles(input: IdeaInput) {
     return candidates;
   }
 
-  const scoringPrompt = `You are the final evidence judge for PostCraft AI.
+  const scoringPrompt = `You are the final editorial judge for PostCraft AI.
+
+The product promise is: "help me find something worth saying."
 
 STORY EVIDENCE
 Headline: ${input.headline}
@@ -164,17 +176,21 @@ ${candidates.map((item, index) => `${index}. EVIDENCE: ${item.evidence}\nOBSERVA
 Score every candidate from 0-10 on:
 1. evidence_grounding — could every important part of the thesis reasonably be traced to the supplied headline/summary?
 2. specificity — is it about this exact story rather than the topic generally?
-3. tension — is there a real trade-off, contradiction, hidden cost, or conditional consequence?
+3. tension — is there a real trade-off, contradiction, hidden cost, distinction, or conditional consequence?
 4. debatability — could an intelligent reader reasonably disagree?
-5. originality — is it more interesting than simply restating the headline?
+5. originality — does it reveal a useful way of seeing the story instead of restating the headline?
 
-CRITICAL:
-- Treat anything not supported by the supplied story as speculation.
+EDITORIAL STANDARD:
+- A candidate that merely paraphrases the headline should score 0-3 for originality.
+- A generic "benefits vs costs" or "we need balance" framing should score 0-3 for originality.
+- A candidate that invents a condition such as "X is good only if Y outweighs Z" when the story does not establish that condition should score 0-3 for grounding.
 - A candidate that adds social unrest, inequality, job losses, wage effects, public reaction, political consequences, market effects, or other outcomes not present in the story should score 0-2 for evidence_grounding.
-- Do not reward a candidate merely because the added consequence sounds plausible.
-- Prefer a narrower, fully supported thesis over a dramatic but speculative one.
+- Do not reward a candidate merely because an added consequence sounds plausible.
+- Prefer a narrower, fully supported thesis with a real insight over a dramatic but speculative thesis.
+- The best candidate should make the reader see a relationship or distinction they would not get by simply reading the headline.
 
-TOTAL is the sum of the five scores.
+TOTAL is the sum of the five scores. Candidates with total below 32 should be treated as weak and should not be returned when a stronger candidate exists.
+
 Return ONLY:
 {"scores":[{"index":0,"total":37}]}`;
 
@@ -187,9 +203,17 @@ Return ONLY:
     console.warn("[PostCraft] scoring_failed", error instanceof Error ? error.message : "unknown error");
   }
 
-  const ranked = scores.length ? scores.map((item) => candidates[item.index]).filter(Boolean) : candidates;
-  console.info(`[PostCraft] angles_ms=${Date.now() - startedAt} candidates=${candidates.length} scoring=${scores.length ? "used" : "fallback"}`);
-  return ranked.slice(0, 3);
+  if (scores.length) {
+    const strong = scores.filter((item) => item.total >= 32);
+    const ranked = (strong.length ? strong : scores.slice(0, 1))
+      .map((item) => candidates[item.index])
+      .filter(Boolean);
+    console.info(`[PostCraft] angles_ms=${Date.now() - startedAt} candidates=${candidates.length} scoring=used strong=${strong.length}`);
+    return ranked.slice(0, 3);
+  }
+
+  console.info(`[PostCraft] angles_ms=${Date.now() - startedAt} candidates=${candidates.length} scoring=fallback`);
+  return candidates.slice(0, 3);
 }
 
 function parsePost(text: string) {
@@ -200,7 +224,7 @@ function parsePost(text: string) {
 async function writePost(input: IdeaInput, thesis: string, modeInstruction: string) {
   const prompt = `You are a sharp human writer creating a LinkedIn post for an intelligent professional audience.
 
-Your only job is to make ONE argument clearly and naturally. Do not write generic LinkedIn content.
+Your only job is to develop ONE argument clearly and naturally. Do not write generic LinkedIn content.
 
 SELECTED THESIS
 ${thesis}
@@ -221,12 +245,19 @@ GROUNDING — NON-NEGOTIABLE
 - Never invent statistics, examples, quotes, events, people, companies, outcomes, or personal experiences.
 - Do not use general knowledge to fill missing context.
 
+ARGUMENT QUALITY
+- Do not merely restate the selected thesis in different words.
+- Develop the thesis through reasoning: evidence -> observation -> insight -> implication.
+- The post should contain a genuine distinction, tension, contradiction, trade-off, or implication that is supported by the story.
+- Make the reader see why the evidence is more interesting than the obvious headline interpretation.
+- If the thesis is conditional, preserve that condition. Do not turn possibility into fact.
+- Never manufacture drama to make the post interesting. Make it interesting by thinking clearly.
+
 WRITING
 - 120-180 words.
 - 4-7 short paragraphs.
 - Start with the insight or tension, not the headline.
-- Build one reasoning chain: evidence -> interpretation -> implication.
-- The implication must remain conditional if the evidence is conditional.
+- Build one coherent reasoning chain rather than listing observations.
 - Use plain language and varied sentence rhythm.
 - Make the selected thesis visible through the reasoning without announcing it.
 - End when the thought is complete.
