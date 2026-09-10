@@ -29,6 +29,26 @@ async function fetchArticle(url?: string) {
   catch (error) { console.warn("[PostCraft] article_fetch_failed", error instanceof Error ? error.message : "unknown error"); return ""; }
 }
 
+const STOP_WORDS = new Set(["about", "after", "again", "also", "because", "being", "could", "from", "have", "into", "more", "only", "other", "over", "said", "that", "than", "their", "there", "these", "they", "this", "through", "under", "what", "when", "where", "which", "while", "with", "would", "your", "india", "indian", "today", "latest"]);
+
+function meaningfulTokens(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length >= 4 && !STOP_WORDS.has(token));
+}
+
+function hasStoryOverlap(value: string, story: Story, articleText: string) {
+  const tokens = Array.from(new Set(meaningfulTokens(`${story.headline} ${story.topic} ${value}`)));
+  if (!tokens.length) return true;
+  const haystack = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
+  return tokens.filter((token) => haystack.includes(token)).length >= Math.min(2, tokens.length);
+}
+
+function evidenceIsGrounded(angle: Angle, story: Story, articleText: string) {
+  const anchorTokens = Array.from(new Set(meaningfulTokens(angle.evidence)));
+  if (!anchorTokens.length) return false;
+  const haystack = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
+  return anchorTokens.filter((token) => haystack.includes(token)).length >= Math.min(2, anchorTokens.length);
+}
+
 function parseEvidence(value: unknown): Evidence[] {
   if (!Array.isArray(value)) return [];
   return value.map((item): Evidence | null => {
@@ -62,8 +82,16 @@ function parseAngles(value: unknown): Angle[] {
 }
 
 async function buildEditorialPass(story: Story, articleText: string) {
-  const source = articleText ? `ARTICLE:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
-  const prompt = `You are PostCraft AI, an editorial thinking partner. Do not summarize. From the source below, extract 3 concrete facts and then choose exactly 3 distinct editorial angles. Each angle must make one precise, evidence-backed claim and use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. Do not repeat the same idea. Do not add outside facts. Do not turn scenarios into forecasts. Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". Prefer the strongest specific relationship in the evidence.\n\n${source}\n\nReturn ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"},{"claim":"short fact","support":"short source anchor","type":"fact"},{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"},{"angle":"different precise thesis","why":"why this relationship matters","evidence":"concrete source anchor"}]}`;
+  const source = articleText ? `SELECTED STORY\nHeadline: ${story.headline}\nSource: ${story.source}\nTopic: ${story.topic}\n\nARTICLE:\n${articleText}` : `SELECTED STORY\nHeadline: ${story.headline}\nSource: ${story.source}\nTopic: ${story.topic}\n\nHEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
+  const prompt = `You are PostCraft AI, an editorial thinking partner. You are analyzing ONE SPECIFIC SELECTED STORY. Do not summarize a general topic and do not import facts from another story. Use only the selected story source below.
+
+First extract 3 concrete facts from this source. Then choose exactly 3 distinct editorial angles about THIS SAME STORY. Each angle must make one precise, evidence-backed claim and use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. Do not repeat the same idea. Do not add outside facts. Do not turn scenarios into forecasts. Every evidence field must point to something actually present in the supplied source. If the source does not support three defensible angles, return fewer angles rather than inventing them.
+
+Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation" unless the source itself contains a specific fact that makes the claim precise.
+
+${source}
+
+Return ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis about this selected story","why":"why this relationship matters","evidence":"short source anchor using words/details actually present in the source"}]}`;
   const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 600 }));
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
@@ -76,19 +104,20 @@ function isForbiddenAngle(angle: Angle) {
   return false;
 }
 
-function selectSafeAngles(angles: Angle[]) {
-  return angles.filter((angle) => !isForbiddenAngle(angle)).slice(0, 3);
+function selectSafeAngles(angles: Angle[], story: Story, articleText: string) {
+  return angles.filter((angle) => !isForbiddenAngle(angle) && hasStoryOverlap(`${angle.angle} ${angle.why}`, story, articleText) && evidenceIsGrounded(angle, story, articleText)).slice(0, 3);
 }
 
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
   const articleText = await fetchArticle(story.url);
+  if (!articleText && !story.summary.trim()) throw new Error("PostCraft could not retrieve enough of the selected source to analyze it reliably. Try opening the source or choose another story.");
   const editorial = await buildEditorialPass(story, articleText);
   const evidence = editorial.evidence.length >= 3 ? editorial.evidence : fallbackEvidence(story, articleText);
-  const angles = selectSafeAngles(editorial.angles);
+  const angles = selectSafeAngles(editorial.angles, story, articleText);
   console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${editorial.angles.length} accepted_angles=${angles.length} fallback=${editorial.evidence.length < 3}`);
   if (evidence.length < 2) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
-  if (angles.length < 3) throw new Error("PostCraft found evidence, but the model did not return three usable angles. Try another story.");
+  if (angles.length < 3) throw new Error("PostCraft could not verify three distinct angles against the selected story. Try another story.");
   return { angles, evidence };
 }
 
