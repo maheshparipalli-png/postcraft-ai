@@ -102,8 +102,14 @@ export async function generateEditorialPost(story: Story, angle: string, angleWh
   if (evidence.length < 2) evidence = fallbackEvidence(story, "");
   if (evidence.length < 2) throw new Error("PostCraft could not recover enough evidence to safely write this post. Try the source again.");
   const ledger = evidence.map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`).join("\n");
-  const prompt = `You are PostCraft AI's final LinkedIn editor. Write a post around ONE precise thesis using only this evidence ledger. Start with the insight. Use at least two concrete details when available. Make the relationship explicit. If using a scenario/model, name it as such. Do not add outside facts, examples or context. Do not turn could/may/might into certainty. Plain language, no corporate jargon, 110-160 words, 4-6 short paragraphs.\n\nSTORY\n${story.headline}\n${story.source}\n\nSELECTED THESIS\n${angle}\n\nWHY THIS ANGLE WORKS\n${angleWhy}\n\nEVIDENCE LEDGER\n${ledger}\n\n${modeInstruction}\n\nReturn ONLY JSON: {"post":"the finished LinkedIn post"}`;
-  const result = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.3, numPredict: 320 }));
+  const prompt = `You are PostCraft AI's final LinkedIn editor. Write a post around ONE precise thesis using only this evidence ledger. Start with the insight. Use at least two concrete details when available. Make the relationship explicit. If using a scenario/model, name it as such. Do not add outside facts, examples or context. Do not turn could/may/might into certainty. Plain language, no corporate jargon, 110-160 words, 4-6 short paragraphs.
+
+After making the argument, decide whether there is a genuine unresolved tension, trade-off, contradiction, consequence, or decision that readers could reasonably discuss. If there is, end with ONE concise discussion question. The question must be specific to this story, selected thesis, evidence, and the user's take below. It must invite substantive disagreement or different perspectives rather than generic engagement. Do not introduce a new fact or topic. Do not simply repeat the thesis. Do not weaken or contradict the user's take. Never use generic endings such as "What do you think?", "Agree or disagree?", "Thoughts?", or "What are your thoughts?". If there is no meaningful discussion question, do not force one.
+
+The discussion question should be different for different stories, angles, and user perspectives. Generate it from the situation in this specific post, not from a reusable template.
+
+${story.headline}\n${story.source}\n\nSELECTED THESIS\n${angle}\n\nWHY THIS ANGLE WORKS\n${angleWhy}\n\nEVIDENCE LEDGER\n${ledger}\n\nUSER'S TAKE\n${modeInstruction}\n\nReturn ONLY JSON: {"post":"the finished LinkedIn post"}`;
+  const result = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.3, numPredict: 360 }));
   const post = typeof result?.post === "string" ? result.post.trim() : "";
   if (!post) throw new Error("PostCraft could not produce a post from the selected angle.");
   if (!postHasConcreteAnchor(post) || postHasGenericFiller(post)) throw new Error("PostCraft generated a draft that was too generic. Try another angle or regenerate.");
