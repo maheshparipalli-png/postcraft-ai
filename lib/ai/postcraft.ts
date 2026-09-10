@@ -19,6 +19,24 @@ type ThesisCandidate = {
 
 const provider = () => getAIProvider();
 
+const genericEvidencePattern = /comprehensive, up-to-date news coverage, aggregated from sources all over the world by google news/i;
+const unsupportedLeapPatterns = [
+  /social unrest/i,
+  /inequality|unequal(?:ly)? distributed|not evenly distributed/i,
+  /job losses|lost jobs|workers (?:are|were|will be) left/i,
+  /wage stagnation|stagnant wages/i,
+  /the majority of workers/i,
+  /the haves and have-nots/i,
+  /social contract/i,
+  /millions of (?:workers|people|employees)/i,
+  /public reaction/i,
+  /political consequences?/i,
+  /market consequences?/i,
+  /corporations? (?:will|are) (?:benefit|win)/i,
+  /investors? (?:will|are) (?:benefit|win)/i,
+  /automation and augmentation/i,
+];
+
 async function ask(
   prompt: string,
   options?: Parameters<ReturnType<typeof provider>["generateText"]>[1]
@@ -48,6 +66,16 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
 
 function normalizeText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function hasUsableEvidence(input: IdeaInput) {
+  const summary = input.summary.trim();
+  return summary.length >= 80 && !genericEvidencePattern.test(summary);
+}
+
+function containsUnsupportedLeap(value: string, input: IdeaInput) {
+  const source = `${input.headline} ${input.summary}`;
+  return unsupportedLeapPatterns.some((pattern) => pattern.test(value) && !pattern.test(source));
 }
 
 function isGroundedEvidence(evidence: string, input: IdeaInput) {
@@ -81,6 +109,8 @@ function extractScores(value: Record<string, unknown> | null) {
 }
 
 async function generateCandidate(input: IdeaInput, lens: string): Promise<ThesisCandidate | null> {
+  if (!hasUsableEvidence(input)) return null;
+
   const prompt = `You are the editorial reasoning engine inside PostCraft AI.
 
 The product promise is: "help me find something worth saying."
@@ -89,7 +119,7 @@ STORY
 Topic: ${input.topic}
 Headline: ${input.headline}
 Source: ${input.source}
-Summary: ${input.summary || "No reliable summary was supplied."}
+Summary: ${input.summary}
 
 EDITORIAL LENS
 ${lens}
@@ -106,7 +136,7 @@ GROUNDING IS STRICT:
 - The evidence field MUST quote wording from the supplied headline or summary.
 - The observation may only restate or carefully interpret what that evidence supports.
 - The thesis may go beyond the headline's wording, but it must NOT introduce a new event, consequence, group, statistic, outcome, example, or causal claim that the story does not support.
-- Do NOT infer social unrest, inequality, job losses, wage stagnation, public reaction, political consequences, market consequences, or other second-order effects unless the supplied story explicitly supports them.
+- Do NOT infer social unrest, inequality, unequal distribution of benefits, job losses, wage stagnation, public reaction, political consequences, market consequences, corporate/investor winners, or other second-order effects unless the supplied story explicitly supports them.
 - Never turn a "could", "may", "might", "warns", or "possible" claim into an established fact.
 - If the story is too thin to support an interesting argument, return empty strings rather than inventing context.
 - Do not use outside knowledge to make a thin story sound deeper.
@@ -134,7 +164,16 @@ Return ONLY this JSON object:
     const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
     const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
 
-    if (!evidence || !observation || !angle || !why || !isGroundedEvidence(evidence, input)) return null;
+    if (
+      !evidence ||
+      !observation ||
+      !angle ||
+      !why ||
+      !isGroundedEvidence(evidence, input) ||
+      containsUnsupportedLeap(angle, input) ||
+      containsUnsupportedLeap(why, input)
+    ) return null;
+
     return { evidence, observation, angle, why };
   } catch (error) {
     console.warn("[PostCraft] candidate_failed", error instanceof Error ? error.message : "unknown error");
@@ -144,6 +183,10 @@ Return ONLY this JSON object:
 
 export async function generatePostCraftAngles(input: IdeaInput) {
   const startedAt = Date.now();
+  if (!hasUsableEvidence(input)) {
+    throw new Error("This story does not contain enough reliable article evidence for PostCraft to build a grounded angle. Try another story.");
+  }
+
   const lenses = [
     "Look for the most surprising mechanism or scenario actually supported by the story. What does the evidence reveal that the headline makes easy to miss?",
     "Look for the strongest trade-off explicitly supported by the story: what becomes easier, harder, more valuable, or less valuable at the same time?",
@@ -168,7 +211,7 @@ The product promise is: "help me find something worth saying."
 
 STORY EVIDENCE
 Headline: ${input.headline}
-Summary: ${input.summary || "No reliable summary was supplied."}
+Summary: ${input.summary}
 
 CANDIDATES
 ${candidates.map((item, index) => `${index}. EVIDENCE: ${item.evidence}\nOBSERVATION: ${item.observation}\nTHESIS: ${item.angle}\nWHY: ${item.why}`).join("\n\n")}
@@ -184,7 +227,7 @@ EDITORIAL STANDARD:
 - A candidate that merely paraphrases the headline should score 0-3 for originality.
 - A generic "benefits vs costs" or "we need balance" framing should score 0-3 for originality.
 - A candidate that invents a condition such as "X is good only if Y outweighs Z" when the story does not establish that condition should score 0-3 for grounding.
-- A candidate that adds social unrest, inequality, job losses, wage effects, public reaction, political consequences, market effects, or other outcomes not present in the story should score 0-2 for evidence_grounding.
+- A candidate that adds social unrest, inequality, unequal distribution, job losses, wage effects, public reaction, political consequences, market effects, corporate/investor winners, or other outcomes not present in the story should score 0-2 for evidence_grounding.
 - Do not reward a candidate merely because an added consequence sounds plausible.
 - Prefer a narrower, fully supported thesis with a real insight over a dramatic but speculative thesis.
 - The best candidate should make the reader see a relationship or distinction they would not get by simply reading the headline.
@@ -222,6 +265,13 @@ function parsePost(text: string) {
 }
 
 async function writePost(input: IdeaInput, thesis: string, modeInstruction: string) {
+  if (!hasUsableEvidence(input)) {
+    throw new Error("This story does not contain enough reliable article evidence to safely write a grounded post.");
+  }
+  if (containsUnsupportedLeap(thesis, input)) {
+    throw new Error("The selected angle contains an unsupported claim. Please choose another angle.");
+  }
+
   const prompt = `You are a sharp human writer creating a LinkedIn post for an intelligent professional audience.
 
 Your only job is to develop ONE argument clearly and naturally. Do not write generic LinkedIn content.
@@ -232,7 +282,7 @@ ${thesis}
 STORY EVIDENCE
 Topic: ${input.topic}
 Headline: ${input.headline}
-Summary: ${input.summary || "No reliable summary was supplied."}
+Summary: ${input.summary}
 
 GROUNDING — NON-NEGOTIABLE
 - The headline and summary above are the complete evidence set.
@@ -241,7 +291,7 @@ GROUNDING — NON-NEGOTIABLE
 - Every factual claim in the post must be traceable to the supplied headline or summary.
 - If the story does not state an outcome, do not state that the outcome is happening.
 - Preserve uncertainty: "could" stays "could"; "may" stays "may"; a warning stays a warning.
-- Never add job losses, wage stagnation, inequality, social unrest, public reaction, political consequences, market effects, or other outcomes unless they are explicitly present in the supplied story.
+- Never add job losses, wage stagnation, inequality, unequal distribution of benefits, social unrest, public reaction, political consequences, market effects, corporate/investor winners, or other outcomes unless they are explicitly present in the supplied story.
 - Never invent statistics, examples, quotes, events, people, companies, outcomes, or personal experiences.
 - Do not use general knowledge to fill missing context.
 
@@ -292,6 +342,9 @@ Return ONLY valid JSON:
   const raw = await ask(prompt, { format: "json", temperature: 0.55, numPredict: 400 });
   const post = parsePost(raw);
   if (!post) throw new Error("AI returned an invalid post response");
+  if (containsUnsupportedLeap(post, input)) {
+    throw new Error("AI produced a post with an unsupported factual leap. Please regenerate or choose another story.");
+  }
   return post;
 }
 
