@@ -8,6 +8,25 @@ export type ResearchItem = {
 };
 
 const searchQueries: Record<string, string[]> = {
+  "AI & Technology": [
+    "AI artificial intelligence when:7d",
+    "AI agents technology when:7d",
+    "technology innovation when:7d",
+    "AI business impact when:7d",
+  ],
+  India: [
+    "India business economy when:7d",
+    "India government policy when:7d",
+    "India technology AI when:7d",
+    "India society jobs education when:7d",
+  ],
+  "PostCraft Recommended": [
+    "business leadership change when:7d",
+    "India policy economy when:7d",
+    "technology AI impact when:7d",
+    "science society change when:7d",
+    "geopolitics global relations when:7d",
+  ],
   Technology: [
     "AI technology when:7d",
     "AI business impact when:7d",
@@ -270,9 +289,6 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     }
   }
 
-  // Google News RSS often contains only a headline/source rather than a real
-  // article summary. Enrich only the shortlist so discovery stays bounded,
-  // while the downstream thesis engine gets enough evidence to reason from.
   const enriched = await Promise.all(selected.slice(0, 8).map(enrichItem));
   return [...enriched, ...selected.slice(8)];
 }
