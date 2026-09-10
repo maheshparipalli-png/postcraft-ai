@@ -336,31 +336,34 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
   const results = await Promise.all(queries.map(fetchFeed));
   const combined = results.flat();
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const seen = new Map<string, ResearchItem>();
 
-  const candidates = combined
-    .filter((item) => {
-      const time = Date.parse(item.publishedAt);
-      return Number.isFinite(time) && time >= cutoff && !isLowValueStory(item);
-    })
-    .filter((item) => {
-      const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      if (!key) return false;
+  // Google and Bing frequently return the same headline. Build the de-duplicated
+  // pool first, but keep the richer/direct-publisher record when both exist.
+  const byTitle = new Map<string, ResearchItem>();
+  for (const item of combined) {
+    const time = Date.parse(item.publishedAt);
+    if (!Number.isFinite(time) || time < cutoff || isLowValueStory(item)) continue;
 
-      const existing = seen.get(key);
-      if (!existing) {
-        seen.set(key, item);
-        return true;
-      }
+    const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!key) continue;
 
-      // If Google and Bing contain the same story, retain the richer record.
-      // This prevents a Google redirect with no evidence from masking a Bing
-      // publisher URL that can be fetched and enriched.
-      if (!hasUsableEvidence(existing) && (hasUsableEvidence(item) || isGoogleNewsUrl(existing.url))) {
-        seen.set(key, item);
-      }
-      return false;
-    })
+    const existing = byTitle.get(key);
+    if (!existing) {
+      byTitle.set(key, item);
+      continue;
+    }
+
+    const existingIsGoogle = isGoogleNewsUrl(existing.url);
+    const itemIsGoogle = isGoogleNewsUrl(item.url);
+    if (
+      (!hasUsableEvidence(existing) && hasUsableEvidence(item)) ||
+      (existingIsGoogle && !itemIsGoogle)
+    ) {
+      byTitle.set(key, item);
+    }
+  }
+
+  const candidates = Array.from(byTitle.values())
     .map((item) => ({ ...item, score: scoreStory(item, topic) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
