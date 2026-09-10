@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
-import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
+import { Evidence, generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 
 function isPostCraftAnglePrompt(prompt: string) {
   return prompt.includes("You are PostCraft AI, an editorial thinking partner.") &&
@@ -46,9 +46,9 @@ export async function POST(request: Request) {
         summary: extractField(prompt, "Summary"),
         url: extractField(prompt, "URL"),
       };
-      const angles = await generateEditorialAngles(story);
-      console.info(`[PostCraft] angle_route_ms=${Date.now() - startedAt} returned=${angles.length}`);
-      return NextResponse.json({ text: JSON.stringify(angles) });
+      const result = await generateEditorialAngles(story);
+      console.info(`[PostCraft] angle_route_ms=${Date.now() - startedAt} returned=${result.angles.length}`);
+      return NextResponse.json({ text: JSON.stringify(result.angles), evidence: result.evidence });
     }
 
     if (postRequest) {
@@ -59,11 +59,20 @@ export async function POST(request: Request) {
         summary: extractField(prompt, "Summary"),
         url: extractField(prompt, "URL"),
       };
+      let suppliedEvidence: Evidence[] | undefined;
+      const evidenceJson = extractField(prompt, "Evidence JSON");
+      if (evidenceJson) {
+        try {
+          const parsed = JSON.parse(evidenceJson);
+          if (Array.isArray(parsed)) suppliedEvidence = parsed as Evidence[];
+        } catch { suppliedEvidence = undefined; }
+      }
       const text = await generateEditorialPost(
         story,
         extractField(prompt, "Selected angle"),
         extractField(prompt, "Why this angle works"),
-        extractMode(prompt)
+        extractMode(prompt),
+        suppliedEvidence
       );
       return NextResponse.json({ text });
     }
