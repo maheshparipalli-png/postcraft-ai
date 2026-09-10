@@ -10,7 +10,16 @@ type IdeaInput = {
   angleWhy?: string;
 };
 
-type Thesis = { angle: string; why: string };
+type Evidence = {
+  fact: string;
+  significance: string;
+};
+
+type Thesis = {
+  angle: string;
+  why: string;
+  evidence: string;
+};
 
 const provider = () => getAIProvider();
 
@@ -38,17 +47,19 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
-function normalizeTheses(items: Thesis[]): Thesis[] {
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeEvidence(items: Evidence[]) {
   return Array.from(
-    new Map(
-      items
-        .map((item) => ({
-          angle: item.angle.trim(),
-          why: item.why.trim(),
-        }))
-        .filter((item) => item.angle)
-        .map((item) => [item.angle.toLowerCase(), item])
-    ).values()
+    new Map(items.map((item) => [normalizeText(item.fact), item])).values()
+  );
+}
+
+function normalizeTheses(items: Thesis[]) {
+  return Array.from(
+    new Map(items.map((item) => [normalizeText(item.angle), item])).values()
   );
 }
 
@@ -66,19 +77,10 @@ function extractScores(value: Record<string, unknown> | null) {
     .filter((item): item is { index: number; total: number } => Boolean(item));
 }
 
-const thesisLenses = [
-  "Look for a hidden cost created by the apparent benefit in the story.",
-  "Look for a contradiction: something becomes easier, faster, or cheaper while another part becomes harder, slower, or more important.",
-  "Look for a second-order consequence that is easy to miss if someone only follows the headline.",
-  "Look at the implementation detail or practical behavior in the story and find the assumption it exposes.",
-  "Look for an incentive problem: what behavior could the change encourage even if the stated goal is positive?",
-  "Look for a subtle human judgment problem created by the technology or decision described in the story.",
-];
+async function extractEvidence(input: IdeaInput, lens: string): Promise<Evidence | null> {
+  const prompt = `You are the evidence analyst inside PostCraft AI.
 
-async function generateCandidate(input: IdeaInput, lens: string) {
-  const prompt = `You are the editorial brain inside PostCraft AI.
-
-The product promise is NOT "write a LinkedIn post about this news." It is "help me find something worth saying."
+Your job is NOT to generate an opinion. Your job is to find one useful piece of evidence already present in the supplied story.
 
 STORY
 Topic: ${input.topic}
@@ -86,62 +88,138 @@ Headline: ${input.headline}
 Source: ${input.source}
 Summary: ${input.summary || "No reliable summary was supplied."}
 
-YOUR LENS
+LENS
 ${lens}
 
-Generate ONE specific, non-obvious thesis about a concrete detail in this story.
+Find ONE concrete fact, claim, comparison, mechanism, scenario, or detail explicitly present in the supplied story.
+Then explain why that detail could matter editorially, without adding outside facts.
 
-The thesis must:
-- make a claim, not summarize the story;
-- contain tension, contradiction, trade-off, hidden cost, second-order consequence, or an unexpected implication;
-- be narrow enough for one argument;
-- be something an intelligent reader could disagree with;
-- use only the supplied story.
+Rules:
+- Do not infer facts that are not stated.
+- Do not use general knowledge about AI, economics, jobs, politics, or the topic.
+- Do not turn the headline into a fact unless the summary supports it.
+- The significance may be an interpretation, but it must follow directly from the fact.
 
-Avoid generic ideas about AI risks/benefits, balance, guidelines, oversight, critical thinking, responsible AI, or "this raises questions." Do not add outside facts.
+Return ONLY:
+{"fact":"specific detail from the story","significance":"why this detail creates an interesting tension or implication"}`;
 
-Return ONLY one JSON object. No markdown. No commentary.
-{"angle":"specific debatable thesis","why":"the concrete story detail that makes this thesis interesting"}`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const parsed = parseJsonObject(await ask(prompt));
+    const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
+    const significance = typeof parsed?.significance === "string" ? parsed.significance.trim() : "";
+    if (fact) return { fact, significance };
+  }
+
+  return null;
+}
+
+async function generateThesisFromEvidence(
+  input: IdeaInput,
+  evidence: Evidence,
+  lens: string
+): Promise<Thesis | null> {
+  const prompt = `You are the thesis editor inside PostCraft AI.
+
+The product promise is: "help me find something worth saying."
+
+STORY
+Headline: ${input.headline}
+Summary: ${input.summary || "No reliable summary was supplied."}
+
+EVIDENCE FROM THE STORY
+Fact: ${evidence.fact}
+Why it may matter: ${evidence.significance}
+
+EDITORIAL LENS
+${lens}
+
+Turn ONLY this evidence into ONE precise, debatable thesis.
+
+A strong thesis:
+- makes one claim rather than summarizing;
+- contains tension, contradiction, trade-off, hidden cost, or second-order consequence;
+- is specific to this evidence;
+- could be challenged by an intelligent reader;
+- does not require any fact outside the story.
+
+Reject generic claims about AI risks, benefits, jobs, innovation, balance, responsible AI, oversight, or critical thinking unless the supplied evidence makes that exact claim unavoidable.
+Do not introduce a new industry, profession, company, statistic, event, or consequence that is absent from the evidence.
+
+Return ONLY:
+{"angle":"one specific debatable thesis","why":"why this thesis follows from the evidence","evidence":"the exact story detail supporting it"}`;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const parsed = parseJsonObject(await ask(prompt));
     const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
     const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
-    if (angle) return { angle, why };
+    const supportingEvidence = typeof parsed?.evidence === "string" ? parsed.evidence.trim() : "";
+    if (angle && supportingEvidence) {
+      return { angle, why, evidence: supportingEvidence };
+    }
   }
 
   return null;
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
-  const results = await Promise.all(
-    thesisLenses.map((lens) => generateCandidate(input, lens))
-  );
-  const candidates = normalizeTheses(
-    results.filter((item): item is Thesis => Boolean(item))
-  );
+  const evidenceLenses = [
+    "Look for the most surprising concrete mechanism or scenario in the story.",
+    "Look for a trade-off: what becomes easier, faster, cheaper, harder, riskier, or less valuable according to the story?",
+    "Look for a mismatch between the headline's obvious interpretation and a specific detail in the story.",
+  ];
 
-  if (candidates.length < 3) {
-    throw new Error("AI could not produce three useful thesis candidates; please try again");
+  const evidenceResults: Evidence[] = [];
+  for (const lens of evidenceLenses) {
+    const evidence = await extractEvidence(input, lens);
+    if (evidence) evidenceResults.push(evidence);
   }
 
-  const scoringPrompt = `You are the ruthless thesis editor for PostCraft AI.
+  const evidence = normalizeEvidence(evidenceResults);
+  if (evidence.length < 2) {
+    throw new Error("AI could not extract enough grounded evidence from this story; please try again");
+  }
 
-Score these candidate theses and eliminate safe, obvious, generic ideas.
+  const thesisLenses = [
+    "Find the hidden cost or unintended consequence.",
+    "Find the strongest contradiction or trade-off.",
+    "Find the second-order consequence that changes how the story should be interpreted.",
+  ];
+
+  const thesisResults: Thesis[] = [];
+  for (let index = 0; index < evidence.length; index += 1) {
+    const thesis = await generateThesisFromEvidence(
+      input,
+      evidence[index],
+      thesisLenses[index % thesisLenses.length]
+    );
+    if (thesis) thesisResults.push(thesis);
+  }
+
+  const candidates = normalizeTheses(thesisResults);
+  if (candidates.length < 2) {
+    throw new Error("AI could not produce enough evidence-grounded thesis candidates; please try again");
+  }
+
+  const scoringPrompt = `You are the final thesis judge for PostCraft AI.
 
 STORY
 Headline: ${input.headline}
 Summary: ${input.summary || "No reliable summary was supplied."}
 
 CANDIDATES
-${candidates.map((item, index) => `${index}. ${item.angle}\nWhy: ${item.why}`).join("\n\n")}
+${candidates.map((item, index) => `${index}. THESIS: ${item.angle}\nWHY: ${item.why}\nEVIDENCE: ${item.evidence}`).join("\n\n")}
 
-Score every candidate from 0-10 on specificity, tension, originality, debatable, and grounding.
-TOTAL is the sum of the five scores.
+Score every candidate from 0-10 on:
+1. evidence_grounding — can the thesis be supported directly by the supplied evidence?
+2. specificity — is it about this story rather than AI in general?
+3. tension — does it contain a meaningful contradiction, trade-off, hidden cost, or second-order effect?
+4. debatability — could a smart reader reasonably disagree?
+5. originality — does it avoid the obvious first interpretation?
 
-Be harsh. Penalize anything that could fit another AI story with the noun changed.
+TOTAL is the sum of those five scores.
+A thesis that introduces information not present in the story should score near zero on evidence_grounding and should not rank highly.
 
-Return ONLY valid JSON. No markdown. No commentary.
+Return ONLY:
 {"scores":[{"index":0,"total":37}]}`;
 
   const scores = extractScores(parseJsonObject(await ask(scoringPrompt)))
