@@ -5,30 +5,34 @@ const model = process.env.OLLAMA_MODEL ?? "llama3.2";
 
 export const ollamaProvider: AIProvider = {
   async generateText(prompt, options: AIGenerateOptions = {}) {
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        stream: false,
-        ...(options.format ? { format: options.format } : {}),
-        options: {
-          temperature: options.temperature ?? 0.78,
-          // Keep local generation bounded. Structured angle/judge calls are
-          // shorter still when their JSON response finishes early.
-          num_predict: options.numPredict ?? 400,
-        },
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(120_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          stream: false,
+          ...(options.format ? { format: options.format } : {}),
+          options: {
+            temperature: options.temperature ?? 0.78,
+            num_predict: options.numPredict ?? 400,
+          },
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(75_000),
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        throw new Error("PostCraft AI took too long to respond. Please try again.");
+      }
+      throw error;
+    }
 
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(
-        data?.error ?? `Ollama request failed (${response.status})`
-      );
+      throw new Error(data?.error ?? `Ollama request failed (${response.status})`);
     }
 
     const text = data?.message?.content;
