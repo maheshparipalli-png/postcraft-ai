@@ -13,8 +13,11 @@ export const ollamaProvider: AIProvider = {
         messages: [{ role: "user", content: prompt }],
         stream: false,
         options: {
-          temperature: 0.65,
-          num_predict: 500,
+          // A little more variation helps PostCraft avoid producing the same
+          // safe LinkedIn phrasing on every run while the prompts still enforce
+          // grounding and a single clear argument.
+          temperature: 0.78,
+          num_predict: 650,
         },
       }),
       cache: "no-store",
