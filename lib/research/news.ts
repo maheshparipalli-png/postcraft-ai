@@ -330,7 +330,6 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   const selected: ResearchItem[] = [];
-  const selectionLimit = topic === "PostCraft Recommended" ? 24 : 12;
   for (const item of candidates) {
     const itemTokens = titleTokens(item.title);
     const tooSimilar = selected.some((chosen) => {
@@ -341,7 +340,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     });
 
     if (!tooSimilar) selected.push(item);
-    if (selected.length >= selectionLimit) break;
+    if (selected.length >= (topic === "PostCraft Recommended" ? 24 : 12)) break;
   }
 
   if (selected.length < 5) {
@@ -352,15 +351,18 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     }
   }
 
-  // Google News currently uses opaque article links and may return only generic RSS descriptions.
-  // A second RSS source gives us direct publisher URLs and actual feed descriptions when available.
-  // Recommended deliberately enriches a wider candidate pool before applying the evidence gate;
-  // otherwise a few headline-rich but evidence-poor stories can crowd out usable recommendations.
   const enriched = await Promise.all(selected.map(enrichItem));
   const reranked = enriched
     .map((item) => ({ ...item, score: scoreStory(item, topic) }))
-    .filter((item) => topic !== "PostCraft Recommended" || hasUsableEvidence(item))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+  if (topic === "PostCraft Recommended") {
+    const grounded = reranked.filter(hasUsableEvidence);
+    const fallback = reranked.filter((item) => !hasUsableEvidence(item));
+    // Never render an empty Recommended feed simply because an aggregator did not expose article text.
+    // Grounded stories always win; headline-only stories are a last-resort discovery fallback.
+    return [...grounded, ...fallback].slice(0, 12);
+  }
 
   return reranked.slice(0, 12);
 }
