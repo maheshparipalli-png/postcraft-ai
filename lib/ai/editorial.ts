@@ -25,7 +25,7 @@ function extractArticleBody(html: string) {
 
 async function fetchArticle(url?: string) {
   if (!url || !/^https?:\/\//i.test(url)) return "";
-  try { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PostCraftAI/1.0)", Accept: "text/html,application/xhtml+xml" }, cache: "no-store", signal: AbortSignal.timeout(10_000), redirect: "follow" }); if (!response.ok) return ""; return extractArticleBody(await response.text()).slice(0, 12_000); }
+  try { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; PostCraftAI/1.0)", Accept: "text/html,application/xhtml+xml" }, cache: "no-store", signal: AbortSignal.timeout(7_000), redirect: "follow" }); if (!response.ok) return ""; return extractArticleBody(await response.text()).slice(0, 7_000); }
   catch (error) { console.warn("[PostCraft] article_fetch_failed", error instanceof Error ? error.message : "unknown error"); return ""; }
 }
 
@@ -38,7 +38,7 @@ function parseEvidence(value: unknown): Evidence[] {
     const support = typeof v.support === "string" ? v.support.trim() : "";
     const type = v.type === "fact" || v.type === "interpretation" || v.type === "uncertainty" ? v.type : "fact";
     return claim && support ? { claim, support, type } : null;
-  }).filter((x): x is Evidence => Boolean(x)).slice(0, 8);
+  }).filter((x): x is Evidence => Boolean(x)).slice(0, 6);
 }
 
 function parseAngles(value: unknown): Angle[] {
@@ -54,36 +54,9 @@ function parseAngles(value: unknown): Angle[] {
 }
 
 async function buildEditorialPass(story: Story, articleText: string) {
-  const source = articleText ? `FULL ARTICLE TEXT:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
-  const prompt = `You are PostCraft AI's evidence and editorial ideation engine. The product promise is "Find something worth saying."
-
-STORY
-Topic: ${story.topic}
-Headline: ${story.headline}
-Source: ${story.source}
-
-${source}
-
-First extract 6-8 high-value evidence items. Then use ONLY those evidence items to generate exactly THREE genuinely different LinkedIn angles, strongest first.
-
-Evidence should prefer numbers, comparisons, mechanisms, decisions, specific groups, behavior changes and meaningful details. Preserve attribution and uncertainty. A scenario/model is not a forecast.
-
-Each angle must contain one precise thesis, one evidence anchor and one non-obvious interpretation of why the anchor matters. The thesis does not have to contain a number; a concrete relationship, decision, group, mechanism or outcome is enough.
-
-LOOK FOR: an aggregate result hiding a subgroup result; two measures moving differently; a surprising comparison; average outcomes versus the people most affected; a change in behavior or identity; a decision with a consequence; or a mechanism explicitly supported by the source.
-
-HARD REJECTIONS
-- No generic opinions such as "AI may increase inequality" or "technology is changing work".
-- No "raises questions about", "highlights the need", "not evenly distributed", "future of work", "AI transformation", or "responsible innovation" as the insight.
-- No invented mechanism, motive, winner, loser, policy consequence or prediction.
-- Never confuse scenarios or turn a scenario/model into a forecast.
-- Do not merely put two facts together; explain their relationship.
-- Do not add outside knowledge.
-- Evidence references must point to the evidence item number and concrete detail.
-
-Return ONLY JSON in exactly this shape:
-{"evidence":[{"claim":"...","support":"...","type":"fact"}],"angles":[{"angle":"one-sentence thesis","why":"specific non-obvious interpretation","evidence":"item 0 — concrete detail"}]}`;
-  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.2, numPredict: 1200 }));
+  const source = articleText ? `ARTICLE:\n${articleText}` : `HEADLINE:\n${story.headline}\nSUMMARY:\n${story.summary}`;
+  const prompt = `You are PostCraft AI. Find what is worth saying in this story.\n\n${source}\n\nExtract 5-6 concrete evidence items, then give exactly 3 distinct LinkedIn angles using only that evidence. Prefer numbers, comparisons, mechanisms, decisions, affected groups and differences between outcomes. Do not add outside facts. Do not turn scenarios into forecasts. Reject generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation". Each angle needs a precise thesis, why it matters, and one concrete evidence anchor.\n\nReturn ONLY JSON: {"evidence":[{"claim":"...","support":"...","type":"fact"}],"angles":[{"angle":"...","why":"...","evidence":"item 0 — concrete detail"}]}`;
+  const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 650 }));
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
 
@@ -115,41 +88,8 @@ export async function generateEditorialPost(story: Story, angle: string, angleWh
   if (evidence.length < 3) evidence = (await buildEditorialPass(story, await fetchArticle(story.url))).evidence;
   if (evidence.length < 3) throw new Error("PostCraft could not recover enough evidence to safely write this post. Try the source again.");
   const ledger = evidence.map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`).join("\n");
-  const prompt = `You are PostCraft AI's final LinkedIn editor.
-
-Write a post around ONE precise thesis. The evidence ledger is the complete factual source.
-
-STORY
-${story.headline}
-${story.source}
-
-SELECTED THESIS
-${angle}
-
-WHY THIS ANGLE WORKS
-${angleWhy}
-
-EVIDENCE LEDGER
-${ledger}
-
-WRITING METHOD
-Evidence -> observation -> interpretation -> implication.
-
-NON-NEGOTIABLES
-- Start with the actual insight, not the headline and not "AI is changing...".
-- Use at least TWO concrete details from the ledger when available.
-- Make the relationship explicit. State exactly what changes and for whom.
-- If using a scenario/model, name it as a scenario/model. Never turn it into a forecast or current fact.
-- Do not introduce facts, examples, quotes, experiences or context outside the ledger.
-- Do not strengthen could/may/might into certainty.
-- Avoid empty phrases and generic policy conclusions.
-- Plain language. No corporate jargon. No rhetorical question as a substitute for an argument.
-- 110-160 words, 4-6 short paragraphs.
-
-${modeInstruction}
-
-Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
-  const result = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.35, numPredict: 520 }));
+  const prompt = `You are PostCraft AI's final LinkedIn editor. Write a post around ONE precise thesis using only this evidence ledger. Start with the insight. Use at least two concrete details when available. Make the relationship explicit. If using a scenario/model, name it as such. Do not add outside facts, examples or context. Do not turn could/may/might into certainty. Plain language, no corporate jargon, 110-160 words, 4-6 short paragraphs.\n\nSTORY\n${story.headline}\n${story.source}\n\nSELECTED THESIS\n${angle}\n\nWHY THIS ANGLE WORKS\n${angleWhy}\n\nEVIDENCE LEDGER\n${ledger}\n\n${modeInstruction}\n\nReturn ONLY JSON: {"post":"the finished LinkedIn post"}`;
+  const result = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.3, numPredict: 420 }));
   const post = typeof result?.post === "string" ? result.post.trim() : "";
   if (!post) throw new Error("PostCraft could not produce a post from the selected angle.");
   if (!postHasConcreteAnchor(post) || postHasGenericFiller(post)) throw new Error("PostCraft generated a draft that was too generic. Try another angle or regenerate.");
