@@ -18,22 +18,6 @@ async function ask(prompt: string) {
   return provider().generateText(prompt);
 }
 
-function parseJsonArray(text: string): unknown[] {
-  try {
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    try {
-      const parsed = JSON.parse(match[0]);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-}
-
 function parseJsonObject(text: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(text);
@@ -54,19 +38,17 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
-function normalizeTheses(items: unknown[]): Thesis[] {
-  const candidates = items
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const value = item as { angle?: unknown; why?: unknown };
-      const angle = typeof value.angle === "string" ? value.angle.trim() : "";
-      const why = typeof value.why === "string" ? value.why.trim() : "";
-      return angle ? { angle, why } : null;
-    })
-    .filter((item): item is Thesis => Boolean(item));
-
+function normalizeTheses(items: Thesis[]): Thesis[] {
   return Array.from(
-    new Map(candidates.map((item) => [item.angle.toLowerCase(), item])).values()
+    new Map(
+      items
+        .map((item) => ({
+          angle: item.angle.trim(),
+          why: item.why.trim(),
+        }))
+        .filter((item) => item.angle)
+        .map((item) => [item.angle.toLowerCase(), item])
+    ).values()
   );
 }
 
@@ -84,7 +66,16 @@ function extractScores(value: Record<string, unknown> | null) {
     .filter((item): item is { index: number; total: number } => Boolean(item));
 }
 
-async function generateCandidate(input: IdeaInput, seed: number) {
+const thesisLenses = [
+  "Look for a hidden cost created by the apparent benefit in the story.",
+  "Look for a contradiction: something becomes easier, faster, or cheaper while another part becomes harder, slower, or more important.",
+  "Look for a second-order consequence that is easy to miss if someone only follows the headline.",
+  "Look at the implementation detail or practical behavior in the story and find the assumption it exposes.",
+  "Look for an incentive problem: what behavior could the change encourage even if the stated goal is positive?",
+  "Look for a subtle human judgment problem created by the technology or decision described in the story.",
+];
+
+async function generateCandidate(input: IdeaInput, lens: string) {
   const prompt = `You are the editorial brain inside PostCraft AI.
 
 The product promise is NOT "write a LinkedIn post about this news." It is "help me find something worth saying."
@@ -95,22 +86,21 @@ Headline: ${input.headline}
 Source: ${input.source}
 Summary: ${input.summary || "No reliable summary was supplied."}
 
-Generate ONE specific, non-obvious thesis about a detail in this story.
+YOUR LENS
+${lens}
 
-This thesis must:
+Generate ONE specific, non-obvious thesis about a concrete detail in this story.
+
+The thesis must:
 - make a claim, not summarize the story;
 - contain tension, contradiction, trade-off, hidden cost, second-order consequence, or an unexpected implication;
 - be narrow enough for one argument;
 - be something an intelligent reader could disagree with;
-- be grounded only in the supplied story.
+- use only the supplied story.
 
-Look for a different reasoning route than the obvious "AI is useful but has risks" argument. Think about what becomes easier while something else becomes harder, what assumption the story exposes, or what consequence is easy to miss.
+Avoid generic ideas about AI risks/benefits, balance, guidelines, oversight, critical thinking, responsible AI, or "this raises questions." Do not add outside facts.
 
-Do NOT use generic ideas about balance, guidelines, responsible AI, oversight, critical thinking, benefits versus risks, or "this raises questions." Do not add outside facts.
-
-Variation seed: ${seed}. Choose a genuinely different angle from other possible interpretations.
-
-Return ONLY one JSON object:
+Return ONLY one JSON object. No markdown. No commentary.
 {"angle":"specific debatable thesis","why":"the concrete story detail that makes this thesis interesting"}`;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -124,16 +114,15 @@ Return ONLY one JSON object:
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
-  const generated: Thesis[] = [];
+  const results = await Promise.all(
+    thesisLenses.map((lens) => generateCandidate(input, lens))
+  );
+  const candidates = normalizeTheses(
+    results.filter((item): item is Thesis => Boolean(item))
+  );
 
-  for (let seed = 1; seed <= 6 && generated.length < 6; seed += 1) {
-    const candidate = await generateCandidate(input, seed);
-    if (candidate) generated.push(candidate);
-  }
-
-  const candidates = normalizeTheses(generated);
   if (candidates.length < 3) {
-    throw new Error("AI could not produce three valid thesis candidates; please try again");
+    throw new Error("AI could not produce three useful thesis candidates; please try again");
   }
 
   const scoringPrompt = `You are the ruthless thesis editor for PostCraft AI.
@@ -147,13 +136,12 @@ Summary: ${input.summary || "No reliable summary was supplied."}
 CANDIDATES
 ${candidates.map((item, index) => `${index}. ${item.angle}\nWhy: ${item.why}`).join("\n\n")}
 
-Score every candidate from 0-10 on:
-specificity, tension, originality, debatable, grounding.
-TOTAL is the sum of those five scores.
+Score every candidate from 0-10 on specificity, tension, originality, debatable, and grounding.
+TOTAL is the sum of the five scores.
 
-Be especially harsh. Penalize theses that merely say AI has risks/benefits, recommend balance/guidelines, or could be reused for another AI story with only the noun changed.
+Be harsh. Penalize anything that could fit another AI story with the noun changed.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON. No markdown. No commentary.
 {"scores":[{"index":0,"total":37}]}`;
 
   const scores = extractScores(parseJsonObject(await ask(scoringPrompt)))
