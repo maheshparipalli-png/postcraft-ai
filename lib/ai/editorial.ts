@@ -68,25 +68,17 @@ async function buildEditorialPass(story: Story, articleText: string) {
   return { evidence: parseEvidence(parsed?.evidence), angles: parseAngles(parsed?.angles) };
 }
 
-function passesAngleHeuristics(angle: Angle) {
+function isForbiddenAngle(angle: Angle) {
   const text = `${angle.angle} ${angle.why}`.toLowerCase();
-  const forbidden = ["raises questions", "highlights the need", "could exacerbate", "may exacerbate", "not evenly distributed", "winner-takes-all"];
-  if (forbidden.some((phrase) => text.includes(phrase))) return false;
-  if ((text.includes("modest") && /(job loss|job losses|unemployment|displacement)/.test(text)) || (text.includes("substantial") && text.includes("32.4%")) || (text.includes("extreme") && text.includes("8.3%"))) return false;
-  if (angle.angle.length < 35 || angle.why.length < 20 || angle.evidence.length < 5) return false;
-  return true;
+  const forbidden = ["raises questions", "highlights the need", "could exacerbate", "may exacerbate", "not evenly distributed", "winner-takes-all", "future of work", "responsible innovation"];
+  if (forbidden.some((phrase) => text.includes(phrase))) return true;
+  if ((text.includes("modest") && /(job loss|job losses|unemployment|displacement)/.test(text)) || (text.includes("substantial") && text.includes("32.4%")) || (text.includes("extreme") && text.includes("8.3%"))) return true;
+  return false;
 }
 
 function selectSafeAngles(angles: Angle[]) {
-  const accepted = angles.filter(passesAngleHeuristics);
-  if (accepted.length) return accepted.slice(0, 3);
-  // Do not manufacture angles. If the model returned structurally valid, non-forbidden
-  // angles, keep them rather than failing the whole story on a cosmetic length check.
-  return angles.filter((angle) => {
-    const text = `${angle.angle} ${angle.why}`.toLowerCase();
-    return angle.angle.length >= 25 && angle.why.length >= 12 && angle.evidence.length >= 3 &&
-      !["raises questions", "highlights the need", "future of work", "responsible innovation"].some((phrase) => text.includes(phrase));
-  }).slice(0, 3);
+  const accepted = angles.filter((angle) => !isForbiddenAngle(angle));
+  return accepted.slice(0, 3);
 }
 
 export async function generateEditorialAngles(story: Story) {
@@ -97,7 +89,7 @@ export async function generateEditorialAngles(story: Story) {
   const angles = selectSafeAngles(editorial.angles);
   console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${editorial.angles.length} accepted_angles=${angles.length} fallback=${editorial.evidence.length < 3}`);
   if (evidence.length < 2) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
-  if (!angles.length) throw new Error("PostCraft found evidence, but none of the generated angles met its editorial standard. Try another story.");
+  if (!angles.length) throw new Error("PostCraft found evidence, but the model did not return a usable angle. Try another story.");
   return { angles, evidence };
 }
 
