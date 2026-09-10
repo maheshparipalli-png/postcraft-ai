@@ -84,8 +84,8 @@ function extractScores(value: Record<string, unknown> | null) {
     .filter((item): item is { index: number; total: number } => Boolean(item));
 }
 
-export async function generatePostCraftAngles(input: IdeaInput) {
-  const candidatePrompt = `You are the editorial brain inside PostCraft AI.
+async function generateCandidates(input: IdeaInput) {
+  const prompt = `You are the editorial brain inside PostCraft AI.
 
 The product promise is NOT "write a LinkedIn post about this news." It is "help me find something worth saying."
 
@@ -95,7 +95,7 @@ Headline: ${input.headline}
 Source: ${input.source}
 Summary: ${input.summary || "No reliable summary was supplied."}
 
-Generate EIGHT genuinely different candidate theses. A thesis is a specific belief or observation that a smart professional could reasonably argue about after reading this story.
+Generate SIX genuinely different candidate theses. A thesis is a specific belief or observation that a smart professional could reasonably argue about after reading this story.
 
 A strong thesis:
 - makes a non-obvious claim about a DETAIL in this story;
@@ -106,27 +106,32 @@ A strong thesis:
 
 Prefer mechanisms and consequences over advice. Look for details that create tension: something becoming easier while something else becomes harder; a claimed benefit creating a hidden cost; a change solving one problem while creating another; an assumption in the story that deserves scrutiny.
 
-Reject your own obvious first ideas before answering.
+Reject obvious first ideas before answering.
 
-DO NOT produce:
-- a summary of the story;
-- a topic disguised as a thesis;
-- "AI has benefits and risks";
-- "we need balance/guidelines/oversight";
-- "this raises questions";
-- generic critical-thinking or responsible-AI statements;
-- a thesis that would fit almost any AI story;
-- facts not present in the supplied story.
+DO NOT produce summaries, topics, policy slogans, "AI has benefits and risks," "we need balance/guidelines/oversight," generic critical-thinking warnings, or theses that could fit almost any AI story. Do not add outside facts.
 
-Return ONLY valid JSON with exactly 8 objects:
+Return ONLY valid JSON with exactly 6 objects:
 [{"angle":"specific debatable thesis","why":"the story detail that makes this thesis interesting"}]`;
 
-  const candidates = normalizeTheses(parseJsonArray(await ask(candidatePrompt))).slice(0, 8);
-  if (candidates.length < 3) return [];
+  return normalizeTheses(parseJsonArray(await ask(prompt)));
+}
+
+export async function generatePostCraftAngles(input: IdeaInput) {
+  let candidates: Thesis[] = [];
+  for (let attempt = 0; attempt < 2 && candidates.length < 3; attempt += 1) {
+    candidates = normalizeTheses([
+      ...candidates,
+      ...(await generateCandidates(input)),
+    ]);
+  }
+
+  if (candidates.length < 3) {
+    throw new Error("AI could not produce three valid thesis candidates; please try again");
+  }
 
   const scoringPrompt = `You are the ruthless thesis editor for PostCraft AI.
 
-Your job is NOT to praise these theses. Score them and eliminate safe, obvious, generic ideas.
+Score these candidate theses and eliminate safe, obvious, generic ideas.
 
 STORY
 Headline: ${input.headline}
@@ -135,19 +140,12 @@ Summary: ${input.summary || "No reliable summary was supplied."}
 CANDIDATES
 ${candidates.map((item, index) => `${index}. ${item.angle}\nWhy: ${item.why}`).join("\n\n")}
 
-Score every candidate from 0-10 on:
-- specificity: tied to a concrete detail rather than the broad topic
-- tension: contains a real contradiction, trade-off, hidden cost, or consequence
-- originality: makes the reader reconsider the obvious interpretation
-- debatable: an intelligent person could reasonably disagree
-- grounding: supported by the supplied story without invented facts
+Score every candidate from 0-10 on specificity, tension, originality, debatable, and grounding. TOTAL is the sum.
 
-TOTAL is the sum of the five scores.
-
-Be especially harsh. A thesis loses points if it says the obvious, recommends "balance," asks for "guidelines," warns about "risks," or could be reused for another AI story with only the noun changed.
+Be especially harsh. Penalize theses that merely say AI has risks/benefits, recommend balance/guidelines, or could be reused for another AI story with only the noun changed.
 
 Return ONLY valid JSON:
-{"scores":[{"index":0,"total":37},{"index":1,"total":31}]}`;
+{"scores":[{"index":0,"total":37}]}`;
 
   const scores = extractScores(parseJsonObject(await ask(scoringPrompt)))
     .filter((item) => item.index < candidates.length)
@@ -185,7 +183,7 @@ WRITING
 - Start with the tension or insight, not the headline.
 - Develop one reasoning chain: observation -> why it matters -> implication.
 - Use plain language and varied sentence rhythm.
-- Make the thesis visible through the reasoning, without announcing "my thesis is".
+- Make the thesis visible through the reasoning, without announcing it.
 - Finish when the thought is complete.
 - No heading, title, labels, bullet lists, emojis, or more than two hashtags.
 - Never ask the reader a question at the end.
@@ -284,10 +282,7 @@ Return only the thesis sentence.`;
     post = await writePost(
       input,
       thesis,
-      `${modeInstruction}
-
-The previous draft failed editorial review. Fix these problems without changing the core thesis:
-${issues.length ? issues.map((issue) => `- ${issue}`).join("\n") : "- Remove any editorial checklist language or generic LinkedIn phrasing."}`
+      `${modeInstruction}\n\nThe previous draft failed editorial review. Fix these problems without changing the core thesis:\n${issues.length ? issues.map((issue) => `- ${issue}`).join("\n") : "- Remove any editorial checklist language or generic LinkedIn phrasing."}`
     );
   }
 
