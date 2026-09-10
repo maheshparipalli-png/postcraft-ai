@@ -156,6 +156,26 @@ function hasUsableEvidence(item: ResearchItem) {
   return Boolean(item.snippet && item.snippet.length >= 80 && !genericGoogleNewsText.test(item.snippet));
 }
 
+function isGoogleNewsUrl(url: string) {
+  try {
+    return new URL(url).hostname === "news.google.com";
+  } catch {
+    return false;
+  }
+}
+
+function resolveBingUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "www.bing.com" && parsed.pathname === "/news/apiclick.aspx") {
+      return parsed.searchParams.get("url") ?? url;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
   if (hasUsableEvidence(item)) return item;
 
@@ -164,7 +184,7 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
       cache: "no-store",
       redirect: "follow",
       headers: { "User-Agent": "PostCraft AI/1.0" },
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) return item;
@@ -172,7 +192,7 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
     const description = extractArticleText(html);
     if (!description) return item;
 
-    const resolvedUrl = response.url && !response.url.includes("news.google.com") ? response.url : item.url;
+    const resolvedUrl = response.url && !isGoogleNewsUrl(response.url) ? response.url : item.url;
     return { ...item, url: resolvedUrl, snippet: description.slice(0, 900) };
   } catch {
     return item;
@@ -186,13 +206,14 @@ function sourceFromBingTitle(title: string) {
 }
 
 async function fetchBingFeed(query: string): Promise<ResearchItem[]> {
-  const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&mkt=en-IN`;
+  const bingQuery = query.replace(/\s+when:\d+[dhm]\b/gi, "").trim();
+  const url = `https://www.bing.com/news/search?q=${encodeURIComponent(bingQuery)}&format=rss&mkt=en-IN`;
 
   try {
     const response = await fetch(url, {
       cache: "no-store",
       headers: { "User-Agent": "PostCraft AI/1.0" },
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) return [];
@@ -209,7 +230,7 @@ async function fetchBingFeed(query: string): Promise<ResearchItem[]> {
         return {
           title,
           source,
-          url: getTag(block, "link"),
+          url: resolveBingUrl(getTag(block, "link")),
           publishedAt: getTag(block, "pubDate"),
           snippet: cleanDescription(getTag(block, "description"), title, source),
         };
@@ -249,7 +270,9 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
       .filter((item) => item.title && item.url);
 
     const bingItems = await fetchBingFeed(query);
-    return [...googleItems, ...bingItems];
+    // Prefer Bing's publisher URLs over Google's redirect URLs so article enrichment
+    // has a real chance to reach the source page and extract usable evidence.
+    return [...bingItems, ...googleItems];
   } catch {
     return fetchBingFeed(query);
   }
@@ -313,7 +336,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
   const results = await Promise.all(queries.map(fetchFeed));
   const combined = results.flat();
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const seen = new Set<string>();
+  const seen = new Map<string, ResearchItem>();
 
   const candidates = combined
     .filter((item) => {
@@ -322,9 +345,21 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     })
     .filter((item) => {
       const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      if (!key) return false;
+
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, item);
+        return true;
+      }
+
+      // If Google and Bing contain the same story, retain the richer record.
+      // This prevents a Google redirect with no evidence from masking a Bing
+      // publisher URL that can be fetched and enriched.
+      if (!hasUsableEvidence(existing) && (hasUsableEvidence(item) || isGoogleNewsUrl(existing.url))) {
+        seen.set(key, item);
+      }
+      return false;
     })
     .map((item) => ({ ...item, score: scoreStory(item, topic) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
