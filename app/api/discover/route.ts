@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchNews } from "@/lib/research/news";
+import { searchCustomTopic } from "@/lib/research/custom-topic";
 
 function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
@@ -27,30 +28,7 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
     return "It is an India-focused development with enough source detail to examine what is changing and why it matters beyond the immediate headline.";
   }
 
-  if (/\b(school|schools|student|students|children|education|teacher|teachers)\b/.test(text)) {
-    if (/\b(ai|artificial intelligence|technology|tech)\b/.test(text)) {
-      return "It creates a concrete tension between using new technology and deciding where human judgment still matters, with enough evidence to explore that tension.";
-    }
-    return "It connects a current development to how people learn and adapt, giving you more to explore than the headline alone.";
-  }
-
-  if (/\b(risk|warning|crisis|concern|threat|pressure|controversy)\b/.test(text)) {
-    return "The article contains a concrete tension or risk, giving you something specific to examine rather than simply report.";
-  }
-
-  if (/\b(change|shift|impact|rethink|reversal|decline|rise|fall|surge)\b/.test(text)) {
-    return "It points to a concrete change beyond the immediate event, creating room to examine what that shift actually means.";
-  }
-
-  if (/\b(policy|decision|investment|jobs|regulation|government|companies|business)\b/.test(text)) {
-    return "It links a current development to a decision, incentive, or consequence that can be examined from more than one side.";
-  }
-
-  if (/\b(why|could|will|how)\b/.test(title)) {
-    return "The headline raises a real question or possibility, while the article provides enough detail to examine what is actually changing and why.";
-  }
-
-  return "The article contains enough specific detail to build a point of view around the development, rather than writing another generic post about the topic.";
+  return `It is a recent development directly related to “${topic}”, with enough source detail to explore a specific point of view rather than simply summarize the topic.`;
 }
 
 export async function POST(request: Request) {
@@ -66,7 +44,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "topic is too long" }, { status: 400 });
     }
 
-    const research = await searchNews(topic);
+    const isPresetTopic = topic === "AI & Technology" || topic === "India" || topic === "PostCraft Recommended";
+    const research = isPresetTopic ? await searchNews(topic) : await searchCustomTopic(topic);
     const ideas = research.slice(0, 5).map((item, index) => ({
       title: item.title,
       description: item.snippet,
