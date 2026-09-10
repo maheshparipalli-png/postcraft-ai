@@ -24,7 +24,8 @@ const unsupportedLeapPatterns = [
   /social unrest/i,
   /inequality|unequal(?:ly)? distributed|not evenly distributed/i,
   /job losses|lost jobs|workers (?:are|were|will be) left/i,
-  /wage stagnation|stagnant wages/i,
+  /wage stagnation|stagnant wages|reduced wages|lower wages|wages (?:fall|decline|drop)/i,
+  /individual livelihoods?|livelihoods? (?:are|will be|face)/i,
   /the majority of workers/i,
   /the haves and have-nots/i,
   /social contract/i,
@@ -35,6 +36,14 @@ const unsupportedLeapPatterns = [
   /corporations? (?:will|are) (?:benefit|win)/i,
   /investors? (?:will|are) (?:benefit|win)/i,
   /automation and augmentation/i,
+];
+
+const genericThesisPatterns = [
+  /benefits? (?:vs\.?|versus|and) (?:costs?|risks?)/i,
+  /trade[- ]off between .*benefits? .* (?:jobs?|livelihoods?|wages?)/i,
+  /trade[- ]off between .*economic .* (?:individual|worker) (?:benefits?|outcomes?|livelihoods?)/i,
+  /economic (?:growth|benefits?) .* (?:individual|worker) livelihoods?/i,
+  /(?:economic|overall) benefits? .* (?:come|comes) with .* (?:cost|risk)/i,
 ];
 
 async function ask(
@@ -76,6 +85,10 @@ function hasUsableEvidence(input: IdeaInput) {
 function containsUnsupportedLeap(value: string, input: IdeaInput) {
   const source = `${input.headline} ${input.summary}`;
   return unsupportedLeapPatterns.some((pattern) => pattern.test(value) && !pattern.test(source));
+}
+
+function isGenericThesis(value: string) {
+  return genericThesisPatterns.some((pattern) => pattern.test(value));
 }
 
 function isGroundedEvidence(evidence: string, input: IdeaInput) {
@@ -147,6 +160,7 @@ QUALITY — THIS IS CRITICAL:
 - A generic "AI is changing jobs" statement is NOT an angle.
 - A generic "we need to balance innovation and risk" statement is NOT an angle.
 - Do not turn two facts from the headline into a fake condition such as "X is good only if Y outweighs Z" unless the story explicitly establishes that condition.
+- Reject generic formulations such as "the benefits come at a cost", "a trade-off between economic growth and livelihoods", or "economic benefits versus worker costs". Those merely rename two facts; they do not reveal a useful relationship.
 - Prefer a precise distinction, tension, mechanism, contradiction, hidden trade-off, or implication that is genuinely supported by the evidence.
 - The reader should learn a way of looking at the story, not merely hear the story again.
 - The thesis must be specific enough that it could not have been written for a random story about the same broad topic.
@@ -171,7 +185,8 @@ Return ONLY this JSON object:
       !why ||
       !isGroundedEvidence(evidence, input) ||
       containsUnsupportedLeap(angle, input) ||
-      containsUnsupportedLeap(why, input)
+      containsUnsupportedLeap(why, input) ||
+      isGenericThesis(angle)
     ) return null;
 
     return { evidence, observation, angle, why };
@@ -226,6 +241,7 @@ Score every candidate from 0-10 on:
 EDITORIAL STANDARD:
 - A candidate that merely paraphrases the headline should score 0-3 for originality.
 - A generic "benefits vs costs" or "we need balance" framing should score 0-3 for originality.
+- A candidate that merely says economic growth has benefits while workers face risks should score 0-3 for originality unless it identifies a more precise relationship supported by the evidence.
 - A candidate that invents a condition such as "X is good only if Y outweighs Z" when the story does not establish that condition should score 0-3 for grounding.
 - A candidate that adds social unrest, inequality, unequal distribution, job losses, wage effects, public reaction, political consequences, market effects, corporate/investor winners, or other outcomes not present in the story should score 0-2 for evidence_grounding.
 - Do not reward a candidate merely because an added consequence sounds plausible.
@@ -268,8 +284,8 @@ async function writePost(input: IdeaInput, thesis: string, modeInstruction: stri
   if (!hasUsableEvidence(input)) {
     throw new Error("This story does not contain enough reliable article evidence to safely write a grounded post.");
   }
-  if (containsUnsupportedLeap(thesis, input)) {
-    throw new Error("The selected angle contains an unsupported claim. Please choose another angle.");
+  if (containsUnsupportedLeap(thesis, input) || isGenericThesis(thesis)) {
+    throw new Error("The selected angle is not sufficiently specific or grounded. Please choose another angle.");
   }
 
   const prompt = `You are a sharp human writer creating a LinkedIn post for an intelligent professional audience.
@@ -315,7 +331,7 @@ WRITING
 - Never ask the reader a question at the end.
 
 BAD EXAMPLE OF THE KIND OF LEAP TO AVOID:
-If the story says AI "could boost the economy but squeeze jobs and wages", do NOT add "social unrest", "the haves and have-nots", "job losses are already being felt", or "millions of workers" unless those facts actually appear above.
+If the story says AI "could boost the economy but squeeze jobs and wages", do NOT add "social unrest", "the haves and have-nots", "job losses are already being felt", "reduced wages", or "millions of workers" unless those facts actually appear above.
 
 NEVER WRITE THESE GENERIC PATTERNS:
 "raises a crucial question"
