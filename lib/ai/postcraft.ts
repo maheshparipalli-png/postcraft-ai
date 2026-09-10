@@ -80,7 +80,7 @@ function extractScores(value: Record<string, unknown> | null) {
 async function extractEvidence(input: IdeaInput, lens: string): Promise<Evidence | null> {
   const prompt = `You are the evidence analyst inside PostCraft AI.
 
-Your job is NOT to generate an opinion. Your job is to find one useful piece of evidence already present in the supplied story.
+Your job is NOT to generate an opinion. Find one useful piece of evidence already present in the supplied story.
 
 STORY
 Topic: ${input.topic}
@@ -96,7 +96,7 @@ Then explain why that detail could matter editorially, without adding outside fa
 
 Rules:
 - Do not infer facts that are not stated.
-- Do not use general knowledge about AI, economics, jobs, politics, or the topic.
+- Do not use general knowledge about the topic.
 - Do not turn the headline into a fact unless the summary supports it.
 - The significance may be an interpretation, but it must follow directly from the fact.
 
@@ -142,11 +142,11 @@ A strong thesis:
 - could be challenged by an intelligent reader;
 - does not require any fact outside the story.
 
-Reject generic claims about AI risks, benefits, jobs, innovation, balance, responsible AI, oversight, or critical thinking unless the supplied evidence makes that exact claim unavoidable.
 Do not introduce a new industry, profession, company, statistic, event, or consequence that is absent from the evidence.
+Do not make generic claims about AI risks, benefits, jobs, innovation, balance, responsible AI, oversight, or critical thinking unless the evidence directly supports that exact claim.
 
 Return ONLY:
-{"angle":"one specific debatable thesis","why":"why this thesis follows from the evidence","evidence":"the exact story detail supporting it"}`;
+{"angle":"one specific debatable thesis","why":"why this thesis follows from the evidence","evidence":"the story detail supporting it"}`;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const parsed = parseJsonObject(await ask(prompt));
@@ -162,42 +162,46 @@ Return ONLY:
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
+  // Run independent evidence searches concurrently. This keeps the evidence-first
+  // architecture while avoiding a long chain of sequential Ollama requests.
   const evidenceLenses = [
-    "Look for the most surprising concrete mechanism or scenario in the story.",
-    "Look for a trade-off: what becomes easier, faster, cheaper, harder, riskier, or less valuable according to the story?",
-    "Look for a mismatch between the headline's obvious interpretation and a specific detail in the story.",
+    "Find the most surprising concrete mechanism or scenario in the story.",
+    "Find a trade-off: what becomes easier, faster, cheaper, harder, riskier, or less valuable according to the story?",
+    "Find a mismatch between the headline's obvious interpretation and a specific detail in the story.",
+    "Find a detail that changes who benefits, who bears a cost, or where the value goes according to the story.",
   ];
 
-  const evidenceResults: Evidence[] = [];
-  for (const lens of evidenceLenses) {
-    const evidence = await extractEvidence(input, lens);
-    if (evidence) evidenceResults.push(evidence);
-  }
+  const evidenceResults = await Promise.all(
+    evidenceLenses.map((lens) => extractEvidence(input, lens))
+  );
+  const evidence = normalizeEvidence(
+    evidenceResults.filter((item): item is Evidence => Boolean(item))
+  );
 
-  const evidence = normalizeEvidence(evidenceResults);
   if (evidence.length < 2) {
     throw new Error("AI could not extract enough grounded evidence from this story; please try again");
   }
 
+  // Generate one thesis per evidence item concurrently. The model only has to
+  // reason from a small, grounded input instead of inventing several theses at once.
   const thesisLenses = [
     "Find the hidden cost or unintended consequence.",
     "Find the strongest contradiction or trade-off.",
     "Find the second-order consequence that changes how the story should be interpreted.",
+    "Find the most interesting change in who captures value or bears the consequence.",
   ];
 
-  const thesisResults: Thesis[] = [];
-  for (let index = 0; index < evidence.length; index += 1) {
-    const thesis = await generateThesisFromEvidence(
-      input,
-      evidence[index],
-      thesisLenses[index % thesisLenses.length]
-    );
-    if (thesis) thesisResults.push(thesis);
-  }
+  const thesisResults = await Promise.all(
+    evidence.map((item, index) =>
+      generateThesisFromEvidence(input, item, thesisLenses[index % thesisLenses.length])
+    )
+  );
+  const candidates = normalizeTheses(
+    thesisResults.filter((item): item is Thesis => Boolean(item))
+  );
 
-  const candidates = normalizeTheses(thesisResults);
-  if (candidates.length < 2) {
-    throw new Error("AI could not produce enough evidence-grounded thesis candidates; please try again");
+  if (candidates.length < 3) {
+    throw new Error("AI could not produce three evidence-grounded thesis candidates; please try again");
   }
 
   const scoringPrompt = `You are the final thesis judge for PostCraft AI.
@@ -211,7 +215,7 @@ ${candidates.map((item, index) => `${index}. THESIS: ${item.angle}\nWHY: ${item.
 
 Score every candidate from 0-10 on:
 1. evidence_grounding — can the thesis be supported directly by the supplied evidence?
-2. specificity — is it about this story rather than AI in general?
+2. specificity — is it about this story rather than the topic in general?
 3. tension — does it contain a meaningful contradiction, trade-off, hidden cost, or second-order effect?
 4. debatability — could a smart reader reasonably disagree?
 5. originality — does it avoid the obvious first interpretation?
