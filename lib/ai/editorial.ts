@@ -116,7 +116,13 @@ export async function generateEditorialAngles(story: Story) {
 
 function validateEvidence(value: unknown): Evidence[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item): Evidence | null => { if (!item || typeof item !== "object") return null; const v = item as { claim?: unknown; support?: unknown; type?: unknown }; if (typeof v.claim !== "string" || typeof v.support !== "string') return null; if (v.type !== "fact" && v.type !== "interpretation" && v.type !== "uncertainty") return null; return { claim: v.claim.trim(), support: v.support.trim(), type: v.type }; }).filter((x): x is Evidence => Boolean(x?.claim && x.support)).slice(0, 8);
+  return value.map((item): Evidence | null => {
+    if (!item || typeof item !== "object") return null;
+    const v = item as { claim?: unknown; support?: unknown; type?: unknown };
+    if (typeof v.claim !== "string" || typeof v.support !== "string") return null;
+    if (v.type !== "fact" && v.type !== "interpretation" && v.type !== "uncertainty") return null;
+    return { claim: v.claim.trim(), support: v.support.trim(), type: v.type };
+  }).filter((x): x is Evidence => Boolean(x?.claim && x.support)).slice(0, 8);
 }
 
 function postHasConcreteAnchor(post: string) { return /\b\d+(?:\.\d+)?%|\$\d|\d+(?:\.\d+)?\s*(?:trillion|billion|million|x)\b|scenario|model|share|wage|unemployment/i.test(post); }
