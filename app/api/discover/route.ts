@@ -46,6 +46,14 @@ export async function POST(request: Request) {
 
     const isPresetTopic = topic === "AI & Technology" || topic === "India" || topic === "PostCraft Recommended";
     const research = isPresetTopic ? await searchNews(topic) : await searchCustomTopic(topic);
+
+    if (!research.length) {
+      return NextResponse.json(
+        { error: `PostCraft could not find enough recent, relevant stories for “${topic}”. Try a broader or more specific topic.` },
+        { status: 404 },
+      );
+    }
+
     const ideas = research.slice(0, 5).map((item, index) => ({
       title: item.title,
       description: item.snippet,
