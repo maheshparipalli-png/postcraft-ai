@@ -73,7 +73,20 @@ function passesAngleHeuristics(angle: Angle) {
   const forbidden = ["raises questions", "highlights the need", "could exacerbate", "may exacerbate", "not evenly distributed", "winner-takes-all"];
   if (forbidden.some((phrase) => text.includes(phrase))) return false;
   if ((text.includes("modest") && /(job loss|job losses|unemployment|displacement)/.test(text)) || (text.includes("substantial") && text.includes("32.4%")) || (text.includes("extreme") && text.includes("8.3%"))) return false;
-  return angle.angle.length >= 45 && angle.why.length >= 35 && angle.evidence.length > 8;
+  if (angle.angle.length < 35 || angle.why.length < 20 || angle.evidence.length < 5) return false;
+  return true;
+}
+
+function selectSafeAngles(angles: Angle[]) {
+  const accepted = angles.filter(passesAngleHeuristics);
+  if (accepted.length) return accepted.slice(0, 3);
+  // Do not manufacture angles. If the model returned structurally valid, non-forbidden
+  // angles, keep them rather than failing the whole story on a cosmetic length check.
+  return angles.filter((angle) => {
+    const text = `${angle.angle} ${angle.why}`.toLowerCase();
+    return angle.angle.length >= 25 && angle.why.length >= 12 && angle.evidence.length >= 3 &&
+      !["raises questions", "highlights the need", "future of work", "responsible innovation"].some((phrase) => text.includes(phrase));
+  }).slice(0, 3);
 }
 
 export async function generateEditorialAngles(story: Story) {
@@ -81,9 +94,9 @@ export async function generateEditorialAngles(story: Story) {
   const articleText = await fetchArticle(story.url);
   const editorial = await buildEditorialPass(story, articleText);
   const evidence = editorial.evidence.length >= 3 ? editorial.evidence : fallbackEvidence(story, articleText);
-  const angles = editorial.angles.filter(passesAngleHeuristics);
+  const angles = selectSafeAngles(editorial.angles);
   console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${editorial.angles.length} accepted_angles=${angles.length} fallback=${editorial.evidence.length < 3}`);
-  if (evidence.length < 3) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
+  if (evidence.length < 2) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
   if (!angles.length) throw new Error("PostCraft found evidence, but none of the generated angles met its editorial standard. Try another story.");
   return { angles, evidence };
 }
@@ -94,8 +107,9 @@ function postHasGenericFiller(post: string) { return ["it's crucial to recognize
 
 export async function generateEditorialPost(story: Story, angle: string, angleWhy: string, modeInstruction: string, suppliedEvidence?: Evidence[]) {
   let evidence = validateEvidence(suppliedEvidence);
-  if (evidence.length < 3) evidence = (await buildEditorialPass(story, await fetchArticle(story.url))).evidence;
-  if (evidence.length < 3) throw new Error("PostCraft could not recover enough evidence to safely write this post. Try the source again.");
+  if (evidence.length < 2) evidence = (await buildEditorialPass(story, await fetchArticle(story.url))).evidence;
+  if (evidence.length < 2) evidence = fallbackEvidence(story, "");
+  if (evidence.length < 2) throw new Error("PostCraft could not recover enough evidence to safely write this post. Try the source again.");
   const ledger = evidence.map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`).join("\n");
   const prompt = `You are PostCraft AI's final LinkedIn editor. Write a post around ONE precise thesis using only this evidence ledger. Start with the insight. Use at least two concrete details when available. Make the relationship explicit. If using a scenario/model, name it as such. Do not add outside facts, examples or context. Do not turn could/may/might into certainty. Plain language, no corporate jargon, 110-160 words, 4-6 short paragraphs.\n\nSTORY\n${story.headline}\n${story.source}\n\nSELECTED THESIS\n${angle}\n\nWHY THIS ANGLE WORKS\n${angleWhy}\n\nEVIDENCE LEDGER\n${ledger}\n\n${modeInstruction}\n\nReturn ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const result = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.3, numPredict: 320 }));
