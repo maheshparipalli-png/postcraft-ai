@@ -84,7 +84,7 @@ function extractScores(value: Record<string, unknown> | null) {
     .filter((item): item is { index: number; total: number } => Boolean(item));
 }
 
-async function generateCandidates(input: IdeaInput) {
+async function generateCandidate(input: IdeaInput, seed: number) {
   const prompt = `You are the editorial brain inside PostCraft AI.
 
 The product promise is NOT "write a LinkedIn post about this news." It is "help me find something worth saying."
@@ -95,36 +95,43 @@ Headline: ${input.headline}
 Source: ${input.source}
 Summary: ${input.summary || "No reliable summary was supplied."}
 
-Generate SIX genuinely different candidate theses. A thesis is a specific belief or observation that a smart professional could reasonably argue about after reading this story.
+Generate ONE specific, non-obvious thesis about a detail in this story.
 
-A strong thesis:
-- makes a non-obvious claim about a DETAIL in this story;
-- contains tension, contradiction, trade-off, second-order consequence, or an unexpected implication;
-- is narrow enough to support one argument;
-- gives the reader a reason to reconsider the obvious interpretation;
-- could be challenged by an intelligent reader.
+This thesis must:
+- make a claim, not summarize the story;
+- contain tension, contradiction, trade-off, hidden cost, second-order consequence, or an unexpected implication;
+- be narrow enough for one argument;
+- be something an intelligent reader could disagree with;
+- be grounded only in the supplied story.
 
-Prefer mechanisms and consequences over advice. Look for details that create tension: something becoming easier while something else becomes harder; a claimed benefit creating a hidden cost; a change solving one problem while creating another; an assumption in the story that deserves scrutiny.
+Look for a different reasoning route than the obvious "AI is useful but has risks" argument. Think about what becomes easier while something else becomes harder, what assumption the story exposes, or what consequence is easy to miss.
 
-Reject obvious first ideas before answering.
+Do NOT use generic ideas about balance, guidelines, responsible AI, oversight, critical thinking, benefits versus risks, or "this raises questions." Do not add outside facts.
 
-DO NOT produce summaries, topics, policy slogans, "AI has benefits and risks," "we need balance/guidelines/oversight," generic critical-thinking warnings, or theses that could fit almost any AI story. Do not add outside facts.
+Variation seed: ${seed}. Choose a genuinely different angle from other possible interpretations.
 
-Return ONLY valid JSON with exactly 6 objects:
-[{"angle":"specific debatable thesis","why":"the story detail that makes this thesis interesting"}]`;
+Return ONLY one JSON object:
+{"angle":"specific debatable thesis","why":"the concrete story detail that makes this thesis interesting"}`;
 
-  return normalizeTheses(parseJsonArray(await ask(prompt)));
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const parsed = parseJsonObject(await ask(prompt));
+    const angle = typeof parsed?.angle === "string" ? parsed.angle.trim() : "";
+    const why = typeof parsed?.why === "string" ? parsed.why.trim() : "";
+    if (angle) return { angle, why };
+  }
+
+  return null;
 }
 
 export async function generatePostCraftAngles(input: IdeaInput) {
-  let candidates: Thesis[] = [];
-  for (let attempt = 0; attempt < 2 && candidates.length < 3; attempt += 1) {
-    candidates = normalizeTheses([
-      ...candidates,
-      ...(await generateCandidates(input)),
-    ]);
+  const generated: Thesis[] = [];
+
+  for (let seed = 1; seed <= 6 && generated.length < 6; seed += 1) {
+    const candidate = await generateCandidate(input, seed);
+    if (candidate) generated.push(candidate);
   }
 
+  const candidates = normalizeTheses(generated);
   if (candidates.length < 3) {
     throw new Error("AI could not produce three valid thesis candidates; please try again");
   }
@@ -140,7 +147,9 @@ Summary: ${input.summary || "No reliable summary was supplied."}
 CANDIDATES
 ${candidates.map((item, index) => `${index}. ${item.angle}\nWhy: ${item.why}`).join("\n\n")}
 
-Score every candidate from 0-10 on specificity, tension, originality, debatable, and grounding. TOTAL is the sum.
+Score every candidate from 0-10 on:
+specificity, tension, originality, debatable, grounding.
+TOTAL is the sum of those five scores.
 
 Be especially harsh. Penalize theses that merely say AI has risks/benefits, recommend balance/guidelines, or could be reused for another AI story with only the noun changed.
 
