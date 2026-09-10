@@ -66,10 +66,6 @@ function tokenize(value: string) {
   return Array.from(new Set(value.toLowerCase().match(/[a-z0-9]+/g)?.filter((word) => word.length >= 4 && !stopwords.has(word)) ?? []));
 }
 
-function sourceTerms(story: Story, articleText: string) {
-  return tokenize(`${story.headline} ${story.summary} ${articleText}`);
-}
-
 function angleIsGrounded(angle: Angle, story: Story, articleText: string) {
   const source = `${story.headline} ${story.summary} ${articleText}`.toLowerCase();
   const angleTerms = tokenize(`${angle.angle} ${angle.why} ${angle.evidence}`);
@@ -78,7 +74,9 @@ function angleIsGrounded(angle: Angle, story: Story, articleText: string) {
   const ratio = matched.length / angleTerms.length;
   const evidenceTerms = tokenize(angle.evidence);
   const evidenceMatched = evidenceTerms.filter((term) => source.includes(term)).length;
-  return evidenceMatched >= Math.min(2, evidenceTerms.length) && (ratio >= 0.25 || matched.length >= 3);
+  // An editorial angle is an interpretation, so require source anchors without demanding literal wording overlap across the whole thesis.
+  // This deliberately allows strong paraphrases while still rejecting unsupported angles.
+  return evidenceMatched >= 1 && (ratio >= 0.15 || matched.length >= 2);
 }
 
 async function buildEditorialPass(story: Story, articleText: string) {
@@ -92,7 +90,7 @@ Source: ${story.source}
 
 ${source}
 
-First extract 3 concrete facts actually present in this source. Then choose exactly 3 distinct editorial angles that arise from those facts. Every angle must make one precise, evidence-backed claim about THIS story. Each angle must use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. The angle's evidence field must quote or closely paraphrase a concrete detail from the supplied source so it can be checked. If the source does not support three distinct angles, return only the grounded angles you can support rather than inventing the rest. Do not repeat the topic as an angle. Do not use outside facts. Do not turn scenarios into forecasts. Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation".
+First extract 3 concrete facts actually present in this source. Then choose up to 3 distinct editorial angles that arise from those facts. Every angle must make one precise, evidence-backed claim about THIS story. Each angle must use a materially different relationship, contrast, comparison, mechanism, affected group, number, or scenario difference. The angle's evidence field must quote or closely paraphrase a concrete detail from the supplied source so it can be checked. If the source supports only one or two strong angles, return only those. Never invent an angle merely to reach three. Do not repeat the topic as an angle. Do not use outside facts. Do not turn scenarios into forecasts. Avoid generic ideas like "AI may increase inequality", "technology is changing work", "raises questions", "future of work", or "responsible innovation".
 
 Return ONLY compact JSON: {"evidence":[{"claim":"short fact","support":"short source anchor","type":"fact"}],"angles":[{"angle":"precise thesis","why":"why this relationship matters","evidence":"concrete source detail from this story"}]}`;
   const parsed = parseJson(await provider().generateText(prompt, { format: "json", temperature: 0.1, numPredict: 650 }));
@@ -121,7 +119,7 @@ export async function generateEditorialAngles(story: Story) {
   const angles = selectSafeAngles(editorial.angles, story, articleText);
   console.info(`[PostCraft] editorial_ms=${Date.now() - startedAt} article=${articleText.length > 0} evidence=${evidence.length} generated_angles=${editorial.angles.length} accepted_angles=${angles.length} fallback=${editorial.evidence.length < 3}`);
   if (evidence.length < 2) throw new Error("PostCraft could not extract enough reliable evidence from this story. Try opening the source or choose another story.");
-  if (angles.length < 3) throw new Error("PostCraft could not verify three distinct angles against the selected story. Try another story.");
+  if (angles.length < 1) throw new Error("PostCraft could not verify a defensible angle against the selected story. Try another story.");
   return { angles, evidence };
 }
 
