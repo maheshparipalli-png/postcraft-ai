@@ -12,7 +12,9 @@ export async function POST(request: Request) {
     if (!prompt) return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
-    const model = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2";
+    // Use the low-cost mini model by default while PostCraft is in MVP/testing.
+    // A larger model or higher quality can still be selected through environment variables.
+    const model = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1-mini";
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
         model,
         prompt,
         size: "1536x1024",
-        quality: process.env.OPENAI_IMAGE_QUALITY ?? "medium",
+        quality: process.env.OPENAI_IMAGE_QUALITY ?? "low",
         output_format: "png",
       }),
       signal: AbortSignal.timeout(120_000),
