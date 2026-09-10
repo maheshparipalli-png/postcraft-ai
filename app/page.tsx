@@ -89,9 +89,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Angle generation failed");
       let parsed: unknown;
-      try {
-        parsed = JSON.parse(data.text);
-      } catch {
+      try { parsed = JSON.parse(data.text); } catch {
         const match = String(data.text).match(/\[[\s\S]*\]/);
         if (!match) throw new Error("PostCraft could not finish reading this story. Try again, or choose another story.");
         parsed = JSON.parse(match[0]);
@@ -136,12 +134,7 @@ export default function Home() {
       const generatedPost = cleanGeneratedPost(typeof data?.text === "string" ? data.text : "");
       if (!generatedPost) throw new Error("PostCraft could not create the post. Please try again.");
       let value = generatedPost;
-      try {
-        const parsed = JSON.parse(generatedPost);
-        if (typeof parsed?.post === "string") value = parsed.post.trim();
-      } catch {
-        // Plain-text response is expected.
-      }
+      try { const parsed = JSON.parse(generatedPost); if (typeof parsed?.post === "string") value = parsed.post.trim(); } catch {}
       setPost(value);
     } catch (err) {
       setError(err instanceof Error ? err.message : "PostCraft could not create the post. Please try again.");
@@ -152,13 +145,8 @@ export default function Home() {
 
   async function copyPost() {
     if (!post) return;
-    try {
-      await navigator.clipboard.writeText(post);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setError("Could not copy the post to your clipboard.");
-    }
+    try { await navigator.clipboard.writeText(post); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+    catch { setError("Could not copy the post to your clipboard."); }
   }
 
   const step = post ? 4 : angle ? 3 : selectedIdea ? 2 : ideas.length ? 1 : 0;
@@ -208,9 +196,15 @@ export default function Home() {
             {ideas.map((idea) => {
               const selected = selectedIdea?.url === idea.url;
               return <article key={idea.url} className={`rounded-2xl border bg-white p-5 transition ${selected ? "border-neutral-900 ring-1 ring-neutral-900" : "border-neutral-200 hover:border-neutral-300"}`}>
-                <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
-                  <div className="max-w-3xl"><div className="text-xs text-neutral-500">{idea.source}{idea.publishedAt ? ` · ${formatDate(idea.publishedAt)}` : ""}</div><h3 className="mt-2 text-lg font-semibold leading-7">{idea.title}</h3>{idea.description && <p className="mt-2 text-sm leading-6 text-neutral-600">{idea.description}</p>}<a href={idea.url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-neutral-500 underline underline-offset-4">Read source</a></div>
-                  <button onClick={() => selectIdea(idea)} className={`self-start rounded-xl px-4 py-2.5 text-sm font-medium ${selected ? "bg-neutral-900 text-white" : "border border-neutral-300 hover:border-neutral-900"}`}>{selected ? "Chosen" : "Choose"}</button>
+                <div className="flex flex-col gap-5">
+                  <div className="max-w-3xl">
+                    <div className="text-xs text-neutral-500">{idea.source}{idea.publishedAt ? ` · ${formatDate(idea.publishedAt)}` : ""}</div>
+                    <h3 className="mt-2 text-lg font-semibold leading-7">{idea.title}</h3>
+                    {idea.description && <p className="mt-2 text-sm leading-6 text-neutral-600">{idea.description}</p>}
+                    {idea.whyItMatters && <div className="mt-4 border-t border-neutral-100 pt-4"><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">Why this is interesting</div><p className="mt-1.5 text-sm leading-6 text-neutral-800">{idea.whyItMatters}</p></div>}
+                    <a href={idea.url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-neutral-500 underline underline-offset-4">Read source</a>
+                  </div>
+                  <div><button onClick={() => selectIdea(idea)} className={`rounded-xl px-4 py-2.5 text-sm font-medium ${selected ? "bg-neutral-900 text-white" : "border border-neutral-300 hover:border-neutral-900"}`}>{selected ? "Chosen" : "Explore this story →"}</button></div>
                 </div>
               </article>;
             })}
@@ -221,7 +215,7 @@ export default function Home() {
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400">Step 2</div>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">What is actually interesting here?</h2>
           <p className="mt-2 text-sm leading-6 text-neutral-500">PostCraft will read the source and suggest a few evidence-led angles. Pick one.</p>
-          {angleLoading ? <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-5 text-sm text-neutral-500">Reading the source and finding grounded angles...</div> : <div className="mt-5 grid gap-3">{suggestedAngles.map((item, index) => <button key={item.text} onClick={() => { setAngle(item.text); setPost(""); }} className={`rounded-2xl border p-5 text-left transition ${angle === item.text ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white hover:border-neutral-400"}`}><div className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400">Angle {index + 1}</div><div className="mt-2 text-sm font-semibold leading-6">{item.text}</div>{item.why && <div className={`mt-2 text-xs leading-5 ${angle === item.text ? "text-neutral-300" : "text-neutral-500"}`}>{item.why}</div>}{item.evidence && <div className={`mt-3 border-t pt-3 text-xs leading-5 ${angle === item.text ? "border-neutral-700 text-neutral-300" : "border-neutral-200 text-neutral-500"}`}><span className="font-semibold">Evidence:</span> {item.evidence}</div>}</button>)}</div>}
+          {angleLoading ? <div className="mt-5 rounded-2xl border border-neutral-200 bg-white p-5 text-sm text-neutral-500">Reading the source and finding grounded angles...</div> : <div className="mt-5 grid gap-3">{suggestedAngles.map((item, index) => <button key={item.text} onClick={() => { setAngle(item.text); setPost(""); }} className={`rounded-2xl border p-5 text-left transition ${angle === item.text ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white hover:border-neutral-400"}`}><div className={`text-xs font-semibold uppercase tracking-[0.14em] ${angle === item.text ? "text-neutral-300" : "text-neutral-400"}`}>Angle {index + 1}</div><div className="mt-2 text-sm font-semibold leading-6">{item.text}</div>{item.why && <div className={`mt-2 text-xs leading-5 ${angle === item.text ? "text-neutral-300" : "text-neutral-500"}`}>{item.why}</div>}{item.evidence && <div className={`mt-3 border-t pt-3 text-xs leading-5 ${angle === item.text ? "border-neutral-700 text-neutral-300" : "border-neutral-200 text-neutral-500"}`}><span className="font-semibold">Evidence:</span> {item.evidence}</div>}</button>)}</div>}
         </section>}
 
         {angle && <section className="mt-10 border-t border-neutral-200 pt-10">
