@@ -68,10 +68,7 @@ function decodeHtml(value: string) {
 }
 
 function getTag(block: string, tag: string) {
-  const match = block.match(
-    new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i")
-  );
-
+  const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
   return match ? decodeHtml(match[1]) : "";
 }
 
@@ -87,30 +84,21 @@ function cleanDescription(value: string, title: string, source: string) {
   const removePrefix = (text: string, target: string) => {
     if (!target) return text;
     const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return text.replace(
-      new RegExp(`^\\s*${escaped}\\s*(?:[-–—|·:]\\s*)?`, "i"),
-      ""
-    );
+    return text.replace(new RegExp(`^\\s*${escaped}\\s*(?:[-–—|·:]\\s*)?`, "i"), "");
   };
 
   description = removePrefix(description, title);
   description = removePrefix(description, source);
-  description = description
-    .replace(/^[-–—|·:]+\s*/, "")
-    .replace(/[-–—|·]+\s*$/, "")
-    .trim();
+  description = description.replace(/^[-–—|·:]+\s*/, "").replace(/[-–—|·]+\s*$/, "").trim();
 
   const normalizedDescription = normalize(description);
   const normalizedTitle = normalize(title);
   const normalizedSource = normalize(source);
 
-  // Google News frequently returns the headline, headline + source, or
-  // headline + source separated by a middle dot instead of a real summary.
   if (
     !normalizedDescription ||
     normalizedDescription === normalizedTitle ||
-    normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim() ||
-    normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim().replace(/\s+/g, " ")
+    normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim()
   ) {
     return "";
   }
@@ -118,21 +106,62 @@ function cleanDescription(value: string, title: string, source: string) {
   return description;
 }
 
+function extractMetaDescription(html: string) {
+  const candidates: string[] = [];
+  const patterns = [
+    /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["'][^>]*>/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) candidates.push(decodeHtml(match[1]));
+  }
+
+  const paragraphs = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+    .map((match) => decodeHtml(match[1]))
+    .filter((text) => text.length >= 60 && text.length <= 500)
+    .slice(0, 2);
+
+  candidates.push(...paragraphs);
+
+  return candidates.find((text) => text.length >= 60) ?? "";
+}
+
+async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
+  if (item.snippet.length >= 80) return item;
+
+  try {
+    const response = await fetch(item.url, {
+      cache: "no-store",
+      redirect: "follow",
+      headers: { "User-Agent": "PostCraft AI/1.0" },
+      signal: AbortSignal.timeout(4000),
+    });
+
+    if (!response.ok) return item;
+    const html = await response.text();
+    const description = extractMetaDescription(html);
+    if (!description) return item;
+
+    return { ...item, snippet: description.slice(0, 700) };
+  } catch {
+    return item;
+  }
+}
+
 async function fetchFeed(query: string): Promise<ResearchItem[]> {
-  const url =
-    `https://news.google.com/rss/search?q=${encodeURIComponent(query)}` +
-    `&hl=en-IN&gl=IN&ceid=IN:en`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
 
   try {
     const response = await fetch(url, {
       cache: "no-store",
-      headers: {
-        "User-Agent": "PostCraft AI/1.0",
-      },
+      headers: { "User-Agent": "PostCraft AI/1.0" },
     });
 
     if (!response.ok) return [];
-
     const xml = await response.text();
     const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
 
@@ -140,7 +169,6 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
       .map((block) => {
         const title = getTag(block, "title");
         const source = getTag(block, "source");
-
         return {
           title,
           source,
@@ -157,23 +185,10 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
 
 function isLowValueStory(item: ResearchItem) {
   const text = `${item.title} ${item.source}`.toLowerCase();
-
   return [
-    "showcase",
-    "to showcase",
-    "portfolio",
-    "conference",
-    "webinar",
-    "summit",
-    "investor presentation",
-    "press release",
-    "newsroom",
-    "collaborates with",
-    "announces",
-    "announced",
-    "launches",
-    "product launch",
-    "citi global",
+    "showcase", "to showcase", "portfolio", "conference", "webinar", "summit",
+    "investor presentation", "press release", "newsroom", "collaborates with",
+    "announces", "announced", "launches", "product launch", "citi global",
   ].some((term) => text.includes(term));
 }
 
@@ -185,114 +200,47 @@ function scoreStory(item: ResearchItem) {
     : 168;
 
   let score = Math.max(0, 30 - ageHours);
-
   const strongSignals = [
-    "why",
-    "how",
-    "could",
-    "will",
-    "change",
-    "risk",
-    "impact",
-    "shift",
-    "surge",
-    "crisis",
-    "warning",
-    "rethink",
-    "future",
-    "breakthrough",
-    "decision",
-    "policy",
-    "investment",
-    "jobs",
-    "concern",
-    "threat",
-    "pressure",
-    "decline",
-    "rise",
-    "fall",
-    "reversal",
-    "controversy",
+    "why", "how", "could", "will", "change", "risk", "impact", "shift", "surge",
+    "crisis", "warning", "rethink", "future", "breakthrough", "decision", "policy",
+    "investment", "jobs", "concern", "threat", "pressure", "decline", "rise", "fall",
+    "reversal", "controversy",
   ];
-
   const weakSignals = [
-    "showcase",
-    "showcases",
-    "announces",
-    "announced",
-    "launches",
-    "launch",
-    "portfolio",
-    "conference",
-    "webinar",
-    "event",
-    "summit",
-    "investor presentation",
-    "presentation",
-    "press release",
-    "products",
-    "product portfolio",
-    "collaborates with",
-    "newsroom",
+    "showcase", "showcases", "announces", "announced", "launches", "launch", "portfolio",
+    "conference", "webinar", "event", "summit", "investor presentation", "presentation",
+    "press release", "products", "product portfolio", "collaborates with", "newsroom",
   ];
 
-  for (const word of strongSignals) {
-    if (title.includes(word)) score += 5;
-  }
-
-  for (const word of weakSignals) {
-    if (title.includes(word)) score -= 8;
-  }
-
+  for (const word of strongSignals) if (title.includes(word)) score += 5;
+  for (const word of weakSignals) if (title.includes(word)) score -= 8;
   if (title.includes("?")) score += 8;
-
-  if (/^.*\bto (showcase|announce|launch|unveil)\b/i.test(title)) {
-    score -= 12;
-  }
-
-  if (
-    /reuters|bbc|bloomberg|associated press|the hindu|indian express|mint|business standard|financial times|economist/i.test(
-      item.source
-    )
-  ) {
-    score += 5;
-  }
-
+  if (/^.*\bto (showcase|announce|launch|unveil)\b/i.test(title)) score -= 12;
+  if (/reuters|bbc|bloomberg|associated press|the hindu|indian express|mint|business standard|financial times|economist/i.test(item.source)) score += 5;
   if (item.snippet.length >= 80) score += 5;
   if (title.length >= 45 && title.length <= 140) score += 3;
-
   return score;
 }
 
 export async function searchNews(topic: string): Promise<ResearchItem[]> {
-  const queries =
-    searchQueries[topic] ?? [
-      `${topic} latest when:7d`,
-      `${topic} business when:7d`,
-      `${topic} developments when:7d`,
-    ];
+  const queries = searchQueries[topic] ?? [
+    `${topic} latest when:7d`,
+    `${topic} business when:7d`,
+    `${topic} developments when:7d`,
+  ];
 
   const results = await Promise.all(queries.map(fetchFeed));
   const combined = results.flat();
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
   const seen = new Set<string>();
 
   const candidates = combined
     .filter((item) => {
       const time = Date.parse(item.publishedAt);
-      return (
-        Number.isFinite(time) &&
-        time >= cutoff &&
-        !isLowValueStory(item)
-      );
+      return Number.isFinite(time) && time >= cutoff && !isLowValueStory(item);
     })
     .filter((item) => {
-      const key = item.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-
+      const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -300,11 +248,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     .map((item) => ({ ...item, score: scoreStory(item) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  // Keep the final shortlist diverse. Different outlets frequently publish
-  // near-identical headlines about the same event, so exact-title deduping is
-  // not enough for a useful "five ideas" experience.
   const selected: ResearchItem[] = [];
-
   for (const item of candidates) {
     const itemTokens = titleTokens(item.title);
     const tooSimilar = selected.some((chosen) => {
@@ -314,15 +258,10 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
       return (shared >= 3 && tokenSimilarity(itemTokens, chosenTokens) >= 0.62) || phraseOverlap >= 1;
     });
 
-    if (!tooSimilar) {
-      selected.push(item);
-    }
-
+    if (!tooSimilar) selected.push(item);
     if (selected.length >= 12) break;
   }
 
-  // If the topic is narrow, relax the diversity rule only enough to return a
-  // useful shortlist rather than returning too few ideas.
   if (selected.length < 5) {
     for (const item of candidates) {
       if (selected.some((chosen) => chosen.title === item.title)) continue;
@@ -331,56 +270,38 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     }
   }
 
-  return selected;
+  // Google News RSS often contains only a headline/source rather than a real
+  // article summary. Enrich only the shortlist so discovery stays bounded,
+  // while the downstream thesis engine gets enough evidence to reason from.
+  const enriched = await Promise.all(selected.slice(0, 8).map(enrichItem));
+  return [...enriched, ...selected.slice(8)];
 }
 
 function titleTokens(title: string) {
   const stopWords = new Set([
-    "the", "a", "an", "and", "or", "to", "of", "in", "on", "for",
-    "with", "is", "are", "will", "how", "why", "what", "from", "as",
-    "by", "at", "after", "into", "its", "this", "that", "their",
+    "the", "a", "an", "and", "or", "to", "of", "in", "on", "for", "with", "is", "are",
+    "will", "how", "why", "what", "from", "as", "by", "at", "after", "into", "its", "this", "that", "their",
   ]);
 
   return new Set(
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((word) => word.length >= 3 && !stopWords.has(word))
+    title.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length >= 3 && !stopWords.has(word))
   );
 }
 
 function sharedPhraseCount(a: string, b: string) {
-  const normalize = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((word) => word.length >= 4);
-
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((word) => word.length >= 4);
   const aWords = normalize(a);
   const bWords = normalize(b);
   const bPhrases = new Set<string>();
-
-  for (let i = 0; i < bWords.length - 1; i += 1) {
-    bPhrases.add(`${bWords[i]} ${bWords[i + 1]}`);
-  }
-
+  for (let i = 0; i < bWords.length - 1; i += 1) bPhrases.add(`${bWords[i]} ${bWords[i + 1]}`);
   let count = 0;
-  for (let i = 0; i < aWords.length - 1; i += 1) {
-    if (bPhrases.has(`${aWords[i]} ${aWords[i + 1]}`)) count += 1;
-  }
-
+  for (let i = 0; i < aWords.length - 1; i += 1) if (bPhrases.has(`${aWords[i]} ${aWords[i + 1]}`)) count += 1;
   return count;
 }
 
 function sharedTokenCount(a: Set<string>, b: Set<string>) {
   let intersection = 0;
-
-  for (const token of a) {
-    if (b.has(token)) intersection += 1;
-  }
-
+  for (const token of a) if (b.has(token)) intersection += 1;
   return intersection;
 }
 
