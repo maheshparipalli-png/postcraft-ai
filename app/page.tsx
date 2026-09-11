@@ -48,6 +48,7 @@ export default function Home() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
+  const [linkedinDisconnecting, setLinkedinDisconnecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
@@ -231,6 +232,29 @@ export default function Home() {
     window.location.href = "/api/linkedin/connect";
   }
 
+  async function disconnectLinkedIn() {
+    if (!window.confirm("Disconnect LinkedIn from PostCraft?")) return;
+
+    setLinkedinDisconnecting(true);
+    setLinkedinMessage("");
+
+    try {
+      const response = await fetch("/api/linkedin/disconnect", { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok || !data?.disconnected) {
+        throw new Error(data?.error || "Could not disconnect LinkedIn.");
+      }
+
+      setLinkedinConnected(false);
+      setLinkedinMessage("LinkedIn disconnected from PostCraft.");
+    } catch (err) {
+      setLinkedinMessage(err instanceof Error ? err.message : "Could not disconnect LinkedIn.");
+    } finally {
+      setLinkedinDisconnecting(false);
+    }
+  }
+
   async function publishToLinkedIn() {
     if (!post.trim()) return;
     setLinkedinLoading(true);
@@ -276,7 +300,23 @@ export default function Home() {
                 ← Workspace
               </Link>
               {linkedinConnected ? (
-                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">LinkedIn connected</span>
+                <details className="relative">
+                  <summary className="cursor-pointer list-none rounded-full bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
+                    LinkedIn connected ▾
+                  </summary>
+                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-lg">
+                    <div className="font-medium text-neutral-900">LinkedIn account connected</div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">PostCraft can publish posts to your LinkedIn profile.</p>
+                    <button
+                      type="button"
+                      onClick={disconnectLinkedIn}
+                      disabled={linkedinDisconnecting}
+                      className="mt-3 w-full rounded-lg border border-red-200 px-3 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {linkedinDisconnecting ? "Disconnecting..." : "Disconnect LinkedIn"}
+                    </button>
+                  </div>
+                </details>
               ) : (
                 <button type="button" onClick={connectLinkedIn} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
                   Connect LinkedIn →
@@ -452,7 +492,23 @@ export default function Home() {
                 Workspace →
               </Link>
               {linkedinConnected ? (
-                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">LinkedIn connected</span>
+                <details className="relative">
+                  <summary className="cursor-pointer list-none rounded-full bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700">
+                    LinkedIn connected ▾
+                  </summary>
+                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-lg">
+                    <div className="font-medium text-neutral-900">LinkedIn account connected</div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">PostCraft can publish posts to your LinkedIn profile.</p>
+                    <button
+                      type="button"
+                      onClick={disconnectLinkedIn}
+                      disabled={linkedinDisconnecting}
+                      className="mt-3 w-full rounded-lg border border-red-200 px-3 py-2 text-left text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {linkedinDisconnecting ? "Disconnecting..." : "Disconnect LinkedIn"}
+                    </button>
+                  </div>
+                </details>
               ) : (
                 <button type="button" onClick={connectLinkedIn} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
                   Connect LinkedIn →
