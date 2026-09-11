@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SignOutButton from "./SignOutButton";
 
 type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; publishedAt: string };
@@ -35,12 +35,19 @@ export default function Home() {
   const [angle, setAngle] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [openingSavedPost, setOpeningSavedPost] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [suggestedAngles, setSuggestedAngles] = useState<AngleSuggestion[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [perspective, setPerspective] = useState<Perspective>("mixed");
   const [perspectiveNote, setPerspectiveNote] = useState("");
   const [post, setPost] = useState("");
   const [copied, setCopied] = useState(false);
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [linkedinMessage, setLinkedinMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
@@ -48,6 +55,58 @@ export default function Home() {
   const [customTopic, setCustomTopic] = useState("");
   const angleRequestRef = useRef(0);
   const angleAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("linkedinConnected") === "1") setLinkedinMessage("LinkedIn connected. You can publish your post now.");
+    if (params.get("linkedinError")) setLinkedinMessage(params.get("linkedinError") || "LinkedIn connection failed.");
+    fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
+
+    const postId = params.get("postId");
+    if (!postId) return;
+
+    let cancelled = false;
+    setOpeningSavedPost(true);
+
+    async function loadSavedPost() {
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) throw new Error("Please sign in to open this post.");
+
+        const { data, error: postError } = await supabase
+          .from("posts")
+          .select("id,title,content,topic,source_url,angle,tone")
+          .eq("id", postId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (postError) throw postError;
+        if (cancelled || !data) return;
+
+        setEditingPostId(data.id);
+        setPostTitle(data.title || "");
+        setSourceUrl(data.source_url || "");
+        setPost(data.content || "");
+        setTopic(data.topic || "AI & Technology");
+        setAngle(data.angle || "");
+        if (data.tone === "agree" || data.tone === "disagree" || data.tone === "mixed" || data.tone === "curious") {
+          setPerspective(data.tone);
+        }
+        setSaveMessage("Saved post loaded. You can edit it below.");
+        window.history.replaceState({}, "", "/");
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not load the saved post.");
+          setOpeningSavedPost(false);
+        }
+      }
+    }
+
+    loadSavedPost();
+    return () => { cancelled = true; };
+  }, []);
 
   function resetFromStory() {
     setAngle("");
@@ -168,6 +227,30 @@ export default function Home() {
     }
   }
 
+  function connectLinkedIn() {
+    window.location.href = "/api/linkedin/connect";
+  }
+
+  async function publishToLinkedIn() {
+    if (!post.trim()) return;
+    setLinkedinLoading(true);
+    setLinkedinMessage("");
+    try {
+      const response = await fetch("/api/linkedin/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentary: post.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not publish to LinkedIn.");
+      setLinkedinMessage("Published to your LinkedIn profile.");
+    } catch (err) {
+      setLinkedinMessage(err instanceof Error ? err.message : "Could not publish to LinkedIn.");
+    } finally {
+      setLinkedinLoading(false);
+    }
+  }
+
   async function copyPost() {
     if (!post) return;
     try {
@@ -177,6 +260,83 @@ export default function Home() {
     } catch {
       setError("Could not copy the post to your clipboard.");
     }
+  }
+
+  if (openingSavedPost) {
+    return (
+      <main className="min-h-screen bg-[#f7f6f2] text-[#171717] selection:bg-neutral-900 selection:text-white">
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          <header className="flex items-end justify-between border-b border-neutral-300/80 py-6 sm:py-7">
+            <div>
+              <div className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCRAFT</div>
+              <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">AI editorial studio</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/workspace" className="text-xs text-neutral-500 transition hover:text-neutral-900">
+                ← Workspace
+              </Link>
+              {linkedinConnected ? (
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">LinkedIn connected</span>
+              ) : (
+                <button type="button" onClick={connectLinkedIn} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+                  Connect LinkedIn →
+                </button>
+              )}
+              <SignOutButton />
+            </div>
+          </header>
+
+          <section className="py-14 sm:py-20">
+            <div className="max-w-4xl">
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Saved post</div>
+              <h1 className="mt-5 font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Edit your post.</h1>
+              <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-600">Make the changes you want. PostCraft will update this saved post rather than creating a new one.</p>
+            </div>
+          </section>
+
+          <section className="border-t border-neutral-900 py-10 sm:py-14">
+            <div className="max-w-4xl">
+              {postTitle && <div className="mb-8 border-b border-neutral-300/80 pb-5">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Story</div>
+                <div className="mt-2 font-serif text-xl leading-7">{postTitle}</div>
+              </div>}
+              <label htmlFor="saved-post-editor" className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Post content</label>
+              <textarea
+                id="saved-post-editor"
+                value={post}
+                onChange={(event) => { setPost(event.target.value); setSaveMessage(""); }}
+                rows={18}
+                spellCheck
+                autoFocus
+                className="w-full resize-y border-y border-neutral-300/80 bg-transparent px-0 py-7 font-serif text-xl leading-8 tracking-[-0.01em] outline-none focus:border-neutral-900 sm:text-2xl sm:leading-9"
+                aria-label="Saved post editor"
+              />
+
+              <div className="mt-7 flex flex-wrap items-center justify-between gap-5">
+                <div className="flex items-center gap-5">
+                  <Link href="/workspace" className="text-xs text-neutral-500 underline underline-offset-4 hover:text-neutral-900">Cancel</Link>
+                  <span className="text-xs text-neutral-400">Editing this saved post</span>
+                </div>
+                <div className="flex items-center gap-5">
+                  <button onClick={copyPost} disabled={!post.trim()} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400">{copied ? "Copied" : "Copy post →"}</button>
+                  <button onClick={savePost} disabled={saveLoading || !post.trim()} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400">{saveLoading ? "Updating..." : "Update post →"}</button>
+                  {linkedinConnected ? (
+                    <button onClick={publishToLinkedIn} disabled={linkedinLoading || !post.trim()} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400">{linkedinLoading ? "Publishing..." : "Publish to LinkedIn →"}</button>
+                  ) : (
+                    <button onClick={connectLinkedIn} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2">Connect LinkedIn →</button>
+                  )}
+                </div>
+              </div>
+              {saveMessage && <div className="mt-5 text-sm text-neutral-600">{saveMessage}</div>}
+              {linkedinMessage && <div className={`mt-3 text-sm ${linkedinMessage.toLowerCase().includes("failed") || linkedinMessage.toLowerCase().includes("could") || linkedinMessage.toLowerCase().includes("connect your") ? "text-red-700" : "text-neutral-600"}`}>{linkedinMessage}</div>}
+              {error && <div className="mt-5 text-sm text-red-700">{error}</div>}
+            </div>
+          </section>
+
+          <footer className="flex items-center justify-between border-t border-neutral-300/80 py-8 text-[10px] uppercase tracking-[0.16em] text-neutral-400"><span>PostCraft AI</span><span>Saved post editor</span></footer>
+        </div>
+      </main>
+    );
   }
 
   const stage = post ? 4 : angle ? 3 : selectedIdea ? 2 : ideas.length ? 1 : 0;
@@ -207,22 +367,35 @@ export default function Home() {
         throw new Error("Please sign in before saving a post.");
       }
 
-      const { error } = await supabase.from("posts").insert({
-        user_id: user.id,
-        title: selectedIdea?.title ?? null,
+      const postValues = {
+        title: selectedIdea?.title ?? (postTitle.trim() || null),
         content: post.trim(),
         topic: topic || null,
-        source_url: selectedIdea?.url ?? null,
+        source_url: selectedIdea?.url ?? (sourceUrl.trim() || null),
         angle: angle || null,
         tone: perspective || null,
         status: "draft",
-      });
+        updated_at: new Date().toISOString(),
+      };
 
-      if (error) {
-        throw error;
+      if (editingPostId) {
+        const { error } = await supabase
+          .from("posts")
+          .update(postValues)
+          .eq("id", editingPostId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        setSaveMessage("Post updated.");
+      } else {
+        const { data: inserted, error } = await supabase
+          .from("posts")
+          .insert({ user_id: user.id, ...postValues })
+          .select("id")
+          .single();
+        if (error) throw error;
+        if (inserted?.id) setEditingPostId(inserted.id);
+        setSaveMessage("Post saved.");
       }
-
-      setSaveMessage("Post saved.");
     } catch (error) {
       const saveError = error as {
         message?: string;
@@ -274,10 +447,17 @@ export default function Home() {
               <div className="text-xs text-neutral-500">Find something worth saying.</div>
               <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-neutral-400">{stageLabels[Math.min(stage, 3)]}</div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link href="/workspace" className="hidden text-xs text-neutral-500 transition hover:text-neutral-900 sm:block">
                 Workspace →
               </Link>
+              {linkedinConnected ? (
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">LinkedIn connected</span>
+              ) : (
+                <button type="button" onClick={connectLinkedIn} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+                  Connect LinkedIn →
+                </button>
+              )}
               <SignOutButton />
             </div>
           </div>
@@ -410,14 +590,27 @@ export default function Home() {
               <p className="mt-3 text-xs leading-5 text-neutral-500">One clear idea, in your voice.</p>
             </div>
             <div className="max-w-3xl">
-              <div className="whitespace-pre-wrap border-y border-neutral-300/80 py-8 font-serif text-xl leading-8 tracking-[-0.01em] sm:text-2xl sm:leading-9">{post}</div>
+              <div className="border-y border-neutral-300/80 py-6">
+                <label htmlFor="post-editor" className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                  {editingPostId ? "Edit your saved post" : "Your editable post"}
+                </label>
+                <textarea
+                  id="post-editor"
+                  value={post}
+                  onChange={(event) => setPost(event.target.value)}
+                  rows={14}
+                  spellCheck
+                  className="w-full resize-y bg-transparent px-0 py-2 font-serif text-xl leading-8 tracking-[-0.01em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-2xl sm:leading-9"
+                  aria-label="Post editor"
+                />
+              </div>
               <div className="mt-6 flex items-center justify-between"><span className="text-xs text-neutral-400">Ready to take with you.</span><div className="flex items-center gap-4">
                   <button
                     onClick={savePost}
                     disabled={saveLoading}
                     className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {saveLoading ? "Saving..." : "Save post →"}
+                    {saveLoading ? "Saving..." : editingPostId ? "Update post →" : "Save post →"}
                   </button>
 
                   <button
@@ -426,10 +619,18 @@ export default function Home() {
                   >
                     {copied ? "Copied" : "Copy post →"}
                   </button>
+                  {linkedinConnected ? (
+                    <button onClick={publishToLinkedIn} disabled={linkedinLoading} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:opacity-50">{linkedinLoading ? "Publishing..." : "Publish to LinkedIn →"}</button>
+                  ) : (
+                    <button onClick={connectLinkedIn} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2">Connect LinkedIn →</button>
+                  )}
                 </div></div>
               {saveMessage && (
-                <div className="mt-4 text-sm text-red-700">{saveMessage}</div>
+                <div className={`mt-4 text-sm ${saveMessage.toLowerCase().includes("error") || saveMessage.toLowerCase().includes("could") || saveMessage.toLowerCase().includes("please") ? "text-red-700" : "text-neutral-600"}`}>
+                  {saveMessage}
+                </div>
               )}
+              {linkedinMessage && <div className={`mt-3 text-sm ${linkedinMessage.toLowerCase().includes("failed") || linkedinMessage.toLowerCase().includes("could") || linkedinMessage.toLowerCase().includes("connect your") ? "text-red-700" : "text-neutral-600"}`}>{linkedinMessage}</div>}
             </div>
           </div>
         </section>}

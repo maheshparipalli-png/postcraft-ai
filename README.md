@@ -70,3 +70,8 @@ The AI integration is provider-based so another provider can be added later with
 ## Token-efficiency principle
 
 Discovery is handled in code. AI is called only after the user selects a story, and the post is generated only after an angle is selected. The app does not send full articles to the model.
+
+
+## Workspace
+
+Authenticated users can view saved posts at `/workspace`, filter by status, search saved content, and delete saved posts.
