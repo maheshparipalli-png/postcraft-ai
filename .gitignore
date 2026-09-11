@@ -13,3 +13,5 @@ lint-result.txt
 *.backup
 *.before-*
 postcraft-ai-backups/
+.vercel
+.env*
