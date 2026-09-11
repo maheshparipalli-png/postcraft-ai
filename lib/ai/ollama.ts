@@ -1,4 +1,4 @@
-import type { AIGenerateOptions, AIProvider } from "./types";
+﻿import type { AIGenerateOptions, AIProvider } from "./types";
 
 const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
 const model = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
@@ -21,7 +21,7 @@ export const ollamaProvider: AIProvider = {
           },
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(180_000),
+        signal: AbortSignal.timeout(90_000),
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "TimeoutError") {
@@ -43,3 +43,4 @@ export const ollamaProvider: AIProvider = {
     return text.trim();
   },
 };
+

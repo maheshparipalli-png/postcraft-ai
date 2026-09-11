@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
+import { createClient } from "@/lib/supabase/client";
 
 import { useRef, useState } from "react";
+import SignOutButton from "./SignOutButton";
 
 type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; publishedAt: string };
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
@@ -30,6 +32,8 @@ export default function Home() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [angle, setAngle] = useState("");
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
   const [suggestedAngles, setSuggestedAngles] = useState<AngleSuggestion[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [perspective, setPerspective] = useState<Perspective>("mixed");
@@ -177,6 +181,85 @@ export default function Home() {
   const stage = post ? 4 : angle ? 3 : selectedIdea ? 2 : ideas.length ? 1 : 0;
   const stageLabels = ["Find", "Think", "Take", "Write"];
 
+  async function savePost() {
+    if (!post.trim()) {
+      setSaveMessage("There is no post to save yet.");
+      return;
+    }
+
+    setSaveLoading(true);
+    setSaveMessage("");
+
+    try {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        throw new Error("Please sign in before saving a post.");
+      }
+
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        title: selectedIdea?.title ?? null,
+        content: post.trim(),
+        topic: topic || null,
+        source_url: selectedIdea?.url ?? null,
+        angle: angle || null,
+        tone: perspective || null,
+        status: "draft",
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setSaveMessage("Post saved.");
+    } catch (error) {
+      const saveError = error as {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
+
+      console.error(
+        "Save post error:",
+        JSON.stringify({
+          message: String(saveError?.message ?? ""),
+          details: String(saveError?.details ?? ""),
+          hint: String(saveError?.hint ?? ""),
+          code: String(saveError?.code ?? ""),
+          raw: error instanceof Error ? error.message : error,
+        })
+      );
+
+      const diagnosticMessage = [
+        saveError?.message,
+        saveError?.details,
+        saveError?.hint,
+        saveError?.code ? `Code: ${saveError.code}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      setSaveMessage(
+        diagnosticMessage ||
+          (error instanceof Error
+            ? error.message
+            : "Could not save the post. Please try again.")
+      );
+    } finally {
+      setSaveLoading(false);
+    }
+  }
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717] selection:bg-neutral-900 selection:text-white">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
@@ -185,9 +268,12 @@ export default function Home() {
             <div className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCRAFT</div>
             <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">AI editorial studio</div>
           </div>
-          <div className="hidden text-right sm:block">
-            <div className="text-xs text-neutral-500">Find something worth saying.</div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-neutral-400">{stageLabels[Math.min(stage, 3)]}</div>
+          <div className="flex items-center gap-4">
+            <div className="hidden text-right sm:block">
+              <div className="text-xs text-neutral-500">Find something worth saying.</div>
+              <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-neutral-400">{stageLabels[Math.min(stage, 3)]}</div>
+            </div>
+            <SignOutButton />
           </div>
         </header>
 
@@ -203,7 +289,7 @@ export default function Home() {
           <div className="max-w-4xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">01 / Find</div>
             <h1 className="mt-5 max-w-4xl font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Find something<br className="hidden sm:block" /> worth saying.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft helps you find the interesting question inside it — before you write a word.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft helps you find the interesting question inside it â€” before you write a word.</p>
           </div>
         </section>
 
@@ -249,7 +335,7 @@ export default function Home() {
                   <div className="flex gap-5">
                     <div className="hidden pt-1 font-serif text-sm text-neutral-400 sm:block">0{index + 1}</div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] uppercase tracking-[0.12em] text-neutral-500">{idea.source}{idea.publishedAt ? ` · ${formatDate(idea.publishedAt)}` : ""}</div>
+                      <div className="text-[11px] uppercase tracking-[0.12em] text-neutral-500">{idea.source}{idea.publishedAt ? ` Â· ${formatDate(idea.publishedAt)}` : ""}</div>
                       <h3 className="mt-2 max-w-3xl font-serif text-2xl leading-tight tracking-[-0.02em] sm:text-3xl">{idea.title}</h3>
                       {idea.description && <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">{idea.description}</p>}
                       {idea.whyItMatters && <div className="mt-5 max-w-2xl border-l border-neutral-400 pl-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">Why this is interesting</div><p className="mt-1.5 text-sm leading-6 text-neutral-800">{idea.whyItMatters}</p></div>}
@@ -319,7 +405,25 @@ export default function Home() {
             </div>
             <div className="max-w-3xl">
               <div className="whitespace-pre-wrap border-y border-neutral-300/80 py-8 font-serif text-xl leading-8 tracking-[-0.01em] sm:text-2xl sm:leading-9">{post}</div>
-              <div className="mt-6 flex items-center justify-between"><span className="text-xs text-neutral-400">Ready to take with you.</span><button onClick={copyPost} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2">{copied ? "Copied" : "Copy post →"}</button></div>
+              <div className="mt-6 flex items-center justify-between"><span className="text-xs text-neutral-400">Ready to take with you.</span><div className="flex items-center gap-4">
+                  <button
+                    onClick={savePost}
+                    disabled={saveLoading}
+                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saveLoading ? "Saving..." : "Save post →"}
+                  </button>
+
+                  <button
+                    onClick={copyPost}
+                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2"
+                  >
+                    {copied ? "Copied" : "Copy post →"}
+                  </button>
+                </div></div>
+              {saveMessage && (
+                <div className="mt-4 text-sm text-red-700">{saveMessage}</div>
+              )}
             </div>
           </div>
         </section>}
@@ -330,3 +434,17 @@ export default function Home() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
