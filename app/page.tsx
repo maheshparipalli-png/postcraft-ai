@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 import { useRef, useState } from "react";
@@ -273,7 +274,12 @@ export default function Home() {
               <div className="text-xs text-neutral-500">Find something worth saying.</div>
               <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-neutral-400">{stageLabels[Math.min(stage, 3)]}</div>
             </div>
-            <SignOutButton />
+            <div className="flex items-center gap-4">
+              <Link href="/workspace" className="hidden text-xs text-neutral-500 transition hover:text-neutral-900 sm:block">
+                Workspace →
+              </Link>
+              <SignOutButton />
+            </div>
           </div>
         </header>
 
