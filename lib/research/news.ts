@@ -9,10 +9,10 @@ export type ResearchItem = {
 
 const searchQueries: Record<string, string[]> = {
   "AI & Technology": [
-    "AI artificial intelligence when:7d",
-    "AI agents technology when:7d",
-    "technology innovation when:7d",
-    "AI business impact when:7d",
+    "AI artificial intelligence when:1d",
+    "AI agents technology when:1d",
+    "technology innovation when:1d",
+    "AI business impact when:1d",
   ],
   India: [
     "India business economy when:7d",
@@ -328,14 +328,13 @@ function scoreStory(item: ResearchItem, mode: string) {
 
 export async function searchNews(topic: string): Promise<ResearchItem[]> {
   const queries = searchQueries[topic] ?? [
-    `${topic} latest when:7d`,
-    `${topic} business when:7d`,
-    `${topic} developments when:7d`,
+    `${topic} latest when:24h`,
+    `${topic} developments when:24h`,
   ];
 
   const results = await Promise.all(queries.map(fetchFeed));
   const combined = results.flat();
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
 
   // Google and Bing frequently return the same headline. Build the de-duplicated
   // pool first, but keep the richer/direct-publisher record when both exist.

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PostCraft AI",
-  description: "Find something worth saying.",
+  description: "AI editorial studio for thoughtful LinkedIn content.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

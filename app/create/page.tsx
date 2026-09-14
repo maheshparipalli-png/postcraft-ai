@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -36,12 +36,16 @@ export default function CreatePostPage() {
             ← Back to workspace
           </button>
 
+          <nav className="mt-5 flex flex-wrap gap-4 text-xs text-neutral-500" aria-label="Main navigation">
+            <a href="/">Home</a><a href="/auto-post">Auto-post</a><a href="/commentcraft/import">CommentCraft</a><a href="/workspace">Workspace</a>
+          </nav>
+
           <h1 className="mt-4 text-3xl font-semibold tracking-tight">
             Create a post
           </h1>
 
           <p className="mt-2 text-sm text-neutral-500">
-            Turn an idea into a clear, thoughtful LinkedIn-ready draft.
+            Start with a thought, refine your perspective, and create natural LinkedIn content.
           </p>
         </header>
 

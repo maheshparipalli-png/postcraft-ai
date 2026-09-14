@@ -41,8 +41,8 @@ export async function POST(request: Request) {
       const startedAt = Date.now();
       const story = {
         topic: extractField(prompt, "Topic"),
-        headline: extractField(prompt, "Headline"),
-        source: extractField(prompt, "Source"),
+        headline: extractField(prompt, "Headline") || extractField(prompt, "News title"),
+        source: extractField(prompt, "Source") || extractField(prompt, "News source"),
         summary: extractField(prompt, "Summary"),
         url: extractField(prompt, "URL"),
       };
@@ -54,8 +54,8 @@ export async function POST(request: Request) {
     if (postRequest) {
       const story = {
         topic: extractField(prompt, "Topic"),
-        headline: extractField(prompt, "Headline"),
-        source: extractField(prompt, "Source"),
+        headline: extractField(prompt, "Headline") || extractField(prompt, "News title"),
+        source: extractField(prompt, "Source") || extractField(prompt, "News source"),
         summary: extractField(prompt, "Summary"),
         url: extractField(prompt, "URL"),
       };

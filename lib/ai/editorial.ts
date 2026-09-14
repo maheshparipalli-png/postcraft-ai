@@ -1,4 +1,4 @@
-﻿import { getAIProvider } from "@/lib/ai/provider";
+import { getAIProvider } from "@/lib/ai/provider";
 
 type Story = { topic: string; headline: string; source: string; summary: string; url?: string };
 export type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
@@ -119,6 +119,7 @@ function selectSafeAngles(angles: Angle[]) {
 
   for (const angle of angles) {
     if (isForbiddenAngle(angle)) continue;
+    if (!angle.evidence || angle.evidence.length < 12) continue;
 
     const key = angle.angle
       .toLowerCase()
@@ -143,11 +144,11 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, surprising relationship, affected group, trade-off, mechanism, or unresolved question contained in the story information.
+Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, affected group, trade-off, mechanism, timeline, or unresolved question contained in the story information.
 
-Return up to 3 genuinely different angles. They do not need to be three if the story only supports one or two strong ideas. Never invent statistics, quotes, examples, events, or facts that are not in the supplied story. Do not use generic angles such as "technology is changing work", "people need to adapt", "AI will improve efficiency", "AI may increase inequality", "this raises questions", "future of work", or "responsible innovation".
+Return up to 3 genuinely different angles. They do not need to be three if the story only supports one or two strong ideas. Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If the evidence is limited, use cautious wording such as "the timeline suggests", "the available information does not establish", or "the open question is". Never invent statistics, quotes, examples, events, or facts that are not in the supplied story. Do not use generic angles such as "technology is changing work", "people need to adapt", "AI will improve efficiency", "AI may increase inequality", "this raises questions", "future of work", or "responsible innovation".
 
-The evidence field should explain which part of the supplied story led you to the angle. It may paraphrase the supplied summary. Be honest when the story information is limited.
+The evidence field must quote or closely paraphrase a concrete detail from the supplied story. The why field must not introduce a new factual claim. Be honest when the story information is limited.
 
 Return ONLY valid JSON. Do not use Markdown fences or explanatory text.
 
@@ -235,10 +236,10 @@ export async function generateEditorialPost(
   modeInstruction: string,
   suppliedEvidence?: Evidence[]
 ) {
-  let evidence = validateEvidence(suppliedEvidence);
+  const evidence = validateEvidence(suppliedEvidence);
 
   if (evidence.length < 1) {
-    evidence = (await buildEditorialPass(story)).evidence;
+    throw new Error("Evidence is required before post generation.");
   }
 
   const ledger = evidence.length
@@ -250,6 +251,8 @@ export async function generateEditorialPost(
   const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
 
 Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
+
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading. Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions. The post should add a grounded perspective rather than merely restating the article.
 
 STORY
 Headline: ${story.headline}

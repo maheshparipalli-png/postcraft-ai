@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { linkedinCookieName } from "@/lib/linkedin";
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const response = NextResponse.json({ disconnected: true });
 
   response.cookies.set({

@@ -107,15 +107,19 @@ export default function WorkspacePage() {
             <Link href="/" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCRAFT</Link>
             <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">Editorial workspace</div>
           </div>
-          <nav className="flex items-center gap-4 text-xs" aria-label="Workspace navigation">
-            <Link href="/" className="text-neutral-500 transition hover:text-neutral-900">Writing studio</Link>
-            <span className="font-medium text-neutral-900">Workspace</span>
+          <nav className="flex flex-wrap items-center gap-4 text-xs" aria-label="Main navigation">
+            <Link href="/" className="text-neutral-500 hover:text-neutral-900">Home</Link>
+            <Link href="/create" className="text-neutral-500 hover:text-neutral-900">Write</Link>
+            <Link href="/auto-post" className="text-neutral-500 hover:text-neutral-900">Auto-post</Link>
+            <Link href="/commentcraft/import" className="text-neutral-500 hover:text-neutral-900">CommentCraft</Link>
+            <Link href="/billing" className="text-neutral-500 hover:text-neutral-900">Billing</Link>
           </nav>
         </header>
 
         <section className="border-b border-neutral-300/80 py-14 sm:py-20">
           <div className="max-w-4xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Your library</div>
+            <p className="mt-4 max-w-xl text-base leading-7 text-neutral-600">Review, refine, and manage the ideas and posts you are building.</p>
             <h1 className="mt-5 font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Your ideas,<br />kept together.</h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Revisit saved drafts, find an unfinished thought, and continue shaping something worth saying.</p>
           </div>

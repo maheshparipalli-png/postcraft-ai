@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchNews } from "@/lib/research/news";
 import { searchCustomTopic } from "@/lib/research/custom-topic";
+import { createClient } from "@/lib/supabase/server";
 
 function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
@@ -44,8 +45,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "topic is too long" }, { status: 400 });
     }
 
-    const isPresetTopic = topic === "AI & Technology" || topic === "India" || topic === "PostCraft Recommended";
+    const isPresetTopic = topic === "AI & Technology";
+    if (topic !== "AI & Technology") {
+      return NextResponse.json({ error: "PostCraft currently supports AI & Technology stories only." }, { status: 400 });
+    }
     const research = isPresetTopic ? await searchNews(topic) : await searchCustomTopic(topic);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const normalizeUrl = (value: string) => {
+      try {
+        const url = new URL(value);
+        url.hash = "";
+        ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid"].forEach((key) => url.searchParams.delete(key));
+        url.search = url.searchParams.toString();
+        return url.toString().replace(/\/$/, "");
+      } catch { return value.trim().replace(/\/$/, ""); }
+    };
+    let publishedUrls = new Set<string>();
+    if (user) {
+      const { data: history } = await supabase.from("postcraft_publications").select("source_url").eq("user_id", user.id);
+      publishedUrls = new Set((history || []).map((row) => row.source_url).filter(Boolean));
+    }
 
     if (!research.length) {
       return NextResponse.json(
@@ -54,7 +74,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const ideas = research.slice(0, 5).map((item, index) => ({
+    const usableResearch = research.filter((item) =>
+      !publishedUrls.has(normalizeUrl(item.url)) &&
+      Boolean(item.title?.trim()) &&
+      Boolean(item.source?.trim()) &&
+      Boolean(item.url?.trim()) &&
+      Boolean(item.snippet?.trim()) &&
+      item.snippet.trim().length >= 80
+    );
+
+    if (!usableResearch.length) {
+      return NextResponse.json(
+        { error: `PostCraft found stories for “${topic}”, but none contained enough usable source evidence. Try another feed or topic.` },
+        { status: 422 },
+      );
+    }
+
+    const ideas = usableResearch.slice(0, 4).map((item, index) => ({
       title: item.title,
       description: item.snippet,
       whyItMatters: getWhyItStandsOut(item.title, item.snippet, topic),
@@ -64,7 +100,7 @@ export async function POST(request: Request) {
       publishedAt: item.publishedAt,
     }));
 
-    return NextResponse.json({ count: research.length, ideas });
+    return NextResponse.json({ count: usableResearch.length, ideas, selectedBy: "editorial value ranking" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Discovery failed";
     return NextResponse.json({ error: message }, { status: 500 });
