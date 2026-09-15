@@ -9,45 +9,45 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const hasEvidence = snippet.trim().length >= 80;
 
   if (!hasEvidence) {
-    return "PostCraft found the headline interesting, but the source did not provide enough usable evidence to confidently recommend a deeper argument yet.";
+    return "Not enough source detail is available to explain why this story deserves a strong point of view.";
   }
 
   if (topic === "PostCraft Recommended") {
     if (/\b(why|how|could|question|debate|risk|benefit|cost|impact|change)\b/i.test(title)) {
-      return "PostCraft picked it because the story contains a specific tension or unresolved question, and the available article evidence gives us enough substance to explore it without inventing context.";
+      return "It contains a clear tension or open question, with enough source detail to explore it without stretching beyond the reporting.";
     }
     if (/\b(policy|decision|investment|jobs|business|government|security|technology|science)\b/i.test(text)) {
-      return "PostCraft picked it because the article connects a concrete development to a decision, trade-off, or consequence that can support a grounded point of view.";
+      return "It connects a concrete development to a decision, trade-off, or consequence that can support a grounded point of view.";
     }
-    return "PostCraft picked it because the article contains enough concrete detail to build a specific point of view rather than simply summarize the headline.";
+    return "It has enough concrete detail to build a specific point of view rather than simply repeat the headline.";
   }
 
   if (/\b(wipe out humanity|existential|hijack|misuse|safety|threat|danger|risk|harm)\b/.test(text)) {
-    return "This story is worth exploring because it raises a concrete question about the risks of increasingly capable AI systems. The important issue is how credible the reported threat is, what evidence supports it, and what safeguards may be needed.";
+    return "The useful question is how strong the reported risk is, what evidence supports it, and what the story actually establishes.";
   }
 
   if (/\b(govern|governance|trust|framework|enterprise|agent|accountab|compliance|responsib)\b/.test(text)) {
-    return "This development is interesting because AI systems are moving into decisions and workflows that require accountability. The key question is how organisations can control these systems, verify their actions, and assign responsibility when something goes wrong.";
+    return "The story gives us something concrete to examine about control, accountability, or how AI is being used in real workflows.";
   }
 
   if (/\b(model|launch|release|benchmark|reasoning|performance|training|inference|compute)\b/.test(text)) {
-    return "This story is worth exploring because it points to a change in AI capability, cost, or performance. The useful question is whether the reported improvement holds up in practical use and what it changes for users or businesses.";
+    return "The interesting part is what the reported capability or performance change means in practice, not just that a new model or release exists.";
   }
 
   if (/\b(job|work|employee|workplace|productivity|automation|labour|labor)\b/.test(text)) {
-    return "This development is interesting because it could change how people work or how organisations allocate tasks. The important angle is which activities may genuinely be affected, which limitations remain, and who benefits from the change.";
+    return "The story gives us a concrete starting point for examining which work may change, what remains difficult, and who is affected.";
   }
 
   if (/\b(policy|law|regulation|government|legislation|court|ban|rule)\b/.test(text)) {
-    return "This story matters because it connects a technology development with a policy or regulatory decision. The key question is how the decision could affect innovation, accountability, competition, or public trust.";
+    return "The development can be examined through the actual policy decision and the trade-offs or consequences described by the source.";
   }
 
   if (/\b(robot|robotics|autonomous|self-driving|device|hardware|chip|semiconductor)\b/.test(text)) {
-    return "This development is interesting because it shows AI moving from software into physical systems or infrastructure. The useful question is what the technology can now do reliably, what limitations remain, and where it could have practical impact.";
+    return "The useful angle is the gap between what the technology can now do and what it can reliably do in practice.";
   }
 
   const subject = title.trim().replace(/\s+-\s+[^-]+$/, "");
-  return `This story is worth exploring because “${subject}” points to a specific development in ${topic}. The useful angle is to examine what has actually changed, what the source establishes, and what the development could mean in practice.`;
+  return `The story gives us a specific development to examine: “${subject}”. The strongest angle should stay close to what the source actually reports.`;
 }
 
 export async function POST(request: Request) {
