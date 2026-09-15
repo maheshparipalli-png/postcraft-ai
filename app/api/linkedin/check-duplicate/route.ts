@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     const contentHash = createHash("sha256").update(commentary.toLowerCase().replace(/\s+/g, " ").trim()).digest("hex");
     const normalizedSourceUrl = normalizeUrl(sourceUrl);
-    let query = supabase.from("postcraft_publications").select("id").eq("user_id", user.id);
+    const query = supabase.from("postcraft_publications").select("id").eq("user_id", user.id);
     const { data: byHash, error: hashError } = await query.eq("content_hash", contentHash).limit(1);
     if (hashError) throw hashError;
     if (byHash?.length) return NextResponse.json({ duplicate: true, message: "An identical post has already been published." });

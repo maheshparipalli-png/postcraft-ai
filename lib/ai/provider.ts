@@ -1,12 +1,12 @@
-import { ollamaProvider } from "./ollama";
+﻿import { geminiProvider } from "./gemini";
 import type { AIProvider } from "./types";
 
 const providers: Record<string, AIProvider> = {
-  ollama: ollamaProvider,
+  gemini: geminiProvider,
 };
 
 export function getAIProvider(): AIProvider {
-  const name = process.env.AI_PROVIDER ?? "ollama";
+  const name = process.env.AI_PROVIDER ?? "gemini";
   const provider = providers[name];
 
   if (!provider) {

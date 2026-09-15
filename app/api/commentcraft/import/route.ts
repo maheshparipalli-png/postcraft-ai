@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAIProvider } from "@/lib/ai/provider";
 
@@ -33,21 +33,53 @@ function extractJson(raw: string): unknown {
 }
 
 function normalizeGenerated(raw: string): GeneratedComment[] {
-  const parsed = extractJson(raw) as any;
-  const candidates = Array.isArray(parsed)
+  type GeneratedCandidate = {
+    angle?: unknown;
+    title?: unknown;
+    label?: unknown;
+    comment?: unknown;
+    text?: unknown;
+    content?: unknown;
+    body?: unknown;
+  };
+
+  type GeneratedPayload = {
+    comments?: unknown;
+    options?: unknown;
+    choices?: unknown;
+    comment?: unknown;
+  };
+
+  const parsed = extractJson(raw) as
+    | GeneratedCandidate
+    | GeneratedCandidate[]
+    | GeneratedPayload
+    | null;
+
+  const isGeneratedPayload = (
+    value: GeneratedCandidate | GeneratedPayload
+  ): value is GeneratedPayload => {
+    return (
+      "comments" in value ||
+      "options" in value ||
+      "choices" in value
+    );
+  };
+
+  const candidates: GeneratedCandidate[] = Array.isArray(parsed)
     ? parsed
-    : parsed && Array.isArray(parsed.comments)
-      ? parsed.comments
-      : parsed && Array.isArray(parsed.options)
-        ? parsed.options
-        : parsed && Array.isArray(parsed.choices)
-          ? parsed.choices
-          : parsed && parsed.comment
+    : parsed && isGeneratedPayload(parsed) && Array.isArray(parsed.comments)
+      ? parsed.comments as GeneratedCandidate[]
+      : parsed && isGeneratedPayload(parsed) && Array.isArray(parsed.options)
+        ? parsed.options as GeneratedCandidate[]
+        : parsed && isGeneratedPayload(parsed) && Array.isArray(parsed.choices)
+          ? parsed.choices as GeneratedCandidate[]
+          : parsed && "comment" in parsed && parsed.comment
             ? [parsed]
             : [];
 
   return candidates
-    .map((item: any) => ({
+    .map((item: GeneratedCandidate) => ({
       angle: String(item?.angle ?? item?.title ?? item?.label ?? "").trim(),
       comment: String(item?.comment ?? item?.text ?? item?.content ?? item?.body ?? "").trim(),
     }))
@@ -59,7 +91,6 @@ function normalizeGenerated(raw: string): GeneratedComment[] {
       return true;
     });
 }
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -84,7 +115,7 @@ Return ONLY valid JSON. Prefer this exact shape:
 ]
 The response may contain exactly these two string fields per item. The angle should be 2-6 simple words, not a sentence, and should not contain punctuation. The comment should be 25-70 words, 1-3 sentences, natural and specific to the post.
 
-Use simple, everyday English. Make each comment easy to understand on the first reading. Write as if explaining the idea to an intelligent friend. Prefer familiar words, short sentences, and one clear point. Avoid jargon, academic or philosophical language, complicated sentence structures, corporate wording, clichés, and unnecessarily polished phrasing. Do not try to sound profound; sound human, clear, and relevant.
+Use simple, everyday English. Make each comment easy to understand on the first reading. Write as if explaining the idea to an intelligent friend. Prefer familiar words, short sentences, and one clear point. Avoid jargon, academic or philosophical language, complicated sentence structures, corporate wording, clichÃ©s, and unnecessarily polished phrasing. Do not try to sound profound; sound human, clear, and relevant.
 
 Add an observation, distinction, implication, or thoughtful question. Avoid generic praise, invented personal experiences, hashtags, and unsupported assumptions. Make the four comments meaningfully different from one another.
 
@@ -155,3 +186,6 @@ ${postText}`;
     );
   }
 }
+
+
+

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { decryptLinkedInSession, linkedinCookieName } from "@/lib/linkedin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
@@ -11,7 +11,7 @@ const linkedinHeaders = (accessToken: string) => ({
   "X-Restli-Protocol-Version": "2.0.0",
 });
 
-async function publishImage(accessToken: string, owner: string, imageDataUrl: string, altText: string) {
+async function publishImage(accessToken: string, owner: string, imageDataUrl: string, _altText: string) {
   const match = imageDataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,(.+)$/);
   if (!match) throw new Error("The visual post image is invalid. Please generate it again.");
   const mimeType = match[1] === "image/jpg" ? "image/jpeg" : match[1];
@@ -25,7 +25,14 @@ async function publishImage(accessToken: string, owner: string, imageDataUrl: st
   });
   const initializeText = await initializeResponse.text();
   if (!initializeResponse.ok) throw new Error(`LinkedIn image registration failed: ${initializeText}`);
-  let initializeData: any;
+  type LinkedInImageUploadResponse = {
+  value?: {
+    uploadUrl?: string;
+    image?: string;
+  };
+};
+
+let initializeData: LinkedInImageUploadResponse;
   try { initializeData = JSON.parse(initializeText); } catch { throw new Error("LinkedIn returned an invalid image registration response."); }
   const uploadUrl = initializeData?.value?.uploadUrl;
   const imageUrn = initializeData?.value?.image;
@@ -136,3 +143,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not publish to LinkedIn." }, { status: 500 });
   }
 }
+

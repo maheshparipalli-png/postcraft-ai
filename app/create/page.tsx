@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type AssistantAction = "idea" | "improve" | "rewrite" | "shorten" | "engage";
@@ -94,9 +95,9 @@ export default function CreatePostPage() {
     <main className="min-h-screen bg-neutral-50 px-6 py-8 dark:bg-black">
       <div className="mx-auto max-w-6xl">
         <header className="border-b border-black/10 pb-6 dark:border-white/10">
-          <button type="button" onClick={() => router.push("/")} className="text-sm text-neutral-500 hover:text-black dark:hover:text-white">← Back to workspace</button>
+          <button type="button" onClick={() => router.push("/")} className="text-sm text-neutral-500 hover:text-black dark:hover:text-white">â† Back to workspace</button>
           <nav className="mt-5 flex flex-wrap gap-4 text-xs text-neutral-500" aria-label="Main navigation">
-            <a href="/">Home</a><a href="/auto-post">Auto-post</a><a href="/commentcraft/import">CommentCraft</a><a href="/workspace">Workspace</a>
+            <Link href="/">Home</Link><Link href="/auto-post">Auto-post</Link><Link href="/commentcraft/import">CommentCraft</Link><Link href="/workspace">Workspace</Link>
           </nav>
           <h1 className="mt-4 text-3xl font-semibold tracking-tight">Create a post</h1>
           <p className="mt-2 text-sm text-neutral-500">What would you like to do? Start with an idea, improve your writing, or reshape an existing draft.</p>
@@ -115,7 +116,7 @@ export default function CreatePostPage() {
                   onClick={() => { setAction(item.id); setError(""); }}
                   className={`w-full rounded-xl border p-3 text-left transition ${action === item.id ? "border-black bg-black/[0.04] dark:border-white dark:bg-white/[0.08]" : "border-black/10 hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.04]"}`}
                 >
-                  <span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{item.title}</span>{action === item.id && <span aria-hidden="true">✓</span>}</span>
+                  <span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{item.title}</span>{action === item.id && <span aria-hidden="true">âœ“</span>}</span>
                   <span className="mt-1 block text-xs leading-5 text-neutral-500">{item.description}</span>
                 </button>
               ))}
@@ -134,12 +135,12 @@ export default function CreatePostPage() {
               <label className="block text-sm font-medium">Desired length
                 <select value={length} onChange={(event) => setLength(event.target.value)} className="mt-2 w-full rounded-lg border border-black/15 bg-transparent px-3 py-2.5 text-sm dark:border-white/15"><option>Short</option><option>Medium</option><option>Long</option></select>
               </label>
-              <button type="button" onClick={runAI} disabled={busy} className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black">{busy ? "AI is working…" : `${selectedAction.title} →`}</button>
+              <button type="button" onClick={runAI} disabled={busy} className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black">{busy ? "AI is workingâ€¦" : `${selectedAction.title} â†’`}</button>
             </div>
           </section>
 
           <section className="rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-neutral-950">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Draft editor</h2><p className="mt-1 text-sm text-neutral-500">Write directly or paste a draft here. You can edit every AI result before saving.</p></div><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-neutral-500 dark:bg-white/10">{length} · {style}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Draft editor</h2><p className="mt-1 text-sm text-neutral-500">Write directly or paste a draft here. You can edit every AI result before saving.</p></div><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-neutral-500 dark:bg-white/10">{length} Â· {style}</span></div>
             {error && <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
             <textarea value={draft} onChange={(event) => { setDraft(event.target.value); setSaved(false); }} placeholder={action === "idea" ? "Your AI-generated post will appear here. You can also write directly." : "Paste or write your draft here, then use the selected AI action."} rows={18} className="mt-6 w-full resize-y rounded-xl border border-black/15 bg-transparent px-4 py-4 text-base leading-7 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/15" />
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-neutral-500">{draft.length} characters</p><div className="flex flex-wrap gap-3"><button type="button" onClick={handleClear} className="rounded-lg border border-black/15 px-4 py-2.5 text-sm font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10">Clear</button><button type="button" onClick={handleSaveDraft} disabled={!draft.trim()} className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-black">Save draft</button></div></div>
@@ -150,3 +151,4 @@ export default function CreatePostPage() {
     </main>
   );
 }
+
