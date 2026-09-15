@@ -120,7 +120,7 @@ export default function AutoPostPage() {
 
     const message = published
       ? "Generate a new draft? The already-published post will remain unchanged."
-      : "Regenerate today?s draft? The current unsent draft will be replaced.";
+      : "Regenerate today's draft? The current unsent draft will be replaced.";
 
     if (window.confirm(message)) {
       await prepareDraft(true);
