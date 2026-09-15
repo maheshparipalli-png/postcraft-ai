@@ -1,11 +1,85 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type Subscription = {
+  status: string;
+  trial_ends_at: string | null;
+  trial_started_at: string | null;
+};
+
+type BillingResponse = {
+  status: string;
+  subscription: Subscription | null;
+  error?: string;
+};
+
+function formatRemaining(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
 
 export default function BillingPage() {
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [billing, setBilling] = useState<BillingResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
+
+  async function loadBilling() {
+    try {
+      const response = await fetch("/api/billing/status", { cache: "no-store" });
+      const data = (await response.json()) as BillingResponse;
+      setBilling(response.ok ? data : { status: "unauthenticated", subscription: null, error: data.error });
+    } catch {
+      setBilling({ status: "error", subscription: null, error: "Unable to load billing status" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadBilling();
+  }, []);
+
+  useEffect(() => {
+    const endsAt = billing?.subscription?.trial_ends_at;
+    if (!endsAt || billing?.status !== "trialing") {
+      setRemaining(null);
+      return;
+    }
+
+    const updateRemaining = () => setRemaining(new Date(endsAt).getTime() - Date.now());
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(timer);
+  }, [billing]);
+
+  async function startTrial() {
+    setStarting(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/billing/start-trial", { method: "POST" });
+      const data = (await response.json()) as BillingResponse;
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to start the trial");
+      } else {
+        setMessage("Your 24-hour free trial is now active.");
+      }
+      await loadBilling();
+    } catch {
+      setMessage("Unable to start the trial. Please try again.");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const status = billing?.status ?? "loading";
+  const trialActive = status === "trialing" && remaining !== null && remaining > 0;
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
@@ -25,7 +99,7 @@ export default function BillingPage() {
           <div className="max-w-3xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Account settings</div>
             <h1 className="mt-5 font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Payment,<br />kept simple.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Manage your PostCraft plan and payment method. Card details should be collected by a secure payment provider, never stored directly by PostCraft.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Try PostCraft Pro free for 24 hours. No card is required to start. After the trial, Pro costs $12 per month.</p>
           </div>
         </section>
 
@@ -33,32 +107,48 @@ export default function BillingPage() {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Current plan</div>
             <h2 className="mt-3 font-serif text-3xl tracking-[-0.025em]">PostCraft Pro</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-600">For creators who want research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
-            <div className="mt-6 flex items-baseline gap-2"><span className="font-serif text-4xl">₹999</span><span className="text-sm text-neutral-500">/ month</span></div>
-            <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">Billing status: <span className="font-medium text-emerald-700">Ready for setup</span></div>
+            <p className="mt-3 text-sm leading-6 text-neutral-600">Research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
+            <div className="mt-6 flex items-baseline gap-2"><span className="font-serif text-4xl">$12</span><span className="text-sm text-neutral-500">/ month</span></div>
+            <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
+              Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
+            </div>
           </div>
 
           <div className="border border-neutral-300 bg-white/50 p-6 sm:p-8">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Payment method</div>
-            <div className="mt-5 flex items-start justify-between gap-5 border-b border-neutral-200 pb-6">
-              <div>
-                <div className="font-medium">No payment method added</div>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">Add a card through secure checkout to activate paid features.</p>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Free trial</div>
+            {loading ? (
+              <p className="mt-5 text-sm text-neutral-600">Checking your trial status…</p>
+            ) : status === "unauthenticated" ? (
+              <p className="mt-5 text-sm leading-6 text-neutral-600">Please sign in before starting your free trial.</p>
+            ) : trialActive ? (
+              <div className="mt-5 space-y-5">
+                <div>
+                  <div className="font-medium text-emerald-700">Your trial is active</div>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">You have access to Pro features for the remainder of your 24-hour trial.</p>
+                </div>
+                <div className="border border-emerald-200 bg-emerald-50 p-5">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-800">Time remaining</div>
+                  <div className="mt-2 font-mono text-2xl text-emerald-900">{formatRemaining(remaining)}</div>
+                </div>
               </div>
-              <span className="border border-neutral-300 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-neutral-500">Secure</span>
-            </div>
-
-            {!showCheckout ? (
-              <button type="button" onClick={() => setShowCheckout(true)} className="mt-6 border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2">Add payment method →</button>
+            ) : status === "not_started" ? (
+              <div className="mt-5 space-y-5">
+                <div>
+                  <div className="font-medium">Start your 24-hour free trial</div>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">No payment details are required. Your trial can only be used once.</p>
+                </div>
+                <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
+              </div>
+            ) : status === "expired" ? (
+              <div className="mt-5 space-y-4">
+                <div className="font-medium">Your free trial has ended</div>
+                <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft Pro for $12 per month to continue using paid features.</p>
+                <p className="text-sm text-neutral-500">Secure Razorpay checkout will be connected next.</p>
+              </div>
             ) : (
-              <div className="mt-6 space-y-5">
-                <div className="border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900">This is the payment setup screen. The production version should open Stripe Checkout or Stripe Elements here so PostCraft never handles raw card numbers.</div>
-                <label className="block"><span className="text-xs font-medium">Billing email</span><input type="email" placeholder="you@example.com" className="mt-2 w-full border-b border-neutral-400 bg-transparent px-0 py-3 text-sm outline-none focus:border-neutral-900" /></label>
-                <div className="grid gap-3 sm:grid-cols-2"><div className="border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">Card details handled by payment provider</div><div className="border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">No card data stored here</div></div>
-                <div className="flex flex-wrap gap-5 text-sm"><button type="button" onClick={() => { setSaved(true); setShowCheckout(false); }} className="border-b border-neutral-900 pb-1 font-medium">Continue securely →</button><button type="button" onClick={() => setShowCheckout(false)} className="text-neutral-500 hover:text-neutral-900">Cancel</button></div>
-                {saved && <p className="text-sm text-emerald-700">Payment setup placeholder saved. Connect Stripe to activate real billing.</p>}
-              </div>
+              <p className="mt-5 text-sm leading-6 text-neutral-600">{billing?.error ?? "Billing information is unavailable."}</p>
             )}
+            {message && <p className="mt-5 text-sm text-emerald-700" role="status">{message}</p>}
           </div>
         </section>
 
