@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchNews, type ResearchItem } from "@/lib/research/news";
 import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
-import { getBillingAccess } from "@/lib/billing/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -147,19 +146,6 @@ async function runAutomaticWorkflow(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const billing = await getBillingAccess();
-  if (!billing.authenticated) {
-    return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
-  }
-  if (!billing.allowed) {
-    return NextResponse.json({
-      error: billing.status === "expired"
-        ? "Your free trial has expired. Subscribe to continue."
-        : "Start your free trial or subscribe to continue.",
-      status: billing.status,
-    }, { status: 402 });
-  }
-
   try { return await runAutomaticWorkflow(request); }
   catch (error) {
     console.error("Automatic publishing run failed:", error);
