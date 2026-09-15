@@ -12,10 +12,10 @@ export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ draft: null });
+    if (!user) return NextResponse.json({ draft: null, persistent: false });
     const { data, error } = await supabase.from("postcraft_daily_drafts").select("*").eq("user_id", user.id).eq("draft_date", todayInIndia()).maybeSingle();
     if (error) throw error;
-    return NextResponse.json({ draft: data });
+    return NextResponse.json({ draft: data, persistent: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not load draft." }, { status: 500 });
   }
@@ -25,18 +25,22 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Sign in to save a persistent draft." }, { status: 401 });
     const body = await request.json().catch(() => ({}));
+    const preview = body.preview;
+    if (!preview?.post || !preview?.article?.url) return NextResponse.json({ error: "A complete preview is required." }, { status: 400 });
+
+    // A generated preview can be used immediately in guest mode. The client
+    // keeps it locally; signing in enables persistent daily-draft storage.
+    if (!user) return NextResponse.json({ draft: null, persistent: false, saved: false, preview });
+
     const draftDate = todayInIndia();
     const { data: existing, error: existingError } = await supabase.from("postcraft_daily_drafts").select("*").eq("user_id", user.id).eq("draft_date", draftDate).maybeSingle();
     if (existingError) throw existingError;
-    if (existing && ["ready", "editing", "scheduled", "publishing", "published"].includes(existing.status)) return NextResponse.json({ draft: existing, locked: existing.status !== "published" });
-    const preview = body.preview;
-    if (!preview?.post || !preview?.article?.url) return NextResponse.json({ error: "A complete preview is required." }, { status: 400 });
+    if (existing && ["ready", "editing", "scheduled", "publishing", "published"].includes(existing.status)) return NextResponse.json({ draft: existing, locked: existing.status !== "published", persistent: true });
     const row = { user_id: user.id, draft_date: draftDate, status: "ready", source_url: preview.article.url, source_title: preview.article.title, source_name: preview.article.source, generated_post: preview.post, working_post: preview.post, recommended_angle: preview.angle?.angle || null, angle_why: preview.angle?.why || null, ranking_reason: preview.ranking?.reason || null, candidate_count: preview.ranking?.candidateCount || null, verification_status: "verified", updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from("postcraft_daily_drafts").upsert(row, { onConflict: "user_id,draft_date" }).select("*").single();
     if (error) throw error;
-    return NextResponse.json({ draft: data, locked: true });
+    return NextResponse.json({ draft: data, locked: true, persistent: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save draft." }, { status: 500 });
   }
