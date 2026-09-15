@@ -27,6 +27,23 @@ function formatDate(value: string) {
   }).format(date);
 }
 
+function createVisualCopy(generated: string, angle: string) {
+  const cleaned = generated
+    .replace(/^\s*(this post|based on|read the original)[^\n]*\n?/i, "")
+    .trim();
+  const paragraphs = cleaned.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
+  const body = (paragraphs[0] || cleaned).replace(/\s+/g, " ").trim();
+  const sentence = body.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || body;
+  const headline = sentence.length >= 35 && sentence.length <= 115
+    ? sentence
+    : angle.trim() || "AI safety cannot begin after the harm is done.";
+  const supportingBody = body === headline ? (paragraphs[1] || body) : body;
+  return {
+    headline: headline.replace(/[.!?]+$/, ""),
+    body: supportingBody.length > 260 ? `${supportingBody.slice(0, 257).trim()}…` : supportingBody,
+  };
+}
+
 async function verifySource(item: ResearchItem) {
   return verifySourceUrl(item.url);
 }
@@ -44,9 +61,6 @@ async function runAutomaticWorkflow(request: NextRequest) {
     return NextResponse.json({ error: "Automatic publishing is currently restricted to the AI & Technology feed." }, { status: 400 });
   }
 
-  // Discovery can fail temporarily because a feed, source-verification provider,
-  // or AI provider may return an empty or incomplete response. Retry a bounded
-  // number of times rather than failing after the first transient problem.
   const maxAttempts = 2;
   const errors: string[] = [];
 
@@ -56,7 +70,6 @@ async function runAutomaticWorkflow(request: NextRequest) {
       const usableCandidates = candidates.filter(
         (item) => item.title?.trim() && item.url?.trim() && item.snippet?.trim(),
       );
-
       const firstArticle = usableCandidates[0];
 
       if (!firstArticle) {
@@ -74,12 +87,12 @@ async function runAutomaticWorkflow(request: NextRequest) {
 
           const editorial = await generateEditorialAngles(story);
           const bestAngle = editorial.angles[0];
-          if (!bestAngle) {
-            throw new Error("The selected article did not produce a sufficiently grounded angle.");
-          }
+          if (!bestAngle) throw new Error("The selected article did not produce a sufficiently grounded angle.");
 
           const generated = await generateEditorialPost(
-            story, bestAngle.angle, bestAngle.why,
+            story,
+            bestAngle.angle,
+            bestAngle.why,
             "Write the strongest natural version of the selected thesis. Use plain language and a clear point of view.",
             editorial.evidence,
           );
@@ -87,16 +100,31 @@ async function runAutomaticWorkflow(request: NextRequest) {
           const sourceTitle = decodeHtmlEntities(story.headline.trim());
           const sourcePublication = story.source.trim() || "the original publisher";
           const sourceDate = formatDate(verified.publishedAt || firstArticle.publishedAt);
-          const attribution = `This post is based on an article published by ${sourcePublication} on ${sourceDate}, titled "${sourceTitle}".`;
+          const attribution = `Based on a ${sourcePublication} article, ${sourceDate}`;
+          const visual = createVisualCopy(generated.trim(), bestAngle.angle);
 
           return NextResponse.json({
             ok: true,
             status: "draft_ready",
             attempts: attempt,
-            article: { title: sourceTitle, source: sourcePublication, publishedAt: verified.publishedAt || firstArticle.publishedAt, url: story.url, content: firstArticle.snippet },
-            ranking: { selectedRank: 1, candidateCount: candidates.length, reason: `Selected as the highest-ranked usable AI story from ${candidates.length} candidates. The recommendation favors a timely, credible development with a clear insight, practical relevance, and a perspective that can be understood by a broad professional audience.` },
+            article: {
+              title: sourceTitle,
+              source: sourcePublication,
+              publishedAt: verified.publishedAt || firstArticle.publishedAt,
+              url: story.url,
+              content: firstArticle.snippet,
+            },
+            ranking: {
+              selectedRank: 1,
+              candidateCount: candidates.length,
+              reason: `Selected as the highest-ranked usable AI story from ${candidates.length} candidates. The recommendation favors a timely, credible development with a clear insight, practical relevance, and a perspective that can be understood by a broad professional audience.`,
+            },
             angle: bestAngle,
-            post: `${attribution}\n\n${generated.trim()}`,
+            post: `${generated.trim()}\n\nRead the original article: ${story.url}`,
+            visual: {
+              ...visual,
+              attribution,
+            },
             nextStep: "Connect persistent scheduling and server-side LinkedIn authorization before enabling unattended publication.",
           });
         } catch (error) {
@@ -107,9 +135,7 @@ async function runAutomaticWorkflow(request: NextRequest) {
       errors.push(`Attempt ${attempt}: ${error instanceof Error ? error.message : "discovery failed."}`);
     }
 
-    if (attempt < maxAttempts) {
-      await pause(700 * attempt);
-    }
+    if (attempt < maxAttempts) await pause(700 * attempt);
   }
 
   return NextResponse.json({
