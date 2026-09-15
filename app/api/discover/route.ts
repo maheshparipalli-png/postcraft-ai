@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { searchNews } from "@/lib/research/news";
 import { searchCustomTopic } from "@/lib/research/custom-topic";
 import { createClient } from "@/lib/supabase/server";
+import { getBillingAccess } from "@/lib/billing/access";
 
 function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
@@ -34,6 +35,17 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
 
 export async function POST(request: Request) {
   try {
+    const access = await getBillingAccess();
+    if (!access.authenticated) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.status === "billing_unavailable" ? "Unable to verify billing access" : "Start your free trial or subscribe to continue", billingStatus: access.status },
+        { status: access.status === "billing_unavailable" ? 500 : 402 },
+      );
+    }
+
     const body = await request.json();
     const topic = typeof body?.topic === "string" ? body.topic.trim() : "";
 
