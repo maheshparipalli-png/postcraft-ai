@@ -999,8 +999,18 @@ Return ONLY the finished LinkedIn post body.`;
                   </button>
 
                   <button
+                    type="button"
+                    onClick={() => void createPost()}
+                    disabled={postLoading || !selectedIdea || !angle || !sourceVerified}
+                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400"
+                  >
+                    {postLoading ? "Regenerating..." : "Regenerate -"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={copyPost}
-                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2"
+                    disabled={!post.trim()}
+                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400"
                   >
                     {copied ? "Copied" : "Copy post -"}
                   </button>
