@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -35,25 +35,77 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
-function wrapText(text: string, maxChars: number) {
+function cleanVisualText(value: string) {
+  return value
+    .replace(/’/g, "'")
+    .replace(/â€œ|â€/g, '"')
+    .replace(/â€“|â€”/g, "-")
+    .replace(/.../g, "...")
+    .replace(/Â/g, "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\uFFFD/g, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+}
+
+function formatAttributionDate(value?: string) {
+  if (!value) return "date unavailable";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "date unavailable";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function wrapText(
+  text: string,
+  maxWidth: number,
+  fontSize: number,
+  fontFamily: string,
+  fontWeight: number,
+) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return text.split(/\n+/).flatMap((paragraph) =>
+      paragraph.trim().split(/\s+/).filter(Boolean),
+    );
+  }
+
+  context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+
   const lines: string[] = [];
+
   for (const paragraph of text.split(/\n+/)) {
     const words = paragraph.trim().split(/\s+/).filter(Boolean);
     let line = "";
+
     for (const word of words) {
-      const candidate = `${line} ${word}`.trim();
-      if (line && candidate.length > maxChars) {
+      const candidate = line ? `${line} ${word}` : word;
+
+      if (line && context.measureText(candidate).width > maxWidth) {
         lines.push(line);
         line = word;
       } else {
         line = candidate;
       }
     }
-    if (line) lines.push(line);
+
+    if (line) {
+      lines.push(line);
+    }
   }
+
   return lines;
 }
-
 function fallbackVisual(preview: Preview): VisualCopy {
   const text = preview.post
     .replace(/^This post is based on[^\n]*\n*/i, "")
@@ -65,28 +117,41 @@ function fallbackVisual(preview: Preview): VisualCopy {
 
   return {
     headline: firstSentence.replace(/[.!?]+$/, ""),
-    body: body.length > 220 ? `${body.slice(0, 217).trim()}…` : body,
-    attribution: `Based on a ${preview.article.source} article, ${preview.article.publishedAt || "date unavailable"}`,
+    body: body.length > 280 ? `${body.slice(0, 277).trim()}...` : body,
+    attribution: `Based on a ${preview.article.source} article, ${formatAttributionDate(preview.article.publishedAt)}`,
   };
 }
 
 async function renderVisual(visual: VisualCopy) {
   const width = 1080;
-  const height = 1350;
   const margin = 72;
-  const headlineLines = wrapText(visual.headline, 27);
-  const bodyLines = wrapText(visual.body, 43);
-  const headlineLineHeight = 58;
+
+  const headlineLines = wrapText(visual.headline, width - margin * 2, 42, "Georgia", 700);
+  const bodyLines = wrapText(visual.body, width - margin * 2, 31, "Georgia", 400);
+
+  const headlineLineHeight = 52;
   const bodyLineHeight = 43;
   const headlineStartY = 205;
-  const bodyStartY = headlineStartY + headlineLines.length * headlineLineHeight + 70;
-  const sourceY = height - 142;
-  const footerY = height - 82;
+
+  const bodyStartY =
+    headlineStartY +
+    headlineLines.length * headlineLineHeight +
+    70;
+
+  const bodyEndY =
+    bodyLines.length > 0
+      ? bodyStartY + (bodyLines.length - 1) * bodyLineHeight
+      : bodyStartY;
+
+  const sourceDividerY = bodyEndY + 55;
+  const sourceY = sourceDividerY + 32;
+  const footerY = sourceY + 48;
+  const height = footerY + 42;
 
   const headlineSvg = headlineLines
     .map(
       (line, index) =>
-        `<text x="${margin}" y="${headlineStartY + index * headlineLineHeight}" font-family="Georgia, serif" font-size="48" font-weight="700" fill="#f5f5f5">${escapeXml(line)}</text>`,
+        `<text x="${margin}" y="${headlineStartY + index * headlineLineHeight}" font-family="Georgia, serif" font-size="42" font-weight="700" fill="#f5f5f5">${escapeXml(line)}</text>`,
     )
     .join("");
 
@@ -97,32 +162,74 @@ async function renderVisual(visual: VisualCopy) {
     )
     .join("");
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  const svg = `<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="${width}"
+    height="${height}"
+    viewBox="0 0 ${width} ${height}"
+  >
     <rect width="100%" height="100%" fill="#171717"/>
-    <text x="${margin}" y="82" font-family="Arial, sans-serif" font-size="16" letter-spacing="4" fill="#a3a3a3">POSTCRAFT · LINKEDIN VISUAL</text>
+
+    <text
+      x="${margin}"
+      y="82"
+      font-family="Arial, sans-serif"
+      font-size="16"
+      letter-spacing="4"
+      fill="#a3a3a3"
+    >POSTCRAFT · LINKEDIN VISUAL</text>
+
     ${headlineSvg}
     ${bodySvg}
-    <line x1="${margin}" y1="${sourceY - 34}" x2="${width - margin}" y2="${sourceY - 34}" stroke="#3f3f46" stroke-width="1"/>
-    <text x="${margin}" y="${sourceY}" font-family="Arial, sans-serif" font-size="18" fill="#a3a3a3">${escapeXml(visual.attribution)}</text>
-    <text x="${margin}" y="${footerY}" font-family="Arial, sans-serif" font-size="16" fill="#737373">A considered point of view, prepared with PostCraft AI</text>
+
+    <line
+      x1="${margin}"
+      y1="${sourceDividerY}"
+      x2="${width - margin}"
+      y2="${sourceDividerY}"
+      stroke="#3f3f46"
+      stroke-width="1"
+    />
+
+    <text
+      x="${margin}"
+      y="${sourceY}"
+      font-family="Arial, sans-serif"
+      font-size="18"
+      fill="#a3a3a3"
+    >${escapeXml(visual.attribution)}</text>
+
+    <text
+      x="${margin}"
+      y="${footerY}"
+      font-family="Arial, sans-serif"
+      font-size="16"
+      fill="#737373"
+    >A considered point of view, prepared with PostCraft AI</text>
   </svg>`;
 
   const image = new Image();
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Could not render the visual post."));
+    image.onerror = () =>
+      reject(new Error("Could not render the visual post."));
   });
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
+
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("Your browser could not create the visual post.");
+  if (!context) {
+    throw new Error("Your browser could not create the visual post.");
+  }
+
   context.drawImage(image, 0, 0);
+
   return canvas.toDataURL("image/png");
 }
-
 export default function AutoPostPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [running, setRunning] = useState(false);
@@ -248,8 +355,8 @@ export default function AutoPostPage() {
   }
 
   async function publishPost() {
-    if (!preview || published || publishStatus === "Publishing…") return;
-    setPublishStatus("Publishing…");
+    if (!preview || published || publishStatus === "Publishing...") return;
+    setPublishStatus("Publishing...");
     setError("");
 
     try {
@@ -286,7 +393,7 @@ export default function AutoPostPage() {
   }
 
   const visual = preview ? preview.visual || fallbackVisual(preview) : null;
-  const statusLabel = running ? "Regenerating draft…" : published ? "Published" : preview ? "Ready for review" : "Preparing draft…";
+  const statusLabel = running ? "Regenerating draft..." : published ? "Published" : preview ? "Ready for review" : "Preparing draft...";
   const statusClass = running
     ? "bg-blue-100 text-blue-800"
     : published
@@ -313,7 +420,7 @@ export default function AutoPostPage() {
           <h1 className="max-w-4xl font-serif text-5xl leading-[0.98] tracking-[-0.05em] sm:text-7xl">Your next useful post,<br />prepared for you.</h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-600">Discover a verified AI story, choose a useful perspective, and review a LinkedIn-ready draft before publishing.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <button type="button" onClick={() => void prepareDraft()} disabled={running || (!!preview && !published)} className="bg-neutral-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-400">{running ? "Regenerating draft…" : preview && !published ? "Draft ready" : "Prepare today’s post →"}</button>
+            <button type="button" onClick={() => void prepareDraft()} disabled={running || (!!preview && !published)} className="bg-neutral-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-400">{running ? "Regenerating draft..." : preview && !published ? "Draft ready" : "Prepare today’s post →"}</button>
             {preview && !published && <button type="button" onClick={() => void regenerateDraft()} disabled={running} className="border border-neutral-300 bg-white/50 px-5 py-3 text-sm disabled:opacity-50">Regenerate draft</button>}
             <Link href="/create" className="border border-neutral-300 bg-white/50 px-5 py-3 text-sm">Write manually</Link>
           </div>
@@ -339,9 +446,9 @@ export default function AutoPostPage() {
 
             {error && <div className="mt-6 border border-red-200 bg-red-50 p-5 text-sm text-red-800"><div className="font-medium">We couldn’t complete the action.</div><p className="mt-1 leading-6">{error}</p></div>}
 
-            {running && <div className="mt-6 border border-blue-200 bg-blue-50/70 p-5 text-sm text-blue-900"><div className="font-medium">Regenerating draft…</div><p className="mt-1 leading-6">Your current review is being replaced with a new recommendation. This may take a few moments. Your review will be ready shortly.</p></div>}
+            {running && <div className="mt-6 border border-blue-200 bg-blue-50/70 p-5 text-sm text-blue-900"><div className="font-medium">Regenerating draft...</div><p className="mt-1 leading-6">Your current review is being replaced with a new recommendation. This may take a few moments. Your review will be ready shortly.</p></div>}
 
-            {!preview && !running && <div className="mt-6 border border-neutral-300 bg-white/60 p-8"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Preparing your draft</div><h3 className="mt-5 font-serif text-3xl">Finding today’s strongest AI story…</h3><p className="mt-3 text-sm leading-6 text-neutral-600">PostCraft is checking current sources, selecting a useful angle, and generating a LinkedIn-ready post.</p></div>}
+            {!preview && !running && <div className="mt-6 border border-neutral-300 bg-white/60 p-8"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Preparing your draft</div><h3 className="mt-5 font-serif text-3xl">Finding today’s strongest AI story...</h3><p className="mt-3 text-sm leading-6 text-neutral-600">PostCraft is checking current sources, selecting a useful angle, and generating a LinkedIn-ready post.</p></div>}
 
             {preview && !running && <div className="mt-6 space-y-6">
               <div className={`flex flex-wrap items-center justify-between gap-3 border p-4 text-sm ${published ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
@@ -359,7 +466,7 @@ export default function AutoPostPage() {
               <div className="border border-neutral-300 bg-white/70 p-6 sm:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-4"><div><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Publishing format</div><p className="mt-1 text-sm text-neutral-600">Choose how this single LinkedIn post should appear.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void selectFormat("combined")} className={`border px-4 py-2 text-sm ${format === "combined" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>Text + visual</button><button type="button" onClick={() => void selectFormat("text")} className={`border px-4 py-2 text-sm ${format === "text" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>Text only</button><button type="button" onClick={() => void selectFormat("image")} className={`border px-4 py-2 text-sm ${format === "image" ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>Visual only</button></div></div>
 
-                {format !== "text" && <div className="mt-6 max-w-[540px] overflow-hidden border border-neutral-300 bg-[#171717]">{rendering ? <div className="flex aspect-[4/5] items-center justify-center text-sm text-neutral-300">Preparing visual…</div> : visualUrl ? <img src={visualUrl} alt="Generated LinkedIn visual preview" className="block h-auto w-full" /> : <div className="p-8 text-sm text-neutral-500">Select a visual format to preview the image.</div>}</div>}
+                {format !== "text" && <div className="mt-6 max-w-[540px] overflow-hidden border border-neutral-300 bg-[#171717]">{rendering ? <div className="flex aspect-[4/5] items-center justify-center text-sm text-neutral-300">Preparing visual...</div> : visualUrl ? <img src={visualUrl} alt="Generated LinkedIn visual preview" className="block h-auto w-full" /> : <div className="p-8 text-sm text-neutral-500">Select a visual format to preview the image.</div>}</div>}
                 {format !== "image" && <div className="mt-6 max-w-2xl whitespace-pre-wrap border-t border-neutral-300 pt-6 text-[15px] leading-7 text-neutral-700">{preview.post}</div>}
 
                 <div className="mt-8 flex flex-wrap gap-3"><button type="button" onClick={() => void publishPost()} disabled={published || !!running || !!rendering} className="bg-neutral-900 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-400">{publishStatus || (published ? "Published" : "Publish to LinkedIn →")}</button><button type="button" onClick={() => void copyPost()} className="border border-neutral-300 bg-white px-5 py-3 text-sm">{copyStatus || "Copy text"}</button></div>
@@ -371,3 +478,9 @@ export default function AutoPostPage() {
     </main>
   );
 }
+
+
+
+
+
+
