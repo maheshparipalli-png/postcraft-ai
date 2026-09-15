@@ -441,7 +441,7 @@ Return ONLY the finished LinkedIn post body.`;
       const response = await fetch("/api/linkedin/check-duplicate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({`r`n          postId: savedPostId,`r`n          commentary: text.trim(), sourceUrl: selectedIdea?.url || sourceUrl || null }),
+        body: JSON.stringify({ commentary: text.trim(), sourceUrl: selectedIdea?.url || sourceUrl || null }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not complete the originality check.");
@@ -456,7 +456,13 @@ Return ONLY the finished LinkedIn post body.`;
     }
   }
 
-  async function publishToLinkedIn() {`r`n    const savedPostId = await savePost();`r`n`r`n    if (!savedPostId) {`r`n      setLinkedinMessage("Please save the post before publishing.");`r`n      return;`r`n    }
+  async function publishToLinkedIn() {
+    const savedPostId = await savePost();
+
+    if (!savedPostId) {
+      setLinkedinMessage("Please save the post before publishing.");
+      return;
+    }
     if (!post.trim() || originalityStatus === "duplicate") return;
     setLinkedinLoading(true);
     setLinkedinMessage("");
@@ -464,11 +470,17 @@ Return ONLY the finished LinkedIn post body.`;
       const response = await fetch("/api/linkedin/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({`r`n          postId: savedPostId,`r`n          commentary: post.trim(), sourceUrl: selectedIdea?.url || null, sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || "") }),
+        body: JSON.stringify({
+          postId: savedPostId,
+          commentary: post.trim(),
+          sourceUrl: selectedIdea?.url || null,
+          sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not publish to LinkedIn.");
-      setLinkedinMessage("Published to your LinkedIn profile.");`r`n      router.push("/workspace");
+      setLinkedinMessage("Published to your LinkedIn profile.");
+      router.push("/workspace");
     } catch (err) {
       setLinkedinMessage(err instanceof Error ? err.message : "Could not publish to LinkedIn.");
     } finally {
@@ -594,7 +606,7 @@ Return ONLY the finished LinkedIn post body.`;
   async function savePost(): Promise<string | null> {
     if (!post.trim()) {
       setSaveMessage("There is no post to save yet.");
-      return;
+      return null;
     }
 
     setSaveLoading(true);
@@ -635,6 +647,7 @@ Return ONLY the finished LinkedIn post body.`;
           .eq("user_id", user.id);
         if (error) throw error;
         setSaveMessage("Post updated.");
+        return editingPostId;
       } else {
         const { data: inserted, error } = await supabase
           .from("posts")
@@ -642,8 +655,14 @@ Return ONLY the finished LinkedIn post body.`;
           .select("id")
           .single();
         if (error) throw error;
-        if (inserted?.id) setEditingPostId(inserted.id);
+
+        if (!inserted?.id) {
+          throw new Error("Post was saved but its ID could not be retrieved.");
+        }
+
+        setEditingPostId(inserted.id);
         setSaveMessage("Post saved.");
+        return inserted.id;
       }
     } catch (error) {
       const saveError = error as {
@@ -679,6 +698,7 @@ Return ONLY the finished LinkedIn post body.`;
             ? error.message
             : "Could not save the post. Please try again.")
       );
+      return null;
     } finally {
       setSaveLoading(false);
     }
@@ -1036,36 +1056,4 @@ Return ONLY the finished LinkedIn post body.`;
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
