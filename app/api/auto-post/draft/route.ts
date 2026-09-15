@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     const body = await request.json().catch(() => ({}));
     const preview = body.preview;
+    const replace = body.replace === true;
     if (!preview?.post || !preview?.article?.url) return NextResponse.json({ error: "A complete preview is required." }, { status: 400 });
 
     if (!user) return NextResponse.json({ draft: null, persistent: false, saved: false, preview });
@@ -40,11 +41,13 @@ export async function POST(request: NextRequest) {
     const draftDate = todayInIndia();
     const { data: existing, error: existingError } = await supabase.from("postcraft_daily_drafts").select("*").eq("user_id", user.id).eq("draft_date", draftDate).maybeSingle();
     if (existingError) throw existingError;
-    if (existing && ["ready", "editing", "scheduled", "publishing", "published"].includes(existing.status)) return NextResponse.json({ draft: existing, locked: existing.status !== "published", persistent: true });
+    if (existing?.status === "published") return NextResponse.json({ draft: existing, locked: true, persistent: true, error: "This daily draft has already been published and cannot be replaced." }, { status: 409 });
+    if (existing && !replace) return NextResponse.json({ draft: existing, locked: true, persistent: true });
+
     const row = { user_id: user.id, draft_date: draftDate, status: "ready", source_url: preview.article.url, source_title: preview.article.title, source_name: preview.article.source, generated_post: preview.post, working_post: preview.post, recommended_angle: preview.angle?.angle || null, angle_why: preview.angle?.why || null, ranking_reason: preview.ranking?.reason || null, candidate_count: preview.ranking?.candidateCount || null, verification_status: "verified", updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from("postcraft_daily_drafts").upsert(row, { onConflict: "user_id,draft_date" }).select("*").single();
     if (error) throw error;
-    return NextResponse.json({ draft: data, locked: true, persistent: true });
+    return NextResponse.json({ draft: data, locked: true, persistent: true, replaced: Boolean(existing) });
   } catch (error) {
     console.error("Could not save daily draft:", error);
     return NextResponse.json({ error: "Could not save draft.", details: errorDetails(error) }, { status: 500 });
