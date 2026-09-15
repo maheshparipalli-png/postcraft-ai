@@ -135,7 +135,7 @@ export default function CreatePostPage() {
               <label className="block text-sm font-medium">Desired length
                 <select value={length} onChange={(event) => setLength(event.target.value)} className="mt-2 w-full rounded-lg border border-black/15 bg-transparent px-3 py-2.5 text-sm dark:border-white/15"><option>Short</option><option>Medium</option><option>Long</option></select>
               </label>
-              <button type="button" onClick={runAI} disabled={busy} className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black">{busy ? "AI is working..." : `${selectedAction.title} ->’`}</button>
+              <button type="button" onClick={runAI} disabled={busy} className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black">{busy ? "AI is working..." : `${selectedAction.title} ->`}</button>
             </div>
           </section>
 
@@ -151,6 +151,7 @@ export default function CreatePostPage() {
     </main>
   );
 }
+
 
 
 
