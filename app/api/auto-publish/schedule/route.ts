@@ -1,11 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getBillingAccess } from "@/lib/billing/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function requireBillingAccess() {
+  const billing = await getBillingAccess();
+  if (!billing.authenticated) {
+    return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+  }
+  if (!billing.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          billing.status === "expired"
+            ? "Your free trial has expired. Subscribe to continue."
+            : "Start your free trial or subscribe to continue.",
+        status: billing.status,
+      },
+      { status: 402 },
+    );
+  }
+  return null;
+}
+
 export async function GET() {
   try {
+    const billingError = await requireBillingAccess();
+    if (billingError) return billingError;
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -19,6 +43,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const billingError = await requireBillingAccess();
+    if (billingError) return billingError;
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
