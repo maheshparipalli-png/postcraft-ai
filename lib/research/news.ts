@@ -70,6 +70,7 @@ const searchQueries: Record<string, string[]> = {
 };
 
 const genericGoogleNewsText = /comprehensive, up-to-date news coverage, aggregated from sources all over the world by google news/i;
+const sponsoredStoryText = /\b(sponsored|advertorial|advertisement|advertising|promoted|paid content|partner content|branded content)\b/i;
 
 function decodeHtml(value: string) {
   return value
@@ -278,6 +279,10 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
   }
 }
 
+function isSponsoredStory(item: ResearchItem) {
+  return sponsoredStoryText.test(`${item.title} ${item.source} ${item.snippet}`);
+}
+
 function isLowValueStory(item: ResearchItem) {
   const text = `${item.title} ${item.source}`.toLowerCase();
   return [
@@ -341,7 +346,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
   const byTitle = new Map<string, ResearchItem>();
   for (const item of combined) {
     const time = Date.parse(item.publishedAt);
-    if (!Number.isFinite(time) || time < cutoff || isLowValueStory(item)) continue;
+    if (!Number.isFinite(time) || time < cutoff || isSponsoredStory(item) || isLowValueStory(item)) continue;
 
     const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!key) continue;
