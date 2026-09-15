@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -441,7 +441,7 @@ Return ONLY the finished LinkedIn post body.`;
       const response = await fetch("/api/linkedin/check-duplicate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentary: text.trim(), sourceUrl: selectedIdea?.url || sourceUrl || null }),
+        body: JSON.stringify({`r`n          postId: savedPostId,`r`n          commentary: text.trim(), sourceUrl: selectedIdea?.url || sourceUrl || null }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not complete the originality check.");
@@ -456,7 +456,7 @@ Return ONLY the finished LinkedIn post body.`;
     }
   }
 
-  async function publishToLinkedIn() {
+  async function publishToLinkedIn() {`r`n    const savedPostId = await savePost();`r`n`r`n    if (!savedPostId) {`r`n      setLinkedinMessage("Please save the post before publishing.");`r`n      return;`r`n    }
     if (!post.trim() || originalityStatus === "duplicate") return;
     setLinkedinLoading(true);
     setLinkedinMessage("");
@@ -464,11 +464,11 @@ Return ONLY the finished LinkedIn post body.`;
       const response = await fetch("/api/linkedin/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentary: post.trim(), sourceUrl: selectedIdea?.url || null, sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || "") }),
+        body: JSON.stringify({`r`n          postId: savedPostId,`r`n          commentary: post.trim(), sourceUrl: selectedIdea?.url || null, sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || "") }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not publish to LinkedIn.");
-      setLinkedinMessage("Published to your LinkedIn profile.");
+      setLinkedinMessage("Published to your LinkedIn profile.");`r`n      router.push("/workspace");
     } catch (err) {
       setLinkedinMessage(err instanceof Error ? err.message : "Could not publish to LinkedIn.");
     } finally {
@@ -591,7 +591,7 @@ Return ONLY the finished LinkedIn post body.`;
   const stage = post ? 4 : angle ? 3 : selectedIdea ? 2 : ideas.length ? 1 : 0;
   const stageLabels = ["Discover", "Choose", "Take", "Write"];
 
-  async function savePost() {
+  async function savePost(): Promise<string | null> {
     if (!post.trim()) {
       setSaveMessage("There is no post to save yet.");
       return;
@@ -1036,6 +1036,7 @@ Return ONLY the finished LinkedIn post body.`;
     </main>
   );
 }
+
 
 
 
