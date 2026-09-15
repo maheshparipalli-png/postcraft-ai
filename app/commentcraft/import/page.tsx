@@ -143,7 +143,7 @@ export default function CommentcraftImportPage() {
                   </div>
                   <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={4} placeholder="Generate a short summary or write your own..." className="mt-3 w-full border border-neutral-300 bg-white/40 p-4 text-sm leading-6 outline-none focus:border-black" />
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <button type="button" disabled={summaryLoading || !text.trim()} onClick={generateSummary} className="border border-neutral-900 px-4 py-2 text-xs font-medium text-neutral-900 transition hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40">{summaryLoading ? "Creating summaryâ€¦" : "Generate summary"}</button>
+                    <button type="button" disabled={summaryLoading || !text.trim()} onClick={generateSummary} className="border border-neutral-900 px-4 py-2 text-xs font-medium text-neutral-900 transition hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40">{summaryLoading ? "Creating summary..." : "Generate summary"}</button>
                     <span className="text-xs text-neutral-500">Paste the post text above to enable this button.</span>
                   </div>
                 </div>
@@ -166,7 +166,7 @@ export default function CommentcraftImportPage() {
               <div className="border-l border-neutral-300 pl-10">
                 {message && <p className="mb-4 text-sm text-red-700">{message}</p>}
                 <div className="flex flex-wrap items-center gap-4">
-                  <button disabled={loading} onClick={submit} className="bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Generating four optionsâ€¦" : "Generate 4 comment options â†’"}</button>
+                  <button disabled={loading} onClick={submit} className="bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Generating four options..." : "Generate 4 comment options ->’"}</button>
                   <button type="button" onClick={clearForm} className="px-2 py-3 text-sm text-neutral-500 underline decoration-neutral-300 underline-offset-4 hover:text-black">Clear form</button>
                 </div>
                 <p className="mt-4 max-w-lg text-xs leading-5 text-neutral-500">Your post will be saved to the review queue, where you can edit, approve, or regenerate each comment.</p>
@@ -194,4 +194,5 @@ export default function CommentcraftImportPage() {
     </main>
   );
 }
+
 
