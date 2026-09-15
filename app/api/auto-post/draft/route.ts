@@ -8,6 +8,12 @@ function todayInIndia() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
+function errorDetails(error: unknown) {
+  if (!error || typeof error !== "object") return "Unknown database error.";
+  const value = error as { message?: string; code?: string; details?: string; hint?: string };
+  return [value.message, value.code ? `code=${value.code}` : "", value.details, value.hint ? `hint=${value.hint}` : ""].filter(Boolean).join(" | ") || "Unknown database error.";
+}
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -17,7 +23,7 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json({ draft: data, persistent: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not load draft." }, { status: 500 });
+    return NextResponse.json({ error: "Could not load draft.", details: errorDetails(error) }, { status: 500 });
   }
 }
 
@@ -29,8 +35,6 @@ export async function POST(request: NextRequest) {
     const preview = body.preview;
     if (!preview?.post || !preview?.article?.url) return NextResponse.json({ error: "A complete preview is required." }, { status: 400 });
 
-    // A generated preview can be used immediately in guest mode. The client
-    // keeps it locally; signing in enables persistent daily-draft storage.
     if (!user) return NextResponse.json({ draft: null, persistent: false, saved: false, preview });
 
     const draftDate = todayInIndia();
@@ -42,7 +46,8 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ draft: data, locked: true, persistent: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save draft." }, { status: 500 });
+    console.error("Could not save daily draft:", error);
+    return NextResponse.json({ error: "Could not save draft.", details: errorDetails(error) }, { status: 500 });
   }
 }
 
@@ -59,6 +64,6 @@ export async function PATCH(request: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ draft: data });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not update draft." }, { status: 500 });
+    return NextResponse.json({ error: "Could not update draft.", details: errorDetails(error) }, { status: 500 });
   }
 }
