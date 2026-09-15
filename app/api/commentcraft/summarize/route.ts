@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
+import { getBillingAccess } from "@/lib/billing/access";
 
 export async function POST(request: Request) {
   try {
+    const billing = await getBillingAccess();
+    if (!billing.authenticated) {
+      return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+    }
+    if (!billing.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            billing.status === "expired"
+              ? "Your free trial has expired. Subscribe to continue."
+              : "Start your free trial or subscribe to continue.",
+          status: billing.status,
+        },
+        { status: 402 },
+      );
+    }
+
     const body = await request.json();
     const postText = String(body.postText || "").trim();
 
