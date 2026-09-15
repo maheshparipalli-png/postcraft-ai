@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { decryptLinkedInSession, linkedinCookieName } from "@/lib/linkedin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
@@ -25,14 +25,8 @@ async function publishImage(accessToken: string, owner: string, imageDataUrl: st
   });
   const initializeText = await initializeResponse.text();
   if (!initializeResponse.ok) throw new Error(`LinkedIn image registration failed: ${initializeText}`);
-  type LinkedInImageUploadResponse = {
-  value?: {
-    uploadUrl?: string;
-    image?: string;
-  };
-};
-
-let initializeData: LinkedInImageUploadResponse;
+  type LinkedInImageUploadResponse = { value?: { uploadUrl?: string; image?: string } };
+  let initializeData: LinkedInImageUploadResponse;
   try { initializeData = JSON.parse(initializeText); } catch { throw new Error("LinkedIn returned an invalid image registration response."); }
   const uploadUrl = initializeData?.value?.uploadUrl;
   const imageUrn = initializeData?.value?.image;
@@ -55,6 +49,7 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Connect your LinkedIn account first." }, { status: 401 });
 
     const body = await request.json();
+    const postId = typeof body?.postId === "string" ? body.postId.trim() : null;
     const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : null;
     const sourceTitle = typeof body?.sourceTitle === "string" ? body.sourceTitle.trim() : null;
     const commentary = typeof body?.commentary === "string" ? body.commentary.trim() : "";
@@ -65,18 +60,24 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
 
+    if (postId) {
+      const { data: savedPost, error: savedPostError } = await supabase
+        .from("posts")
+        .select("id,status")
+        .eq("id", postId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (savedPostError) throw savedPostError;
+      if (!savedPost) return NextResponse.json({ error: "The saved post could not be found." }, { status: 404 });
+      if (savedPost.status === "published") return NextResponse.json({ error: "This post has already been published." }, { status: 409 });
+    }
+
     const billing = await getBillingAccess();
     if (!billing.allowed) {
-      return NextResponse.json(
-        {
-          error:
-            billing.status === "expired"
-              ? "Your free trial has expired. Subscribe to continue publishing."
-              : "Start your free trial or subscribe to continue publishing.",
-          status: billing.status,
-        },
-        { status: 402 },
-      );
+      return NextResponse.json({
+        error: billing.status === "expired" ? "Your free trial has expired. Subscribe to continue publishing." : "Start your free trial or subscribe to continue publishing.",
+        status: billing.status,
+      }, { status: 402 });
     }
 
     const normalizeUrl = (value: string | null) => {
@@ -138,9 +139,22 @@ export async function POST(request: NextRequest) {
       published_at: new Date().toISOString(),
     });
     if (historyError) console.error("Could not save publication history:", historyError);
-    return NextResponse.json({ ok: true, id: linkedinPostId, format: imageDataUrl ? "image" : "text" });
+
+    let warning: string | null = null;
+    if (postId) {
+      const { error: postUpdateError } = await supabase
+        .from("posts")
+        .update({ status: "published", updated_at: new Date().toISOString() })
+        .eq("id", postId)
+        .eq("user_id", user.id);
+      if (postUpdateError) {
+        console.error("Could not mark post as published:", postUpdateError);
+        warning = "The post was published, but its workspace status could not be updated.";
+      }
+    }
+
+    return NextResponse.json({ ok: true, id: linkedinPostId, format: imageDataUrl ? "image" : "text", warning });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not publish to LinkedIn." }, { status: 500 });
   }
 }
-
