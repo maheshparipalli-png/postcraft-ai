@@ -91,11 +91,30 @@ function parseAngles(value: unknown): Angle[] {
     .slice(0, 3);
 }
 
+function normalizeAngleText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function angleSimilarity(a: string, b: string) {
+  const aTokens = new Set(normalizeAngleText(a).split(" ").filter((word) => word.length >= 4));
+  const bTokens = new Set(normalizeAngleText(b).split(" ").filter((word) => word.length >= 4));
+  if (!aTokens.size || !bTokens.size) return 0;
+
+  let shared = 0;
+  for (const token of aTokens) if (bTokens.has(token)) shared += 1;
+  return shared / Math.min(aTokens.size, bTokens.size);
+}
+
 function isForbiddenAngle(angle: Angle) {
   const text = `${angle.angle} ${angle.why}`.toLowerCase();
 
   return [
     "raises questions",
+    "raises a question",
     "highlights the need",
     "could exacerbate",
     "may exacerbate",
@@ -111,26 +130,24 @@ function isForbiddenAngle(angle: Angle) {
     "improve efficiency",
     "accelerate progress",
     "changing nature of work",
+    "technology is changing",
+    "ai is changing",
+    "ai will change everything",
   ].some((phrase) => text.includes(phrase));
 }
 
 function selectSafeAngles(angles: Angle[]) {
-  const unique = new Map<string, Angle>();
+  const unique: Angle[] = [];
 
   for (const angle of angles) {
     if (isForbiddenAngle(angle)) continue;
     if (!angle.evidence || angle.evidence.length < 12) continue;
-
-    const key = angle.angle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-
-    if (!key || unique.has(key)) continue;
-    unique.set(key, angle);
+    if (unique.some((existing) => angleSimilarity(existing.angle, angle.angle) >= 0.72)) continue;
+    unique.push(angle);
+    if (unique.length >= 3) break;
   }
 
-  return Array.from(unique.values()).slice(0, 3);
+  return unique;
 }
 
 async function buildEditorialPass(story: Story) {
@@ -144,15 +161,28 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, affected group, trade-off, mechanism, timeline, or unresolved question contained in the story information.
+Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, affected group, trade-off, mechanism, timeline, decision, constraint, or unresolved point contained in the story information.
 
-Return up to 3 genuinely different angles. They do not need to be three if the story only supports one or two strong ideas. Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If the evidence is limited, use cautious wording such as "the timeline suggests", "the available information does not establish", or "the open question is". Never invent statistics, quotes, examples, events, or facts that are not in the supplied story. Do not use generic angles such as "technology is changing work", "people need to adapt", "AI will improve efficiency", "AI may increase inequality", "this raises questions", "future of work", or "responsible innovation".
+Return up to 3 genuinely different angles. They should differ in thesis, not just wording. Prefer one strong angle over three weak or repetitive ones. Do not manufacture diversity by rewriting the same claim three ways.
 
-The evidence field must quote or closely paraphrase a concrete detail from the supplied story. The why field must not introduce a new factual claim. Be honest when the story information is limited.
+Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If evidence is limited, make that limitation part of the angle.
+
+Do not use generic angles such as:
+- technology is changing work
+- people need to adapt
+- AI will improve efficiency
+- AI may increase inequality
+- this raises questions
+- future of work
+- responsible innovation
+- the need to strike a balance
+- the implications are profound
+
+The evidence field must quote or closely paraphrase a concrete detail from the supplied story. The why field must explain why that specific detail creates a useful point of view; it must not introduce a new factual claim.
 
 Return ONLY valid JSON. Do not use Markdown fences or explanatory text.
 
-The response must use exactly this structure:
+Use exactly this structure:
 {
   "evidence": [
     {
@@ -164,7 +194,7 @@ The response must use exactly this structure:
   "angles": [
     {
       "angle": "specific thesis",
-      "why": "why this is interesting",
+      "why": "why this specific thesis is worth considering",
       "evidence": "the story detail that supports this angle"
     }
   ]
@@ -193,7 +223,7 @@ export async function generateEditorialAngles(story: Story) {
   );
 
   if (!editorial.angles.length) {
-    throw new Error("PostCraft could not find a useful angle in this story. Try another story.");
+    throw new Error("This story did not contain enough specific evidence for a strong editorial angle. Try another story.");
   }
 
   return {
@@ -242,11 +272,9 @@ export async function generateEditorialPost(
     throw new Error("Evidence is required before post generation.");
   }
 
-  const ledger = evidence.length
-    ? evidence
-        .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
-        .join("\n")
-    : "No separate evidence ledger was available. Use only the headline and summary below.";
+  const ledger = evidence
+    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
+    .join("\n");
 
   const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
 
@@ -271,9 +299,11 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a natural LinkedIn post of roughly 110-160 words in 4-6 short paragraphs. Start with the insight, not "AI is changing..." or a generic introduction. Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language.
+Write a natural LinkedIn post of roughly 110-160 words in 4-6 short paragraphs. Start with the specific insight from the selected angle. Do not start with a generic statement about AI, technology, business, or change.
 
-End with ONE specific discussion question only if the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
+Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language.
+
+End with ONE specific discussion question only when the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
 
 Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
 
@@ -297,4 +327,3 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
 
   return post;
 }
-
