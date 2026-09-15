@@ -56,6 +56,17 @@ export async function POST() {
 
   if (insertError) {
     console.error("Trial creation error:", insertError);
+
+    if (insertError.code === "23505") {
+      return NextResponse.json(
+        {
+          error: "Your free trial has already been used",
+          status: "already_used",
+        },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({ error: "Unable to start your free trial" }, { status: 500 });
   }
 
