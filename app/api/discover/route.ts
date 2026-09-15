@@ -22,15 +22,32 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
     return "PostCraft picked it because the article contains enough concrete detail to build a specific point of view rather than simply summarize the headline.";
   }
 
-  if (topic === "AI & Technology") {
-    return "It is a current AI or technology development with enough source detail to explore what is actually changing, rather than relying on the headline alone.";
+  if (/\b(wipe out humanity|existential|hijack|misuse|safety|threat|danger|risk|harm)\b/.test(text)) {
+    return "This story is worth exploring because it raises a concrete question about the risks of increasingly capable AI systems. The important issue is how credible the reported threat is, what evidence supports it, and what safeguards may be needed.";
   }
 
-  if (topic === "India") {
-    return "It is an India-focused development with enough source detail to examine what is changing and why it matters beyond the immediate headline.";
+  if (/\b(govern|governance|trust|framework|enterprise|agent|accountab|compliance|responsib)\b/.test(text)) {
+    return "This development is interesting because AI systems are moving into decisions and workflows that require accountability. The key question is how organisations can control these systems, verify their actions, and assign responsibility when something goes wrong.";
   }
 
-  return `It is a recent development directly related to “${topic}”, with enough source detail to explore a specific point of view rather than simply summarize the topic.`;
+  if (/\b(model|launch|release|benchmark|reasoning|performance|training|inference|compute)\b/.test(text)) {
+    return "This story is worth exploring because it points to a change in AI capability, cost, or performance. The useful question is whether the reported improvement holds up in practical use and what it changes for users or businesses.";
+  }
+
+  if (/\b(job|work|employee|workplace|productivity|automation|labour|labor)\b/.test(text)) {
+    return "This development is interesting because it could change how people work or how organisations allocate tasks. The important angle is which activities may genuinely be affected, which limitations remain, and who benefits from the change.";
+  }
+
+  if (/\b(policy|law|regulation|government|legislation|court|ban|rule)\b/.test(text)) {
+    return "This story matters because it connects a technology development with a policy or regulatory decision. The key question is how the decision could affect innovation, accountability, competition, or public trust.";
+  }
+
+  if (/\b(robot|robotics|autonomous|self-driving|device|hardware|chip|semiconductor)\b/.test(text)) {
+    return "This development is interesting because it shows AI moving from software into physical systems or infrastructure. The useful question is what the technology can now do reliably, what limitations remain, and where it could have practical impact.";
+  }
+
+  const subject = title.trim().replace(/\s+-\s+[^-]+$/, "");
+  return `This story is worth exploring because “${subject}” points to a specific development in ${topic}. The useful angle is to examine what has actually changed, what the source establishes, and what the development could mean in practice.`;
 }
 
 export async function POST(request: Request) {
@@ -76,7 +93,7 @@ export async function POST(request: Request) {
     let publishedUrls = new Set<string>();
     if (user) {
       const { data: history } = await supabase.from("postcraft_publications").select("source_url").eq("user_id", user.id);
-      publishedUrls = new Set((history || []).map((row) => row.source_url).filter(Boolean));
+      publishedUrls = new Set((history || []).map((row) => normalizeUrl(row.source_url)).filter(Boolean));
     }
 
     if (!research.length) {
