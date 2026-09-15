@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptLinkedInSession, linkedinCookieName } from "@/lib/linkedin";
+import { getBillingAccess } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
 import { createHash } from "node:crypto";
 
@@ -56,6 +57,20 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+
+    const billing = await getBillingAccess();
+    if (!billing.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            billing.status === "expired"
+              ? "Your free trial has expired. Subscribe to continue publishing."
+              : "Start your free trial or subscribe to continue publishing.",
+          status: billing.status,
+        },
+        { status: 402 },
+      );
+    }
 
     const normalizeUrl = (value: string | null) => {
       if (!value) return null;
