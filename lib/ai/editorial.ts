@@ -258,3 +258,98 @@ export async function generateEditorialAngles(story: Story) {
     evidence: editorial.evidence,
   };
 }
+
+function validateEvidence(value: unknown): Evidence[] {
+  return parseEvidence(value);
+}
+
+function postHasConcreteAnchor(post: string) {
+  const words = post.trim().split(/\s+/);
+  const topicPattern =
+    /\b(ai|artificial intelligence|missile|guidance|targeting|autonomous|autonomy|non-state|military|weapon|weapons|technology|proliferation|model|research|evidence|scenario|jobs|workers|wages|unemployment|entry-level)\b/i;
+
+  return words.length >= 70 && topicPattern.test(post);
+}
+
+function postHasGenericFiller(post: string) {
+  return [
+    "it's crucial to recognize",
+    "not evenly distributed",
+    "highlights the need",
+    "raises a crucial question",
+    "strike a balance",
+    "in today's rapidly changing world",
+    "the future of work",
+    "what do you think",
+    "agree or disagree",
+  ].some((phrase) => post.toLowerCase().includes(phrase));
+}
+
+export async function generateEditorialPost(
+  story: Story,
+  angle: string,
+  angleWhy: string,
+  modeInstruction: string,
+  suppliedEvidence?: Evidence[]
+) {
+  const evidence = validateEvidence(suppliedEvidence);
+
+  if (evidence.length < 1) {
+    throw new Error("Evidence is required before post generation.");
+  }
+
+  const ledger = evidence
+    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
+    .join("\n");
+
+  const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+
+Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
+
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading. Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions. The post should add a grounded perspective rather than merely restating the article.
+
+STORY
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
+
+SELECTED ANGLE
+${angle}
+
+WHY THIS ANGLE WORKS
+${angleWhy}
+
+STORY EVIDENCE
+${ledger}
+
+USER'S TAKE
+${modeInstruction}
+
+Write a natural LinkedIn post of roughly 110-160 words in 4-6 short paragraphs. Start with the specific insight from the selected angle. Do not start with a generic statement about AI, technology, business, or change.
+
+Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language.
+
+End with ONE specific discussion question only when the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
+
+Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
+
+  const result = parseJson(
+    await provider().generateText(prompt, {
+      format: "json",
+      temperature: 0.3,
+      numPredict: 260,
+    })
+  );
+
+  const post = typeof result?.post === "string" ? result.post.trim() : "";
+
+  if (!post) {
+    throw new Error("PostCraft could not produce a post from the selected angle.");
+  }
+
+  if (!postHasConcreteAnchor(post) || postHasGenericFiller(post)) {
+    throw new Error("PostCraft generated a draft that was too generic. Try another angle or regenerate.");
+  }
+
+  return post;
+}
