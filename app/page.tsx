@@ -133,6 +133,29 @@ export default function Home() {
   const angleAbortRef = useRef<AbortController | null>(null);
 
   // URL callback parameters and saved-post hydration are intentionally handled after mount.
+async function discoverIdeas() {
+    setLoading(true);
+    setError("");
+    setIdeas([]);
+    setSelectedIdea(null);
+    resetFromStory();
+    try {
+      const selectedTopic = topic;
+      const response = await fetch("/api/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: selectedTopic }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error ?? "Discovery failed");
+      setIdeas(Array.isArray(data?.ideas) ? data.ideas : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Discovery failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const connectedMessage = params.get("linkedinConnected") === "1" ? "LinkedIn connected. You can publish your post now." : "";
@@ -205,28 +228,7 @@ function resetFromStory() {
     setSourceVerifying(false);
   }
 
-  async function discoverIdeas() {
-    setLoading(true);
-    setError("");
-    setIdeas([]);
-    setSelectedIdea(null);
-    resetFromStory();
-    try {
-      const selectedTopic = topic;
-      const response = await fetch("/api/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: selectedTopic }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Discovery failed");
-      setIdeas(Array.isArray(data?.ideas) ? data.ideas : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Discovery failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+
 
   async function verifySource(idea: Idea) {
     setSourceVerifying(true);
