@@ -1,0 +1,3 @@
+await page.click("button:has-text('Verify')");
+await page.waitForSelector("[data-testid='verification-status']");
+return await page.textContent("[data-testid='verification-status']");

@@ -1,8 +1,10 @@
 ﻿import { geminiProvider } from "./gemini";
+import { ollamaProvider } from "./ollama";
 import type { AIProvider } from "./types";
 
 const providers: Record<string, AIProvider> = {
   gemini: geminiProvider,
+  ollama: ollamaProvider,
 };
 
 export function getAIProvider(): AIProvider {

@@ -13,3 +13,6 @@ lint-result.txt
 *.backup
 *.before-*
 postcraft-ai-backups/
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo
