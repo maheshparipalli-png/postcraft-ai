@@ -111,6 +111,7 @@ export default function Home() {
   const [newsTitle, setNewsTitle] = useState("");
   const [newsSource, setNewsSource] = useState("");
   const [newsDate, setNewsDate] = useState("");
+  const [verifiedSummary, setVerifiedSummary] = useState("");
   const [suggestedAngles, setSuggestedAngles] = useState<AngleSuggestion[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [perspective, setPerspective] = useState<Perspective>("mixed");
@@ -224,6 +225,7 @@ function resetFromStory() {
     setNewsTitle("");
     setNewsSource("");
     setNewsDate("");
+    setVerifiedSummary("");
     setSourceVerified(false);
     setSourceVerifying(false);
   }
@@ -251,26 +253,36 @@ function resetFromStory() {
         );
       }
 
-      setNewsTitle(
-        typeof data.title === "string" && data.title.trim()
-          ? data.title.trim()
-          : idea.title,
-      );
+      const verifiedSource = {
+        title:
+          typeof data.title === "string" && data.title.trim()
+            ? data.title.trim()
+            : idea.title,
+        source:
+          typeof data.source === "string" && data.source.trim()
+            ? data.source.trim()
+            : idea.source,
+        publishedAt:
+          typeof data.publishedAt === "string" && data.publishedAt.trim()
+            ? formatDateInput(data.publishedAt)
+            : formatDateInput(idea.publishedAt),
+        summary:
+          typeof data.summary === "string" && data.summary.trim()
+            ? data.summary.trim()
+            : "",
+        url:
+          typeof data.url === "string" && data.url.trim()
+            ? data.url.trim()
+            : idea.url,
+      };
 
-      setNewsSource(
-        typeof data.source === "string" && data.source.trim()
-          ? data.source.trim()
-          : idea.source,
-      );
-
-      setNewsDate(
-        typeof data.publishedAt === "string" && data.publishedAt.trim()
-          ? formatDateInput(data.publishedAt)
-          : formatDateInput(idea.publishedAt),
-      );
-
+      setNewsTitle(verifiedSource.title);
+      setNewsSource(verifiedSource.source);
+      setNewsDate(verifiedSource.publishedAt);
+      setVerifiedSummary(verifiedSource.summary);
       setSourceVerified(true);
-      return true;
+
+      return verifiedSource;
     } catch (err) {
       setSourceVerified(false);
       setError(
@@ -278,11 +290,12 @@ function resetFromStory() {
           ? err.message
           : "PostCraft could not verify the original news source.",
       );
-      return false;
+      return null;
     } finally {
       setSourceVerifying(false);
     }
   }
+
   async function selectIdea(idea: Idea) {
     const requestId = ++angleRequestRef.current;
     angleAbortRef.current?.abort();
@@ -307,7 +320,7 @@ function resetFromStory() {
 
     try {
       const selectedTopic = topic;
-      const prompt = `You are PostCraft AI, an editorial thinking partner. Analyze only this exact news story information and find thoughtful, evidence-led LinkedIn angles. Do not search the internet and do not rely on outside knowledge.\n\nTopic: ${selectedTopic}\nNews title: ${idea.title}\nNews source: ${idea.source}\nNews date: ${formatDateInput(idea.publishedAt) || "Unknown"}\nURL: ${idea.url}\nSummary: ${idea.description || "No reliable summary was supplied."}\n\nEvery angle must be directly supported by the headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. If the evidence is limited, produce a cautious angle about what is known, what is unknown, or what the timeline shows. Return ONLY valid JSON. The system will return the strongest three grounded angles.`;
+      const prompt = `You are PostCraft AI, an editorial thinking partner. Analyze only this exact news story information and find thoughtful, evidence-led LinkedIn angles. Do not search the internet and do not rely on outside knowledge.\n\nTopic: ${selectedTopic}\nNews title: ${verified.title}\nNews source: ${verified.source}\nNews date: ${verified.publishedAt || "Unknown"}\nURL: ${verified.url}\nSummary: ${verified.summary || "No reliable summary was supplied."}\n\nEvery angle must be directly supported by the verified headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. If the evidence is limited, produce a cautious angle about what is known, what is unknown, or what the timeline shows. Return ONLY valid JSON. The system will return the strongest three grounded angles.`;
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -366,7 +379,7 @@ function resetFromStory() {
     const selectedAngle = suggestedAngles.find((item) => item.text === selectedAngleText);
     const selectedPerspective = perspectives.find((item) => item.id === perspective);
     const selectedTopic = topic;
-    const prompt = `You are PostCraft AI, an editorial thinking partner. Turn ONE news development, ONE selected angle, and the user's point of view into a LinkedIn post.\n\nTopic: ${selectedTopic}\nNews title: ${newsTitle || selectedIdea.title}\nNews source: ${newsSource || selectedIdea.source}\nNews date: ${newsDate || "Unknown"}\nHeadline: ${newsTitle || selectedIdea.title}\nSource: ${newsSource || selectedIdea.source}\nURL: ${selectedIdea.url}\nSummary: ${selectedIdea.description || "No reliable summary was supplied."}\nSelected angle: ${selectedAngleText}\nWhy this angle works: ${selectedAngle?.why || "It gives the story a specific point of view."}\nUser perspective: ${selectedPerspective?.label}\nPerspective guidance: ${selectedPerspective?.description}\nUser's own note: ${perspectiveNote || "No additional note supplied."}\nEvidence JSON: ${JSON.stringify(evidence)}\n\nThe evidence JSON above is the complete factual source. Do not search the internet. Do not add outside facts, personal experience, statistics, motives, or examples. Keep the selected angle intact. Make the thesis clear early. Use plain language and natural sentence rhythm. Avoid generic phrases such as "raises important questions", "future of work", "need to strike a balance", or "in today's rapidly changing world". Do not add a generic policy conclusion.
+    const prompt = `You are PostCraft AI, an editorial thinking partner. Turn ONE news development, ONE selected angle, and the user's point of view into a LinkedIn post.\n\nTopic: ${selectedTopic}\nNews title: ${newsTitle || selectedIdea.title}\nNews source: ${newsSource || selectedIdea.source}\nNews date: ${newsDate || "Unknown"}\nHeadline: ${newsTitle || selectedIdea.title}\nSource: ${newsSource || selectedIdea.source}\nURL: ${selectedIdea.url}\nSummary: ${verifiedSummary || selectedIdea.description || "No reliable summary was supplied."}\nSelected angle: ${selectedAngleText}\nWhy this angle works: ${selectedAngle?.why || "It gives the story a specific point of view."}\nUser perspective: ${selectedPerspective?.label}\nPerspective guidance: ${selectedPerspective?.description}\nUser's own note: ${perspectiveNote || "No additional note supplied."}\nEvidence JSON: ${JSON.stringify(evidence)}\n\nThe evidence JSON above is the complete factual source. Do not search the internet. Do not add outside facts, personal experience, statistics, motives, or examples. Keep the selected angle intact. Make the thesis clear early. Use plain language and natural sentence rhythm. Avoid generic phrases such as "raises important questions", "future of work", "need to strike a balance", or "in today's rapidly changing world". Do not add a generic policy conclusion.
 
 Do not include a source title, publication name, or publication date in your response.
 The application will append the verified source details separately.
@@ -1058,5 +1071,7 @@ Return ONLY the finished LinkedIn post body.`;
     </main>
   );
 }
+
+
 
 
