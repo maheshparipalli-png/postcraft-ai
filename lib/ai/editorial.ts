@@ -1,4 +1,4 @@
-import { getAIProvider } from "@/lib/ai/provider";
+﻿import { getAIProvider } from "@/lib/ai/provider";
 
 type Story = { topic: string; headline: string; source: string; summary: string; url?: string };
 export type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
@@ -273,14 +273,14 @@ export async function generateEditorialPost(
   }
 
   const ledger = evidence
-    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
+    .map((e, i) => `${i}. ${e.claim} [${e.type}] â€” ${e.support}`)
     .join("\n");
 
   const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
 
 Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
 
-Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading. Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions. The post should add a grounded perspective rather than merely restating the article.
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading. Avoid corporate clichÃ©s, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions. The post should add a grounded perspective rather than merely restating the article.
 
 STORY
 Headline: ${story.headline}
@@ -327,3 +327,4 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
 
   return post;
 }
+
