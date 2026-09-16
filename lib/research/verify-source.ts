@@ -4,6 +4,7 @@ export type VerifiedSource = {
   title: string;
   source: string;
   publishedAt: string;
+  summary: string;
 };
 
 function decodeHtml(value: string) {
@@ -15,6 +16,13 @@ function decodeHtml(value: string) {
     .replace(/&gt;/gi, ">")
     .replace(/&#x2F;/gi, "/")
     .replace(/&#x27;/gi, "'");
+}
+
+function cleanText(value: string) {
+  return decodeHtml(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractMeta(html: string, property: string) {
@@ -32,7 +40,7 @@ function extractMeta(html: string, property: string) {
 
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) return decodeHtml(match[1].trim());
+    if (match?.[1]) return cleanText(match[1]);
   }
 
   return "";
@@ -40,7 +48,7 @@ function extractMeta(html: string, property: string) {
 
 function extractTitle(html: string) {
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return title?.[1] ? decodeHtml(title[1].replace(/\s+/g, " ").trim()) : "";
+  return title?.[1] ? cleanText(title[1]) : "";
 }
 
 function extractDate(html: string) {
@@ -74,6 +82,49 @@ function extractPublication(html: string, url: string) {
   } catch {
     return "";
   }
+}
+
+function extractJsonLdDescription(html: string) {
+  const scripts = html.match(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+
+  if (!scripts) return "";
+
+  for (const script of scripts) {
+    const content = script
+      .replace(/<script[^>]+type=["']application\/ld\+json["'][^>]*>/i, "")
+      .replace(/<\/script>$/i, "")
+      .trim();
+
+    try {
+      const parsed = JSON.parse(content);
+      const items = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.["@graph"])
+          ? parsed["@graph"]
+          : [parsed];
+
+      for (const item of items) {
+        if (typeof item?.description === "string") {
+          return cleanText(item.description);
+        }
+      }
+    } catch {
+      // Ignore malformed JSON-LD blocks.
+    }
+  }
+
+  return "";
+}
+
+function extractSummary(html: string) {
+  return (
+    extractMeta(html, "description") ||
+    extractMeta(html, "og:description") ||
+    extractMeta(html, "twitter:description") ||
+    extractJsonLdDescription(html)
+  );
 }
 
 export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
@@ -120,5 +171,6 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     title,
     source: extractPublication(html, parsedUrl.toString()),
     publishedAt: extractDate(html),
+    summary: extractSummary(html),
   };
 }
