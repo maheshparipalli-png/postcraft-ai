@@ -52,6 +52,14 @@ async function pause(milliseconds: number) {
   await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function getCandidateKey(item: ResearchItem) {
+  return item.url.trim().toLowerCase().replace(/\/$/, "");
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "article processing failed.";
+}
+
 async function runAutomaticWorkflow(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const topic = typeof body?.topic === "string" && body.topic.trim()
@@ -62,32 +70,62 @@ async function runAutomaticWorkflow(request: NextRequest) {
   }
 
   const maxAttempts = 2;
+  const maxCandidatesPerAttempt = 5;
   const errors: string[] = [];
+  const attemptedUrls = new Set<string>();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const candidates = await searchNews("AI & Technology");
-      const usableCandidates = candidates.filter(
-        (item) => item.title?.trim() && item.url?.trim() && item.snippet?.trim(),
-      );
-      const firstArticle = usableCandidates[0];
+      const usableCandidates = candidates
+        .filter(
+          (item) => item.title?.trim() && item.url?.trim() && item.snippet?.trim(),
+        )
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-      if (!firstArticle) {
-        errors.push(`Attempt ${attempt}: no usable AI article was returned.`);
-      } else {
+      const candidatesToProcess = usableCandidates
+        .filter((item) => !attemptedUrls.has(getCandidateKey(item)))
+        .slice(0, maxCandidatesPerAttempt);
+
+      console.info(
+        `[PostCraft] auto_discovery attempt=${attempt} candidates=${candidates.length} usable=${usableCandidates.length} new_candidates=${candidatesToProcess.length}`,
+      );
+
+      if (!candidatesToProcess.length) {
+        errors.push(`Attempt ${attempt}: no new usable AI article candidates were returned.`);
+      }
+
+      for (const candidate of candidatesToProcess) {
+        const candidateKey = getCandidateKey(candidate);
+        attemptedUrls.add(candidateKey);
+
         try {
-          const verified = await verifySource(firstArticle);
+          console.info(`[PostCraft] auto_candidate attempt=${attempt} url=${candidate.url}`);
+
+          const verified = await verifySource(candidate);
+          const verifiedSummary = verified.summary?.trim();
+          const searchSummary = candidate.snippet?.trim();
           const story = {
             topic: "AI & Technology",
-            headline: decodeHtmlEntities((verified.title && verified.title.trim().length > 8 && verified.title.trim().toLowerCase() !== "msn" ? verified.title : firstArticle.title) || firstArticle.title),
-            source: verified.source || firstArticle.source,
-            summary: firstArticle.snippet,
-            url: verified.url || firstArticle.url,
+            headline: decodeHtmlEntities(
+              (verified.title && verified.title.trim().length > 8 && verified.title.trim().toLowerCase() !== "msn"
+                ? verified.title
+                : candidate.title) || candidate.title,
+            ),
+            source: verified.source || candidate.source,
+            summary: verifiedSummary || searchSummary || "",
+            url: verified.url || candidate.url,
           };
+
+          console.info(
+            `[PostCraft] auto_verified source=${story.source} summary_chars=${story.summary.length} published_at=${verified.publishedAt || candidate.publishedAt || "unknown"}`,
+          );
 
           const editorial = await generateEditorialAngles(story);
           const bestAngle = editorial.angles[0];
-          if (!bestAngle) throw new Error("The selected article did not produce a sufficiently grounded angle.");
+          if (!bestAngle) {
+            throw new Error("The selected article did not produce a sufficiently grounded angle.");
+          }
 
           const generated = await generateEditorialPost(
             story,
@@ -99,9 +137,13 @@ async function runAutomaticWorkflow(request: NextRequest) {
 
           const sourceTitle = decodeHtmlEntities(story.headline.trim());
           const sourcePublication = story.source.trim() || "the original publisher";
-          const sourceDate = formatDate(verified.publishedAt || firstArticle.publishedAt);
+          const sourceDate = formatDate(verified.publishedAt || candidate.publishedAt);
           const attribution = `Based on a ${sourcePublication} article, ${sourceDate}`;
           const visual = createVisualCopy(generated.trim(), bestAngle.angle);
+
+          console.info(
+            `[PostCraft] auto_candidate_success attempt=${attempt} url=${story.url} evidence=${editorial.evidence.length} angles=${editorial.angles.length}`,
+          );
 
           return NextResponse.json({
             ok: true,
@@ -110,14 +152,14 @@ async function runAutomaticWorkflow(request: NextRequest) {
             article: {
               title: sourceTitle,
               source: sourcePublication,
-              publishedAt: verified.publishedAt || firstArticle.publishedAt,
+              publishedAt: verified.publishedAt || candidate.publishedAt,
               url: story.url,
-              content: firstArticle.snippet,
+              content: story.summary,
             },
             ranking: {
-              selectedRank: 1,
+              selectedRank: usableCandidates.findIndex((item) => getCandidateKey(item) === candidateKey) + 1,
               candidateCount: candidates.length,
-              reason: `Selected as the highest-ranked usable AI story from ${candidates.length} candidates. The recommendation favors a timely, credible development with a clear insight, practical relevance, and a perspective that can be understood by a broad professional audience.`,
+              reason: `Selected from ${usableCandidates.length} usable AI stories after source verification and editorial evidence checks.`,
             },
             angle: bestAngle,
             post: `${generated.trim()}\n\nRead the original article: ${story.url}`,
@@ -128,11 +170,15 @@ async function runAutomaticWorkflow(request: NextRequest) {
             nextStep: "Connect persistent scheduling and server-side LinkedIn authorization before enabling unattended publication.",
           });
         } catch (error) {
-          errors.push(`Attempt ${attempt}: ${error instanceof Error ? error.message : "article processing failed."}`);
+          const message = getErrorMessage(error);
+          errors.push(`Attempt ${attempt}, candidate ${candidate.title}: ${message}`);
+          console.warn(`[PostCraft] auto_candidate_rejected attempt=${attempt} url=${candidate.url} reason=${message}`);
         }
       }
     } catch (error) {
-      errors.push(`Attempt ${attempt}: ${error instanceof Error ? error.message : "discovery failed."}`);
+      const message = getErrorMessage(error);
+      errors.push(`Attempt ${attempt}: ${message}`);
+      console.error(`[PostCraft] auto_discovery_failed attempt=${attempt} reason=${message}`);
     }
 
     if (attempt < maxAttempts) await pause(700 * attempt);
@@ -141,7 +187,7 @@ async function runAutomaticWorkflow(request: NextRequest) {
   return NextResponse.json({
     error: `Automatic discovery could not find and prepare a usable article after ${maxAttempts} attempts.`,
     attempts: maxAttempts,
-    details: errors.slice(-5),
+    details: errors.slice(-8),
   }, { status: 503 });
 }
 
