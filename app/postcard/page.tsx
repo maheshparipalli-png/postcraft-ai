@@ -1,0 +1,308 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
+
+type Template = "editorial" | "insight" | "stat";
+
+const templates: { id: Template; name: string; description: string }[] = [
+  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
+  { id: "insight", name: "Insight", description: "One idea, big and clear" },
+  { id: "stat", name: "Statistic", description: "Lead with a number" },
+];
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function wrapText(text: string, maxChars: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    const next = line ? line + " " + word : word;
+    if (next.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function initial(name: string) {
+  return name.trim().slice(0, 1).toUpperCase() || "P";
+}
+
+export default function PostCardPage() {
+  const [template, setTemplate] = useState<Template>("editorial");
+  const [name, setName] = useState("Your Name");
+  const [handle, setHandle] = useState("@yourhandle");
+  const [headline, setHeadline] = useState("Working hard is not your edge anymore.");
+  const [body, setBody] = useState(
+    "It is the minimum price of entry. What separates you is where you direct that effort, and who grows because of it."
+  );
+  const [closing, setClosing] = useState(
+    "Work earns a seat, but people-centered impact builds a legacy."
+  );
+  const [stat, setStat] = useState("26%");
+  const [statLabel, setStatLabel] = useState("of Anthropic's R&D work is now led by Claude");
+  const [source, setSource] = useState("Source: PostCard");
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const initials = useMemo(() => initial(name), [name]);
+
+  function loadPhoto(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPhoto(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
+  }
+
+  function buildSvg() {
+    const safeName = escapeXml(name);
+    const safeHandle = escapeXml(handle);
+    const safeHeadline = escapeXml(headline);
+    const safeBody = escapeXml(body);
+    const safeClosing = escapeXml(closing);
+    const safeStat = escapeXml(stat);
+    const safeStatLabel = escapeXml(statLabel);
+    const safeSource = escapeXml(source);
+    const headlineLines = wrapText(headline, template === "stat" ? 26 : 29);
+    const bodyLines = wrapText(body, 48);
+    const closingLines = wrapText(closing, 38);
+
+    const avatar = photo
+      ? `<image href="${escapeXml(photo)}" x="64" y="62" width="104" height="104" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>`
+      : `<circle cx="116" cy="114" r="52" fill="#171717"/><text x="116" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="40" fill="white">${escapeXml(initials)}</text>`;
+
+    const textLines = (lines: string[], x: number, y: number, size: number, weight = 400, gap = size * 1.28) =>
+      lines.map((line, index) =>
+        `<text x="${x}" y="${y + index * gap}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${weight}" fill="#171717">${line}</text>`
+      ).join("");
+
+    let content = "";
+    if (template === "stat") {
+      content = `
+        <text x="64" y="275" font-family="Arial,sans-serif" font-size="116" font-weight="700" fill="#171717">${safeStat}</text>
+        ${textLines(wrapText(statLabel, 31), 68, 395, 34, 400, 47)}
+        ${textLines(wrapText(closing, 38), 68, 590, 30, 400, 41)}
+      `;
+    } else {
+      const headlineY = template === "editorial" ? 278 : 220;
+      content = `
+        ${textLines(headlineLines, 68, headlineY, template === "editorial" ? 46 : 54, 500, template === "editorial" ? 57 : 65)}
+        ${textLines(bodyLines, 68, headlineY + headlineLines.length * (template === "editorial" ? 57 : 65) + 42, 29, 400, 40)}
+        ${textLines(closingLines, 68, 620, 29, 600, 40)}
+      `;
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+      <defs>
+        <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
+        <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
+      </defs>
+      <rect width="1080" height="1080" fill="#f7f6f2"/>
+      <rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>
+      ${template === "editorial" ? `
+        ${avatar}
+        <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#171717">${safeName}</text>
+        <text x="190" y="145" font-family="Arial,sans-serif" font-size="28" fill="#777">${safeHandle}</text>
+        <circle cx="500" cy="96" r="14" fill="#24a8e8"/>
+        <path d="M493 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
+      ` : `
+        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="#777">POSTCARD</text>
+        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="#999">${safeName} · ${safeHandle}</text>
+      `}
+      ${content}
+      <text x="68" y="1008" font-family="Arial,sans-serif" font-size="19" fill="#888">${safeSource}</text>
+    </svg>`;
+  }
+
+  async function downloadPng() {
+    setDownloading(true);
+    try {
+      const svg = buildSvg();
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1080;
+        canvas.height = 1080;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(image, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((png) => {
+          if (!png) return;
+          const downloadUrl = URL.createObjectURL(png);
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = "postcard.png";
+          a.click();
+          URL.revokeObjectURL(downloadUrl);
+        }, "image/png");
+        setDownloading(false);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        setDownloading(false);
+      };
+      image.src = url;
+    } catch {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f7f7f5] text-neutral-900">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <header className="flex items-end justify-between border-b border-neutral-300/80 py-6 sm:py-7">
+          <div>
+            <Link href="/" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCARD</Link>
+            <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">AI visual studio</div>
+          </div>
+          <nav className="flex items-center gap-5 text-sm text-neutral-500">
+            <Link href="/" className="hover:text-neutral-900">PostCraft</Link>
+            <Link href="/workspace" className="hover:text-neutral-900">Workspace</Link>
+          </nav>
+        </header>
+
+        <section className="grid gap-12 py-12 lg:grid-cols-[1fr_540px] lg:items-start lg:py-16">
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Visual studio</div>
+            <h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[.98] tracking-[-0.045em] sm:text-7xl">
+              Turn ideas into visuals.
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">
+              Create clean, professional social cards from a thought, quote, statistic, or LinkedIn post.
+            </p>
+
+            <div className="mt-10 border-t border-neutral-900 pt-7">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">1 / Choose a format</div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {templates.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTemplate(item.id)}
+                    className={`border px-4 py-4 text-left transition ${template === item.id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 hover:border-neutral-900"}`}
+                  >
+                    <div className="text-sm font-semibold">{item.name}</div>
+                    <div className={`mt-1 text-xs leading-5 ${template === item.id ? "text-neutral-300" : "text-neutral-500"}`}>{item.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-10 border-t border-neutral-300 pt-7">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Write the card</div>
+
+              {template === "stat" ? (
+                <div className="mt-5 space-y-5">
+                  <Field label="Statistic" value={stat} onChange={setStat} />
+                  <Field label="What it means" value={statLabel} onChange={setStatLabel} textarea />
+                </div>
+              ) : (
+                <div className="mt-5 space-y-5">
+                  {template === "editorial" && (
+                    <>
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <Field label="Name" value={name} onChange={setName} />
+                        <Field label="Handle" value={handle} onChange={setHandle} />
+                      </div>
+                      <div>
+                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
+                        <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold underline underline-offset-4">
+                          {photo ? "Change profile photo" : "Add profile photo"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
+                  <Field label="Supporting thought" value={body} onChange={setBody} textarea />
+                  <Field label="Closing line" value={closing} onChange={setClosing} textarea />
+                </div>
+              )}
+              <div className="mt-5">
+                <Field label="Source / footer" value={source} onChange={setSource} />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <button type="button" onClick={downloadPng} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
+                {downloading ? "Creating card..." : "Download PNG →"}
+              </button>
+              <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
+            </div>
+          </div>
+
+          <div className="lg:sticky lg:top-8">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Live preview</div>
+              <div className="text-xs text-neutral-400">1080 × 1080</div>
+            </div>
+            <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
+              <div className="h-full w-full bg-[radial-gradient(circle_at_20%_20%,rgba(0,0,0,.035),transparent_25%),radial-gradient(circle_at_80%_70%,rgba(0,0,0,.025),transparent_30%)] p-[6%]">
+                {template === "editorial" && (
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-lg font-semibold text-white">
+                      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initials}
+                    </div>
+                    <div>
+                      <div className="text-xl font-bold leading-none">{name}</div>
+                      <div className="mt-1 text-sm text-neutral-500">{handle}</div>
+                    </div>
+                    <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white">✓</span>
+                  </div>
+                )}
+                {template !== "editorial" && (
+                  <div className="text-[10px] font-bold tracking-[.25em] text-neutral-400">POSTCARD</div>
+                )}
+                {template === "stat" ? (
+                  <div className="mt-[18%]">
+                    <div className="text-[clamp(4rem,11vw,7rem)] font-bold leading-none tracking-[-.06em]">{stat}</div>
+                    <div className="mt-8 max-w-[90%] text-2xl leading-tight">{statLabel}</div>
+                    <div className="mt-16 max-w-[85%] text-xl font-medium leading-snug">{closing}</div>
+                  </div>
+                ) : (
+                  <div className={template === "editorial" ? "mt-[14%]" : "mt-[20%]"}>
+                    <div className={template === "editorial" ? "font-sans text-3xl font-medium leading-[1.16] tracking-[-.02em]" : "font-sans text-4xl font-semibold leading-[1.12] tracking-[-.025em]"}>{headline}</div>
+                    <div className="mt-8 max-w-[92%] text-lg leading-[1.45] text-neutral-700">{body}</div>
+                    <div className="mt-12 max-w-[85%] text-lg font-semibold leading-[1.35]">{closing}</div>
+                  </div>
+                )}
+                <div className="mt-auto pt-8 text-[9px] text-neutral-400">{source}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Field({ label, value, onChange, textarea = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
+  const className = "mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none transition focus:border-neutral-900";
+  return (
+    <label className="block">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">{label}</span>
+      {textarea ? (
+        <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} className={className + " resize-y leading-6"} />
+      ) : (
+        <input value={value} onChange={(e) => onChange(e.target.value)} className={className} />
+      )}
+    </label>
+  );
+}
