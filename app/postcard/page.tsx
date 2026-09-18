@@ -294,43 +294,78 @@ export default function PostCardPage() {
           </div>
 
           <div className="lg:sticky lg:top-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Live preview</div>
-              <div className="text-xs text-neutral-400">1080 × 1080</div>
-            </div>
-            <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
-              <div className="h-full w-full bg-[radial-gradient(circle_at_20%_20%,rgba(0,0,0,.035),transparent_25%),radial-gradient(circle_at_80%_70%,rgba(0,0,0,.025),transparent_30%)] p-[6%]">
-                {template === "editorial" && (
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-lg font-semibold text-white">
-                      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initials}
+            {generatedCards.length > 0 ? (
+              <>
+                <div className="mb-4 flex items-end justify-between">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">4 / Your generated cards</div>
+                    <p className="mt-1 text-sm text-neutral-500">Four visual variations generated from your content.</p>
+                  </div>
+                  <button type="button" onClick={generateOptions} disabled={generating} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold hover:border-neutral-900 disabled:opacity-50">
+                    {generating ? "Generating..." : "↻ Regenerate"}
+                  </button>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {generatedCards.map((card, index) => (
+                    <div key={card.id} className={`overflow-hidden rounded-xl border bg-white shadow-sm transition ${selectedCard === index ? "border-blue-500 ring-2 ring-blue-100" : "border-neutral-200"}`}>
+                      <button type="button" onClick={() => setSelectedCard(index)} className="block w-full text-left">
+                        <div className="aspect-square overflow-hidden bg-neutral-100">
+                          <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: buildSvg(card.background) }} />
+                        </div>
+                      </button>
+                      <div className="flex items-center justify-between border-t border-neutral-200 px-3 py-2">
+                        <button type="button" onClick={() => setSelectedCard(index)} className="flex items-center gap-2 text-xs font-medium">
+                          <span className={`h-3 w-3 rounded-full border-2 ${selectedCard === index ? "border-blue-500 bg-blue-500" : "border-neutral-300"}`} />
+                          Option {index + 1}
+                        </button>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setBackground(card.background)} className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-[10px] font-semibold hover:border-neutral-400">Use background</button>
+                          <button type="button" onClick={() => downloadPng(card.background)} disabled={downloading} className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-[10px] font-semibold hover:border-neutral-400 disabled:opacity-50">Download</button>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xl font-bold leading-none">{name}</div>
-                      <div className="mt-1 text-sm text-neutral-500">{handle}</div>
-                    </div>
-                    <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white">✓</span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Live preview</div>
+                  <div className="text-xs text-neutral-400">1080 × 1080</div>
+                </div>
+                <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
+                  <div className="h-full w-full p-[6%]">
+                    {template === "editorial" && (
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-lg font-semibold text-white">
+                          {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initials}
+                        </div>
+                        <div>
+                          <div className="text-xl font-bold leading-none">{name}</div>
+                          <div className="mt-1 text-sm text-neutral-500">{handle}</div>
+                        </div>
+                        <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white">✓</span>
+                      </div>
+                    )}
+                    {template !== "editorial" && <div className="text-[10px] font-bold tracking-[.25em] text-neutral-400">POSTCARD</div>}
+                    {template === "stat" ? (
+                      <div className="mt-[18%]">
+                        <div className="text-[clamp(4rem,11vw,7rem)] font-bold leading-none tracking-[-.06em]">{stat}</div>
+                        <div className="mt-8 max-w-[90%] text-2xl leading-tight">{statLabel}</div>
+                        <div className="mt-16 max-w-[85%] text-xl font-medium leading-snug">{closing}</div>
+                      </div>
+                    ) : (
+                      <div className={template === "editorial" ? "mt-[14%]" : "mt-[20%]"}>
+                        <div className={template === "editorial" ? "font-sans text-3xl font-medium leading-[1.16] tracking-[-.02em]" : "font-sans text-4xl font-semibold leading-[1.12] tracking-[-.025em]"}>{headline}</div>
+                        <div className="mt-8 max-w-[92%] text-lg leading-[1.45] text-neutral-700">{body}</div>
+                        <div className="mt-12 max-w-[85%] text-lg font-semibold leading-[1.35]">{closing}</div>
+                      </div>
+                    )}
+                    <div className="mt-auto pt-8 text-[9px] text-neutral-400">{source}</div>
                   </div>
-                )}
-                {template !== "editorial" && (
-                  <div className="text-[10px] font-bold tracking-[.25em] text-neutral-400">POSTCARD</div>
-                )}
-                {template === "stat" ? (
-                  <div className="mt-[18%]">
-                    <div className="text-[clamp(4rem,11vw,7rem)] font-bold leading-none tracking-[-.06em]">{stat}</div>
-                    <div className="mt-8 max-w-[90%] text-2xl leading-tight">{statLabel}</div>
-                    <div className="mt-16 max-w-[85%] text-xl font-medium leading-snug">{closing}</div>
-                  </div>
-                ) : (
-                  <div className={template === "editorial" ? "mt-[14%]" : "mt-[20%]"}>
-                    <div className={template === "editorial" ? "font-sans text-3xl font-medium leading-[1.16] tracking-[-.02em]" : "font-sans text-4xl font-semibold leading-[1.12] tracking-[-.025em]"}>{headline}</div>
-                    <div className="mt-8 max-w-[92%] text-lg leading-[1.45] text-neutral-700">{body}</div>
-                    <div className="mt-12 max-w-[85%] text-lg font-semibold leading-[1.35]">{closing}</div>
-                  </div>
-                )}
-                <div className="mt-auto pt-8 text-[9px] text-neutral-400">{source}</div>
-              </div>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </div>
