@@ -142,11 +142,63 @@ function isForbiddenAngle(angle: Angle) {
   ].some((phrase) => text.includes(phrase));
 }
 
+
+type RankedAngle = Angle & {
+  score: number;
+  criteria: {
+    readerInterest: number;
+    discussionPotential: number;
+    relevance: number;
+    clarity: number;
+    specificity: number;
+    linkedinFit: number;
+    evidenceStrength: number;
+  };
+};
+
+function isWeakAngle(angle: Angle) {
+  const words = normalizeAngleText(angle.angle).split(" ").filter(Boolean);
+  const text = angle.angle.toLowerCase() + " " + angle.why.toLowerCase();
+  if (words.length < 7) return true;
+  return [
+    "indicating a shift",
+    "need for a different approach",
+    "need for a new approach",
+    "highlights the importance",
+    "importance of",
+    "need to survive",
+    "need to prepare",
+    "need to adapt",
+    "changing nature",
+    "raises an important",
+  ].some((phrase) => text.includes(phrase));
+}
+
+function scoreAngle(angle: Angle, story: Story): RankedAngle {
+  const angleText = (angle.angle + " " + angle.why + " " + angle.evidence).toLowerCase();
+  const summary = story.summary.toLowerCase();
+  const readerInterest = Math.min(10, 5 + (/why|how|instead|rather|but|yet|first|last|shift|trade|tension/.test(angleText) ? 2 : 0) + (angle.angle.length >= 70 ? 2 : 0));
+  const discussionPotential = Math.min(10, 5 + (/trade|tension|whether|instead|but|yet|should|choice|debate|cost|risk/.test(angleText) ? 3 : 0) + (angle.why.length >= 60 ? 1 : 0));
+  const relevance = Math.min(10, 5 + (/(work|worker|workers|career|job|jobs|business|leader|leadership|professional|company|skill|skills|education|manager|customer|market)/.test(angleText) ? 3 : 0) + (story.topic ? 1 : 0));
+  const wordCount = normalizeAngleText(angle.angle).split(" ").filter(Boolean).length;
+  const clarity = Math.max(1, Math.min(10, 10 - Math.max(0, wordCount - 24) * 0.35));
+  const evidencePrefix = angle.evidence.toLowerCase().slice(0, 30);
+  const specificity = Math.min(10, 4 + (angle.evidence.length >= 45 ? 2 : 0) + (evidencePrefix && summary.includes(evidencePrefix) ? 2 : 0) + (angle.angle.length >= 60 ? 2 : 0));
+  const linkedinFit = Math.min(10, 5 + (angle.angle.length >= 55 && angle.angle.length <= 180 ? 2 : 0) + (discussionPotential >= 7 ? 2 : 0) + (clarity >= 7 ? 1 : 0));
+  const evidenceStrength = Math.min(10, 4 + (angle.evidence.length >= 45 ? 3 : 0) + (evidencePrefix && summary.includes(evidencePrefix) ? 3 : 0));
+  const score = readerInterest * 0.20 + discussionPotential * 0.20 + relevance * 0.15 + clarity * 0.15 + specificity * 0.10 + linkedinFit * 0.10 + evidenceStrength * 0.10;
+  return { ...angle, score: Number(score.toFixed(2)), criteria: { readerInterest, discussionPotential, relevance, clarity, specificity, linkedinFit, evidenceStrength } };
+}
+
+function rankAngles(angles: Angle[], story: Story): RankedAngle[] {
+  return angles.filter((angle) => !isWeakAngle(angle)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
+}
+
 function selectSafeAngles(angles: Angle[]) {
   const unique: Angle[] = [];
 
   for (const angle of angles) {
-    if (isForbiddenAngle(angle)) continue;
+    if (isForbiddenAngle(angle) || isWeakAngle(angle)) continue;
 
     const normalizedAngle: Angle = {
       angle: angle.angle.trim(),
@@ -286,6 +338,31 @@ Use exactly this structure:
   }
 
   return { evidence, angles };
+}
+
+
+export async function generateEditorialDraft(story: Story) {
+  const startedAt = Date.now();
+  const editorial = await buildEditorialPass(story);
+  const ranked = rankAngles(editorial.angles, story);
+
+  if (!ranked.length) {
+    const fallback = buildGroundedFallback(story);
+    if (!fallback.angles.length) throw new Error("This story did not contain enough specific evidence for a strong editorial angle. Try another story.");
+    const selected = {
+      ...fallback.angles[0],
+      score: 6,
+      criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
+    };
+    const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", fallback.evidence);
+    return { angles: [selected], evidence: fallback.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
+  }
+
+  const selected = ranked[0];
+  const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", editorial.evidence);
+
+  console.info("[PostCraft] editorial_pipeline_ms=" + (Date.now() - startedAt) + " candidates=" + editorial.angles.length + " ranked=" + ranked.length + " selected_score=" + selected.score);
+  return { angles: ranked.slice(0, 3), evidence: editorial.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
 }
 
 export async function generateEditorialAngles(story: Story) {
