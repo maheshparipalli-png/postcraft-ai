@@ -121,6 +121,34 @@ function extractJsonLdDescription(html: string) {
 const genericGoogleNewsText =
   /comprehensive\s+up[-–—]to[-–—]date\s+news\s+coverage,\s+aggregated\s+from\s+sources\s+all\s+over\s+the\s+world\s+by\s+google\s+news/i;
 
+const aggregatorHosts = new Set([
+  "news.google.com",
+  "google.com",
+  "www.google.com",
+  "bing.com",
+  "www.bing.com",
+  "news.yahoo.com",
+  "yahoo.com",
+  "www.yahoo.com",
+]);
+
+function hostnameOf(url: string) {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function isAggregatorUrl(url: string) {
+  const hostname = hostnameOf(url);
+  return Boolean(hostname && aggregatorHosts.has(hostname));
+}
+
+function isAggregatorSource(source: string) {
+  return /^(google news|bing news|yahoo news)$/i.test(source.trim());
+}
+
 function extractSummary(html: string) {
   const candidates = [
     extractMeta(html, "og:description"),
@@ -147,6 +175,12 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
 
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
     throw new Error("Only HTTP and HTTPS source URLs are supported.");
+  }
+
+  if (isAggregatorUrl(parsedUrl.toString())) {
+    throw new Error(
+      "PostCraft received an aggregator URL instead of the original publisher article.",
+    );
   }
 
   const response = await fetch(parsedUrl.toString(), {
@@ -176,11 +210,11 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
   const source = extractPublication(html, finalUrl);
   const summary = extractSummary(html);
 
-  const isGoogleNews =
-    new URL(finalUrl).hostname === "news.google.com" ||
-    source.toLowerCase() === "google news";
+  const isAggregator =
+    isAggregatorUrl(finalUrl) ||
+    isAggregatorSource(source);
 
-  if (!title || isGoogleNews || genericGoogleNewsText.test(summary)) {
+  if (!title || isAggregator || genericGoogleNewsText.test(summary)) {
     throw new Error(
       "PostCraft reached an aggregator page instead of the original article. The publisher source could not be verified.",
     );
