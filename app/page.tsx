@@ -297,7 +297,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                 evidence: typeof value.evidence === "string" ? value.evidence.trim() : "",
               };
             })
-            .filter((item): item is AngleSuggestion => Boolean(item))
+            .filter((item: AngleSuggestion | null): item is AngleSuggestion => Boolean(item))
         : [];
 
       setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
