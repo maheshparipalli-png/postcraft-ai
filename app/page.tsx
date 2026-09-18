@@ -378,7 +378,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
       setLinkedinMessage("Please save the post before publishing.");
       return;
     }
-    if (!post.trim() || originalityStatus === "duplicate") return;
+    if (!post.trim()) return;
     setLinkedinLoading(true);
     setLinkedinMessage("");
     try {
@@ -390,6 +390,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
           commentary: post.trim(),
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
+          includeSourceImage: true,
         }),
       });
       const data = await response.json();
@@ -402,12 +403,6 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
       setLinkedinLoading(false);
     }
   }
-
-  useEffect(() => {
-    if (!post.trim()) { setOriginalityStatus("idle"); setOriginalityMessage(""); return; }
-    const timer = window.setTimeout(() => { void checkOriginality(post); }, 500);
-    return () => window.clearTimeout(timer);
-  }, [post, selectedIdea?.url]);
 
   async function copyPost() {
     if (!post) return;
@@ -793,10 +788,6 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                     aria-label="Post editor"
                   />
                 </div>
-                <div className={`mt-5 rounded-lg border px-4 py-3 text-sm ${originalityStatus === "duplicate" ? "border-red-300 bg-red-50 text-red-800" : originalityStatus === "clear" ? "border-green-300 bg-green-50 text-green-800" : "border-neutral-200 bg-neutral-50 text-neutral-600"}`}>
-                  <div className="font-medium">Originality check</div>
-                  <div className="mt-1">{originalityMessage || "The post will be checked before publishing."}</div>
-                </div>
                 <div className="mt-6 flex items-center justify-between"><span className="text-xs text-neutral-400">Ready to take with you.</span><div className="flex items-center gap-4">
                   <button
                     onClick={savePost}
@@ -816,7 +807,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                     {copied ? "Copied" : "Copy post -"}
                   </button>
                   {linkedinConnected ? (
-                    <button onClick={publishToLinkedIn} disabled={linkedinLoading || originalityStatus !== "clear" || !post.trim()} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:opacity-50">{linkedinLoading ? "Publishing..." : "Publish to LinkedIn -"}</button>
+                    <button onClick={publishToLinkedIn} disabled={linkedinLoading || !post.trim()} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:opacity-50">{linkedinLoading ? "Publishing..." : "Publish to LinkedIn -"}</button>
                   ) : (
                     <button onClick={connectLinkedIn} className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2">Connect LinkedIn -</button>
                   )}
