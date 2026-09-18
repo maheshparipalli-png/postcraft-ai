@@ -58,6 +58,7 @@ function initial(name: string) {
 export default function PostCardPage() {
   const [template, setTemplate] = useState<Template>("editorial");
   const [name, setName] = useState("Your Name");
+  const [profileLocked, setProfileLocked] = useState(false);
   const [handle, setHandle] = useState("@yourhandle");
   const [headline, setHeadline] = useState("Working hard is not your edge anymore.");
   const [body, setBody] = useState(
@@ -80,6 +81,32 @@ export default function PostCardPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = useMemo(() => initial(name), [name]);
+
+  useEffect(() => {
+    const savedProfile = window.localStorage.getItem("postcraft-postcard-profile");
+    if (savedProfile) {
+      try {
+        const profile = JSON.parse(savedProfile) as { name?: string; handle?: string; photo?: string | null };
+        if (profile.name) setName(profile.name);
+        if (profile.handle) setHandle(profile.handle);
+        if (profile.photo) setPhoto(profile.photo);
+        if (profile.name || profile.handle || profile.photo) setProfileLocked(true);
+      } catch {
+        window.localStorage.removeItem("postcraft-postcard-profile");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (profileLocked) return;
+    const hasProfile = name.trim() && handle.trim();
+    if (!hasProfile && !photo) return;
+    window.localStorage.setItem(
+      "postcraft-postcard-profile",
+      JSON.stringify({ name, handle, photo })
+    );
+    setProfileLocked(true);
+  }, [name, handle, photo, profileLocked]);
 
   useEffect(() => {
     fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
@@ -321,15 +348,27 @@ export default function PostCardPage() {
                   {template === "editorial" && (
                     <>
                       <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Name" value={name} onChange={setName} />
-                        <Field label="Handle" value={handle} onChange={setHandle} />
+                        <Field label="Name" value={name} onChange={setName} disabled={profileLocked} />
+                        <Field label="Handle" value={handle} onChange={setHandle} disabled={profileLocked} />
                       </div>
-                      <div>
+                      <div className="flex items-center gap-3">
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
-                        <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold underline underline-offset-4">
-                          {photo ? "Change profile photo" : "Add profile photo"}
-                        </button>
+                        {!profileLocked && (
+                          <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold underline underline-offset-4">
+                            {photo ? "Change profile photo" : "Add profile photo"}
+                          </button>
+                        )}
+                        {profileLocked && <span className="text-xs font-medium text-neutral-500">✓ Profile saved</span>}
                       </div>
+                      {profileLocked && (
+                        <button
+                          type="button"
+                          onClick={() => setProfileLocked(false)}
+                          className="text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
+                        >
+                          Edit profile
+                        </button>
+                      )}
                     </>
                   )}
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
@@ -390,15 +429,15 @@ export default function PostCardPage() {
   );
 }
 
-function Field({ label, value, onChange, textarea = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
+function Field({ label, value, onChange, textarea = false, disabled = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean; disabled?: boolean }) {
   const className = "mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none transition focus:border-neutral-900";
   return (
     <label className="block">
       <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">{label}</span>
       {textarea ? (
-        <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} className={className + " resize-y leading-6"} />
+        <textarea rows={3} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " resize-y leading-6 disabled:cursor-not-allowed disabled:text-neutral-400"} />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} className={className} />
+        <input value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " disabled:cursor-not-allowed disabled:text-neutral-400"} />
       )}
     </label>
   );
