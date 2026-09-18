@@ -327,59 +327,85 @@ function resetFromStory() {
     setNewsSource(decodeHtmlEntities(idea.source));
     setNewsDate(formatDateInput(idea.publishedAt));
     setError("");
-
-    const verified = await verifySource(idea);
-
-    if (!verified || requestId !== angleRequestRef.current) {
-      return;
-    }
-
     setAngleLoading(true);
 
     try {
+      const verified = await verifySource(idea);
+      if (!verified || requestId !== angleRequestRef.current) return;
+
       const selectedTopic = topic;
-      const prompt = `You are PostCraft AI, an editorial thinking partner. Analyze only this exact news story information and find thoughtful, evidence-led LinkedIn angles. Do not search the internet and do not rely on outside knowledge.\n\nTopic: ${selectedTopic}\nNews title: ${verified.title}\nNews source: ${verified.source}\nNews date: ${verified.publishedAt || "Unknown"}\nURL: ${verified.url}\nSummary: ${verified.summary || "No reliable summary was supplied."}\n\nEvery angle must be directly supported by the verified headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. If the evidence is limited, produce a cautious angle about what is known, what is unknown, or what the timeline shows. Return ONLY valid JSON. The system will return the strongest three grounded angles.`;
+      const prompt = `Analyze this verified news story internally and create the strongest possible LinkedIn post.
+
+Do not ask the user to choose an angle. Generate multiple candidate editorial angles internally, evaluate them, rank them, select the strongest one, and then write the post.
+
+Evaluate angles for:
+- reader interest: would a professional stop and read it?
+- discussion potential: does it create a specific point worth responding to?
+- relevance: does it matter to a LinkedIn audience?
+- clarity: can the thesis be understood immediately?
+- specificity: is it grounded in a concrete detail rather than a generic AI statement?
+- LinkedIn fit: does it work naturally as a professional post?
+- evidence strength: is it directly supported by the supplied story?
+
+Reject short fragments, generic observations, unsupported implications, invented motives, and conclusions not established by the story.
+
+Use only this verified story. Do not search the internet or add outside facts.
+
+Topic: ${selectedTopic}
+News title: ${verified.title}
+News source: ${verified.source}
+News date: ${verified.publishedAt || "Unknown"}
+URL: ${verified.url}
+Summary: ${verified.summary || "No reliable summary was supplied."}
+
+Return the strongest editorial result and finished LinkedIn post.`;
+
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "angles", prompt }),
+        body: JSON.stringify({ action: "editorial", prompt }),
         signal: controller.signal,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Angle generation failed");
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data.text);
-      } catch {
-        const match = String(data.text).match(/\[[\s\S]*\]/);
-        if (!match) throw new Error("PostCraft could not finish thinking about this story. Try another story.");
-        parsed = JSON.parse(match[0]);
-      }
-      const generatedAngles: AngleSuggestion[] = Array.isArray(parsed)
-        ? parsed.map((item): AngleSuggestion | null => {
-            if (!item || typeof item !== "object") return null;
-            const value = item as { angle?: unknown; why?: unknown; evidence?: unknown };
-            const text = typeof value.angle === "string" ? value.angle.trim() : "";
-            const why = typeof value.why === "string" ? value.why.trim() : "";
-            const evidenceAnchor = typeof value.evidence === "string" ? value.evidence.trim() : "";
-            return text ? { text, why, evidence: evidenceAnchor } : null;
-          }).filter((item): item is AngleSuggestion => Boolean(item?.text))
-        : [];
-      const uniqueAngles = Array.from(new Map(generatedAngles.filter((item) => !isUnsupportedAngle(item)).map((item) => [item.text.toLowerCase(), item])).values()).slice(0, 3);
-      if (!uniqueAngles.length) throw new Error("PostCraft could not find a useful angle for this story. Try another story.");
-      if (requestId !== angleRequestRef.current) return;
-      setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
-      setSuggestedAngles(uniqueAngles);
+      if (!response.ok) throw new Error(data?.error || "PostCraft could not finish the editorial analysis.");
 
-      if (uniqueAngles.length === 1) {
-        setAngle(uniqueAngles[0].text);
-        void createPost(uniqueAngles[0].text, true);
-      } else {
-        setAngle("");
+      if (requestId !== angleRequestRef.current) return;
+
+      const selected = data?.selectedAngle;
+      const selectedText = typeof selected?.angle === "string" ? selected.angle.trim() : "";
+      const generatedPost = typeof data?.post === "string" ? data.post.trim() : "";
+
+      if (!selectedText || !generatedPost) {
+        throw new Error("PostCraft could not produce a strong editorial draft for this story. Try another story.");
       }
+
+      const generatedAngles: AngleSuggestion[] = Array.isArray(data?.angles)
+        ? data.angles
+            .map((item: unknown): AngleSuggestion | null => {
+              if (!item || typeof item !== "object") return null;
+              const value = item as { angle?: unknown; why?: unknown; evidence?: unknown };
+              const text = typeof value.angle === "string" ? value.angle.trim() : "";
+              if (!text) return null;
+              return {
+                text,
+                why: typeof value.why === "string" ? value.why.trim() : "",
+                evidence: typeof value.evidence === "string" ? value.evidence.trim() : "",
+              };
+            })
+            .filter((item): item is AngleSuggestion => Boolean(item))
+        : [];
+
+      setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
+      setSuggestedAngles(generatedAngles);
+      setAngle(selectedText);
+      setPost(generatedPost);
+      setOriginalityStatus("idle");
+      setOriginalityMessage("");
     } catch (err) {
       if (controller.signal.aborted) return;
-      if (requestId === angleRequestRef.current) setError(err instanceof Error ? err.message : "PostCraft could not finish thinking about this story. Try another story.");
+      if (requestId === angleRequestRef.current) {
+        setError(err instanceof Error ? err.message : "PostCraft could not finish the editorial analysis.");
+      }
     } finally {
       if (requestId === angleRequestRef.current) setAngleLoading(false);
     }
@@ -797,7 +823,7 @@ Return ONLY the finished LinkedIn post body.`;
           <div className="max-w-4xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">01 / Find</div>
             <h1 className="mt-5 max-w-4xl font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Find something<br className="hidden sm:block" /> worth saying.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft helps you find the interesting question inside it - before you write a word.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft analyzes the story, evaluates possible angles, and prepares the strongest LinkedIn post automatically.</p>
           </div>
         </section>
 
@@ -859,8 +885,8 @@ Return ONLY the finished LinkedIn post body.`;
               >
                 --- Back to stories
               </button>
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">03 / Angle</div>
-              <h2 className="mt-2 font-serif text-2xl">What&apos;s actually interesting here?</h2>
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">03 / Editorial analysis</div>
+              <h2 className="mt-2 font-serif text-2xl">PostCraft is finding the strongest way into this story.</h2>
             </div>
             <div>
               <div className="max-w-2xl border-b border-neutral-300/80 pb-7">
@@ -883,10 +909,10 @@ Return ONLY the finished LinkedIn post body.`;
                 </div>
                 <p className="mt-3 max-w-xl text-xs leading-5 text-neutral-500">
                   {sourceVerifying
-                    ? "Opening the original publisher page before generating any angles."
+                    ? "Opening the original publisher page before editorial analysis."
                     : sourceVerified
-                      ? "The headline, publication, and date below were taken from the original source where available."
-                      : "PostCraft must verify the original source before creating angles or a post."}
+                      ? "The source details below are verified and used internally by PostCraft."
+                      : "PostCraft verifies the original source before generating the editorial draft."}
                 </p>
                 <div className="mt-6 grid gap-5 sm:grid-cols-[1fr_180px]">
                   <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
@@ -903,7 +929,7 @@ Return ONLY the finished LinkedIn post body.`;
                   <input value={newsTitle} onChange={(event) => setNewsTitle(event.target.value)} className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900/10" placeholder="Original news headline" />
                 </label>
               </div>
-              {angle && !angleLoading && (
+              {false && angle && !angleLoading && (
               <div className="mt-8 border-y border-neutral-300/80 py-7">
                 <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Validated angle</div>
                 <div className="mt-3 font-serif text-2xl leading-tight tracking-[-0.02em]">{angle}</div>
@@ -913,7 +939,7 @@ Return ONLY the finished LinkedIn post body.`;
               </div>
             )}
 
-            {!post && !postLoading && !angleLoading && suggestedAngles.length > 0 && (
+            {false && !post && !postLoading && !angleLoading && suggestedAngles.length > 0 && (
               <div className="mt-8">
                 <div className="mb-4 text-[10px] uppercase tracking-[0.15em] text-neutral-400">
                   Other validated angles
