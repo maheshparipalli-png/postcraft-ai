@@ -138,9 +138,25 @@ export default function PostCardPage() {
       <defs>
         <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
         <linearGradient id="gradientBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d6c9"/><stop offset="100%" stop-color="#c9d8ff"/></linearGradient>
+        <linearGradient id="photoBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8d3df"/><stop offset="100%" stop-color="#7896a0"/></linearGradient>
         <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
       </defs>
-      ${backgroundId === "dark" ? '<rect width="1080" height="1080" fill="#151515"/>' : backgroundId === "gradient" ? '<rect width="1080" height="1080" fill="url(#gradientBg)"/>' : backgroundId === "minimal" ? '<rect width="1080" height="1080" fill="#f7f5ef"/>' : '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>'}
+      ${backgroundId === "dark"
+        ? '<rect width="1080" height="1080" fill="#151515"/><circle cx="900" cy="120" r="260" fill="#2a2a2a" opacity=".65"/>'
+        : backgroundId === "gradient"
+          ? '<rect width="1080" height="1080" fill="url(#gradientBg)"/>'
+          : backgroundId === "photo"
+            ? '<rect width="1080" height="1080" fill="url(#photoBg)"/><path d="M0 760L240 570l190 150 180-230 470 350v240H0z" fill="#344e59" opacity=".65"/><path d="M0 820l240-150 190 120 180-180 470 300v170H0z" fill="#1f3943" opacity=".55"/>'
+            : backgroundId === "abstract"
+              ? '<rect width="1080" height="1080" fill="#e9edf4"/><path d="M-80 620C180 360 360 390 510 540s310 210 650-20v560H-80z" fill="#d7deea"/><path d="M-80 760c260-250 430-210 600-50s310 160 640-70v440H-80z" fill="#c5cedd" opacity=".72"/>'
+              : backgroundId === "ink"
+                ? '<rect width="1080" height="1080" fill="#f4e9dc"/><path d="M760 0c-40 190-220 260-260 430s170 250 80 430-260 120-420 220H1080V0z" fill="#242b33" opacity=".94"/>'
+                : backgroundId === "nature"
+                  ? '<rect width="1080" height="1080" fill="#f2f0e7"/><path d="M820 80c-180 140-190 350-60 500s100 280-10 500h330V0z" fill="#d5dfc9"/><path d="M940 160c-150 130-160 320-30 480s80 270 0 440" fill="none" stroke="#839b78" stroke-width="38" opacity=".65"/>'
+                  : backgroundId === "minimal"
+                    ? '<rect width="1080" height="1080" fill="#f7f5ef"/>'
+                    : '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>'}
+
       ${template === "editorial" ? `
         ${avatar}
         <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#171717">${safeName}</text>
