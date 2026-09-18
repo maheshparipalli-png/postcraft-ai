@@ -38,8 +38,9 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isLoginPage = pathname.startsWith("/login");
   const isAuthCallback = pathname.startsWith("/auth/callback");
+  const isApiRoute = pathname.startsWith("/api/");
 
-  if (!user && !isLoginPage && !isAuthCallback) {
+  if (!user && !isLoginPage && !isAuthCallback && !isApiRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -55,3 +56,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+
