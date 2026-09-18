@@ -73,7 +73,6 @@ export default function PostCardPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("paper");
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
-  const [selectedCard, setSelectedCard] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
@@ -93,16 +92,6 @@ export default function PostCardPage() {
     const reader = new FileReader();
     reader.onload = () => setPhoto(typeof reader.result === "string" ? reader.result : null);
     reader.readAsDataURL(file);
-  }
-
-  function generateOptions() {
-    setGenerating(true);
-    const ids = backgrounds.map((item) => item.id);
-    const start = Math.max(0, ids.indexOf(background));
-    const chosen = [0, 1, 2, 3].map((offset) => ids[(start + offset) % ids.length]);
-    setGeneratedCards(chosen.map((id, index) => ({ id: index + 1, background: id })));
-    setSelectedCard(0);
-    window.setTimeout(() => setGenerating(false), 450);
   }
 
   function buildSvg(backgroundId = background) {
@@ -212,7 +201,7 @@ export default function PostCardPage() {
     setLinkedinLoading(true);
     setLinkedinMessage("");
     try {
-      const backgroundId = generatedCards[selectedCard]?.background ?? background;
+      const backgroundId = background;
       const imageDataUrl = await renderPngDataUrl(backgroundId);
       const response = await fetch("/api/linkedin/publish", {
         method: "POST",
@@ -358,11 +347,6 @@ export default function PostCardPage() {
                 ))}
               </div>
             </div>
-            <button type="button" onClick={generateOptions} disabled={generating} className="mt-8 flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-70">
-              {generating ? "Creating your visual options..." : "✦ Generate 4 options"}
-            </button>
-            <p className="mt-2 text-center text-xs text-neutral-400">PostCard will automatically create four visual variations from your content.</p>
-
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
@@ -376,78 +360,16 @@ export default function PostCardPage() {
           </div>
 
           <div className="lg:sticky lg:top-8">
-            {generatedCards.length > 0 ? (
-              <>
-                <div className="mb-4 flex items-end justify-between">
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">4 / Your generated cards</div>
-                    <p className="mt-1 text-sm text-neutral-500">Four visual variations generated from your content.</p>
-                  </div>
-                  <button type="button" onClick={generateOptions} disabled={generating} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold hover:border-neutral-900 disabled:opacity-50">
-                    {generating ? "Generating..." : "↻ Regenerate"}
-                  </button>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {generatedCards.map((card, index) => (
-                    <div key={card.id} className={`overflow-hidden rounded-xl border bg-white shadow-sm transition ${selectedCard === index ? "border-blue-500 ring-2 ring-blue-100" : "border-neutral-200"}`}>
-                      <button type="button" onClick={() => setSelectedCard(index)} className="block w-full text-left">
-                        <div className="aspect-square overflow-hidden bg-neutral-100">
-                          <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: buildSvg(card.background) }} />
-                        </div>
-                      </button>
-                      <div className="flex items-center justify-between border-t border-neutral-200 px-3 py-2">
-                        <button type="button" onClick={() => setSelectedCard(index)} className="flex items-center gap-2 text-xs font-medium">
-                          <span className={`h-3 w-3 rounded-full border-2 ${selectedCard === index ? "border-blue-500 bg-blue-500" : "border-neutral-300"}`} />
-                          Option {index + 1}
-                        </button>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => setBackground(card.background)} className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-[10px] font-semibold hover:border-neutral-400">Use background</button>
-                          <button type="button" onClick={() => downloadPng(card.background)} disabled={downloading} className="rounded-md border border-neutral-200 px-2.5 py-1.5 text-[10px] font-semibold hover:border-neutral-400 disabled:opacity-50">Download</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Live preview</div>
-                  <div className="text-xs text-neutral-400">1080 × 1080</div>
-                </div>
-                <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
-                  <div className="h-full w-full p-[6%]">
-                    {template === "editorial" && (
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-lg font-semibold text-white">
-                          {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initials}
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold leading-none">{name}</div>
-                          <div className="mt-1 text-sm text-neutral-500">{handle}</div>
-                        </div>
-                        <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white">✓</span>
-                      </div>
-                    )}
-                    {template !== "editorial" && <div className="text-[10px] font-bold tracking-[.25em] text-neutral-400">POSTCARD</div>}
-                    {template === "stat" ? (
-                      <div className="mt-[18%]">
-                        <div className="text-[clamp(4rem,11vw,7rem)] font-bold leading-none tracking-[-.06em]">{stat}</div>
-                        <div className="mt-8 max-w-[90%] text-2xl leading-tight">{statLabel}</div>
-                        <div className="mt-16 max-w-[85%] text-xl font-medium leading-snug">{closing}</div>
-                      </div>
-                    ) : (
-                      <div className={template === "editorial" ? "mt-[14%]" : "mt-[20%]"}>
-                        <div className={template === "editorial" ? "font-sans text-3xl font-medium leading-[1.16] tracking-[-.02em]" : "font-sans text-4xl font-semibold leading-[1.12] tracking-[-.025em]"}>{headline}</div>
-                        <div className="mt-8 max-w-[92%] text-lg leading-[1.45] text-neutral-700">{body}</div>
-                        <div className="mt-12 max-w-[85%] text-lg font-semibold leading-[1.35]">{closing}</div>
-                      </div>
-                    )}
-                    <div className="mt-auto pt-8 text-[9px] text-neutral-400">{source}</div>
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Live preview</div>
+                <p className="mt-1 text-sm text-neutral-500">Choose a background on the left to update this preview.</p>
+              </div>
+              <div className="text-xs text-neutral-400">1080 × 1080</div>
+            </div>
+            <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
+              <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: buildSvg(background) }} />
+            </div>
           </div>
         </section>
       </div>
