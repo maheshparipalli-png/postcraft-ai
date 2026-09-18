@@ -76,6 +76,7 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
+  const linkedinCommentary = useMemo(() => [headline, body, closing].filter(Boolean).join("\n\n"), [headline, body, closing]);
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
