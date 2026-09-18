@@ -466,7 +466,6 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     "Return ONLY JSON: {\"post\":\"the finished LinkedIn post\"}",
     "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
   ), {
-    format: "text",
     temperature: 0.3,
     numPredict: 260,
   });
