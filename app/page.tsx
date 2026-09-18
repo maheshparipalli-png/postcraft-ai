@@ -269,16 +269,16 @@ function resetFromStory() {
         summary:
           typeof data.summary === "string" && data.summary.trim()
             ? data.summary.trim()
-            : "",
+            : idea.description.trim(),
         url:
           typeof data.url === "string" && data.url.trim()
             ? data.url.trim()
             : idea.url,
       };
 
-      setNewsTitle(verifiedSource.title);
-      setNewsSource(verifiedSource.source);
-      setNewsDate(verifiedSource.publishedAt);
+      setNewsTitle(verifiedSource.title || idea.title);
+      setNewsSource(verifiedSource.source || idea.source);
+      setNewsDate(verifiedSource.publishedAt || formatDateInput(idea.publishedAt));
       setVerifiedSummary(verifiedSource.summary);
       setSourceVerified(true);
 
