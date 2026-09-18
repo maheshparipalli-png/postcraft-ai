@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
-import { Evidence, generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
+import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
 
 function isPostCraftAnglePrompt(prompt: string) {
@@ -45,6 +45,22 @@ export async function POST(request: Request) {
 
     if (!prompt) return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
+
+    const editorialRequest = action === "editorial";
+
+    if (editorialRequest) {
+      const startedAt = Date.now();
+      const story = {
+        topic: extractField(prompt, "Topic"),
+        headline: extractField(prompt, "Headline") || extractField(prompt, "News title"),
+        source: extractField(prompt, "Source") || extractField(prompt, "News source"),
+        summary: extractField(prompt, "Summary"),
+        url: extractField(prompt, "URL"),
+      };
+      const result = await generateEditorialDraft(story);
+      console.info("[PostCraft] editorial_request_ms=" + (Date.now() - startedAt));
+      return NextResponse.json(result);
+    }
 
     const angleRequest = action === "angles" || (!action && isPostCraftAnglePrompt(prompt));
     const postRequest = action === "post" || (!action && isPostCraftPostPrompt(prompt));
