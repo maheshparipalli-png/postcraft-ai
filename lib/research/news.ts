@@ -157,12 +157,42 @@ function hasUsableEvidence(item: ResearchItem) {
   return Boolean(item.snippet && item.snippet.length >= 80 && !genericGoogleNewsText.test(item.snippet));
 }
 
-function isGoogleNewsUrl(url: string) {
+const aggregatorHosts = new Set([
+  "news.google.com",
+  "google.com",
+  "www.google.com",
+  "bing.com",
+  "www.bing.com",
+  "news.yahoo.com",
+  "yahoo.com",
+  "www.yahoo.com",
+]);
+
+function hostnameOf(url: string) {
   try {
-    return new URL(url).hostname === "news.google.com";
+    return new URL(url).hostname.toLowerCase().replace(/^www\\./, "");
   } catch {
-    return false;
+    return "";
   }
+}
+
+function isAggregatorUrl(url: string) {
+  const hostname = hostnameOf(url);
+  return Boolean(hostname && aggregatorHosts.has(hostname));
+}
+
+function isAggregatorSource(source: string) {
+  return /^(google news|bing news|yahoo news)$/i.test(source.trim());
+}
+
+function isGoogleNewsUrl(url: string) {
+  return hostnameOf(url) === "news.google.com";
+}
+
+function publisherFromUrl(url: string) {
+  const hostname = hostnameOf(url);
+  if (!hostname || isAggregatorUrl(url)) return "";
+  return hostname;
 }
 
 function resolveBingUrl(url: string) {
@@ -178,7 +208,11 @@ function resolveBingUrl(url: string) {
 }
 
 async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
-  if (hasUsableEvidence(item)) return item;
+  // Aggregator-labelled items must be resolved before they can enter the
+  // candidate pool, even when their feed snippet looks usable.
+  if (hasUsableEvidence(item) && !isAggregatorUrl(item.url) && !isAggregatorSource(item.source)) {
+    return item;
+  }
 
   try {
     const response = await fetch(item.url, {
@@ -189,12 +223,22 @@ async function enrichItem(item: ResearchItem): Promise<ResearchItem> {
     });
 
     if (!response.ok) return item;
+
+    const resolvedUrl = response.url || item.url;
+    if (isAggregatorUrl(resolvedUrl)) return item;
+
     const html = await response.text();
     const description = extractArticleText(html);
-    if (!description) return item;
+    const resolvedSource = isAggregatorSource(item.source)
+      ? publisherFromUrl(resolvedUrl)
+      : item.source;
 
-    const resolvedUrl = response.url && !isGoogleNewsUrl(response.url) ? response.url : item.url;
-    return { ...item, url: resolvedUrl, snippet: description.slice(0, 900) };
+    return {
+      ...item,
+      url: resolvedUrl,
+      source: resolvedSource || item.source,
+      snippet: description ? description.slice(0, 900) : item.snippet,
+    };
   } catch {
     return item;
   }
@@ -243,41 +287,10 @@ async function fetchBingFeed(query: string): Promise<ResearchItem[]> {
 }
 
 async function fetchFeed(query: string): Promise<ResearchItem[]> {
-  const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
-
-  try {
-    const response = await fetch(googleUrl, {
-      cache: "no-store",
-      headers: { "User-Agent": "PostCraft AI/1.0" },
-      signal: AbortSignal.timeout(3500),
-    });
-
-    if (!response.ok) return fetchBingFeed(query);
-    const xml = await response.text();
-    const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
-
-    const googleItems = blocks
-      .map((block) => {
-        const title = getTag(block, "title");
-        const source = getTag(block, "source");
-        return {
-          title,
-          source,
-          url: getTag(block, "link"),
-          publishedAt: getTag(block, "pubDate"),
-          snippet: cleanDescription(getTag(block, "description"), title, source),
-        };
-      })
-      .filter((item) => item.title && item.url);
-
-    const bingItems = await fetchBingFeed(query);
-    // Use direct publisher URLs whenever Bing has results. Mixing Google News
-    // redirects back into the pool can cause the same story to be represented
-    // by an aggregator URL and later verified as "Google News".
-    return bingItems.length ? bingItems : googleItems;
-  } catch {
-    return fetchBingFeed(query);
-  }
+  // Use Bing as the discovery feed because it can expose direct publisher URLs.
+  // Google News is intentionally not used as a fallback: its RSS links are
+  // aggregator pages and must never become story URLs in PostCraft.
+  return fetchBingFeed(query);
 }
 
 function isSponsoredStory(item: ResearchItem) {
@@ -349,7 +362,7 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     // Never let an aggregator URL enter the candidate pool. The selected story
     // must point to a publisher page so source verification can report the
     // actual publication rather than Google News.
-    if (isGoogleNewsUrl(item.url)) continue;
+    if (isAggregatorUrl(item.url) || isAggregatorSource(item.source)) continue;
 
     const time = Date.parse(item.publishedAt);
     if (!Number.isFinite(time) || time < cutoff || isSponsoredStory(item) || isLowValueStory(item)) continue;
@@ -363,8 +376,8 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
       continue;
     }
 
-    const existingIsGoogle = isGoogleNewsUrl(existing.url);
-    const itemIsGoogle = isGoogleNewsUrl(item.url);
+    const existingIsGoogle = isAggregatorUrl(existing.url) || isAggregatorSource(existing.source);
+    const itemIsGoogle = isAggregatorUrl(item.url) || isAggregatorSource(item.source);
     if (
       (!hasUsableEvidence(existing) && hasUsableEvidence(item)) ||
       (existingIsGoogle && !itemIsGoogle)
