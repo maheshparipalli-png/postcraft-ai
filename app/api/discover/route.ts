@@ -137,6 +137,7 @@ export async function POST(request: Request) {
       sourceIndexes: [index],
       source: item.source,
       url: item.url,
+      imageUrl: item.imageUrl || null,
       publishedAt: item.publishedAt,
     }));
 
