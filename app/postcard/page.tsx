@@ -127,10 +127,14 @@ export default function PostCardPage() {
       const headlineSize = template === "editorial" ? 58 : 62;
       const headlineGap = template === "editorial" ? 70 : 74;
       const bodyY = headlineY + headlineLines.length * headlineGap + 44;
+      const bodyEndY = bodyY + Math.max(1, bodyLines.length) * 43;
+      const dividerY = Math.min(735, Math.max(650, bodyEndY + 70));
+      const closingY = dividerY + 78;
       content = `
         ${textLines(headlineLines, 68, headlineY, headlineSize, 500, headlineGap)}
         ${textLines(bodyLines, 68, bodyY, 31, 400, 43)}
-        ${textLines(closingLines, 68, 755, 31, 600, 42)}
+        ${template === "editorial" ? `<line x1="68" y1="${dividerY}" x2="190" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
+        ${textLines(closingLines, 68, closingY, 31, 600, 42)}
       `;
     }
 
