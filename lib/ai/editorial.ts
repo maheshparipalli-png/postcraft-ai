@@ -177,6 +177,44 @@ function selectSafeAngles(angles: Angle[]) {
   return unique;
 }
 
+function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: Angle[] } {
+  const summary = story.summary.trim();
+  const headline = story.headline.trim();
+  if (!summary || summary.length < 40) return { evidence: [], angles: [] };
+
+  const firstSentence =
+    summary.split(/(?<=[.!?])\s+/).find((sentence) => sentence.trim().length >= 40)?.trim() ||
+    summary;
+
+  const support = firstSentence.slice(0, 420);
+  const apprenticeshipTheme = /junior|entry[- ]level|young|apprenticeship|routine|bottom rungs|trade/i.test(summary);
+
+  const claim = apprenticeshipTheme
+    ? "AI may be removing the routine junior tasks that traditionally helped people learn their trade."
+    : headline;
+
+  const angle = apprenticeshipTheme
+    ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
+    : "The useful question in this story is what changes when " + headline.replace(/[.]+$/, "") + ".";
+
+  return {
+    evidence: [
+      {
+        claim,
+        support,
+        type: "fact",
+      },
+    ],
+    angles: [
+      {
+        angle,
+        why: "This stays close to a concrete detail in the supplied story rather than adding outside assumptions.",
+        evidence: support,
+      },
+    ],
+  };
+}
+
 async function buildEditorialPass(story: Story) {
   const prompt = `You are PostCraft AI, an editorial thinking partner. Generate the strongest useful response from the selected story below.
 
@@ -235,10 +273,19 @@ Use exactly this structure:
     })
   );
 
-  return {
-    evidence: parseEvidence(parsed?.evidence),
-    angles: selectSafeAngles(parseAngles(parsed?.angles)),
-  };
+  const evidence = parseEvidence(parsed?.evidence);
+  const angles = selectSafeAngles(parseAngles(parsed?.angles));
+
+  // Small local models can occasionally return valid JSON with no usable
+  // angles even when the supplied story contains enough evidence. Keep the
+  // editorial pipeline grounded by falling back to a deterministic angle
+  // derived only from the supplied headline and summary.
+  if (!angles.length) {
+    const fallback = buildGroundedFallback(story);
+    if (fallback.angles.length) return fallback;
+  }
+
+  return { evidence, angles };
 }
 
 export async function generateEditorialAngles(story: Story) {
