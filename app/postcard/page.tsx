@@ -511,7 +511,7 @@ export default function PostCardPage() {
                     <>
                       <div className="grid gap-5 sm:grid-cols-2">
                         <Field label="Name" value={name} onChange={setName} disabled={profileLocked && !editingProfile} />
-                        <Field label="Handle" value={handle} onChange={setHandle} disabled={profileLocked} />
+                        <Field label="Handle" value={handle} onChange={setHandle} disabled={profileLocked && !editingProfile} />
                       </div>
                       <div className="flex items-center gap-3">
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
@@ -522,14 +522,36 @@ export default function PostCardPage() {
                         )}
                         {profileLocked && <span className="text-xs font-medium text-neutral-500">✓ Profile saved</span>}
                       </div>
-                      {profileLocked && (
+                      {profileLocked && !editingProfile && (
                         <button
                           type="button"
-                          onClick={() => setProfileLocked(false)}
+                          onClick={() => setEditingProfile(true)}
                           className="text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
                         >
                           Edit profile
                         </button>
+                      )}
+                      {editingProfile && (
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={saveProfile}
+                            disabled={!name.trim() || !handle.trim()}
+                            className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+                          >
+                            Save profile
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingProfile(false);
+                              setProfileLocked(true);
+                            }}
+                            className="text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       )}
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
