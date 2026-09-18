@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 
-type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; publishedAt: string };
+type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string };
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
@@ -390,6 +390,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
           commentary: post.trim(),
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
+          imageUrl: selectedIdea?.imageUrl || null,
           includeSourceImage: true,
         }),
       });
