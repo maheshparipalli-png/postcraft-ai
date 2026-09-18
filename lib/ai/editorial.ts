@@ -387,12 +387,41 @@ function validateEvidence(value: unknown): Evidence[] {
   return parseEvidence(value);
 }
 
-function postHasConcreteAnchor(post: string) {
-  const words = post.trim().split(/\s+/);
-  const topicPattern =
-    /\b(ai|artificial intelligence|anthropic|claude|missile|guidance|targeting|autonomous|autonomy|non-state|military|weapon|weapons|technology|proliferation|model|research|evidence|scenario|jobs|workers|wages|unemployment|entry-level|engineers|engineering)\b/i;
+function postHasConcreteAnchor(post: string, story: Story, angle: string) {
+  const words = post.trim().split(/\s+/).filter(Boolean);
 
-  return words.length >= 70 && topicPattern.test(post);
+  // Anchor validation should follow the actual story, not a fixed topic list.
+  // This prevents valid posts about new companies, products, people, or domains
+  // from being rejected simply because their vocabulary is unfamiliar.
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should",
+  ]);
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 4 && !stopWords.has(word));
+
+  const storyTerms = new Set(
+    normalize(story.topic + " " + story.headline + " " + story.summary + " " + angle)
+  );
+  const postTerms = new Set(normalize(post));
+
+  let sharedTerms = 0;
+  for (const term of storyTerms) {
+    if (postTerms.has(term)) sharedTerms += 1;
+  }
+
+  // The prompt asks for 110-160 words. Keep a reasonable floor, but do not
+  // reject a useful draft merely because the small local model came in short.
+  return words.length >= 55 && sharedTerms >= 2;
 }
 
 function postHasGenericFiller(post: string) {
@@ -480,7 +509,16 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     throw new Error("PostCraft could not produce a post from the selected angle.");
   }
 
-  if (!postHasConcreteAnchor(post) || postHasGenericFiller(post)) {
+  const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
+  const hasGenericFiller = postHasGenericFiller(post);
+
+  console.info("[PostCraft] post_validation", {
+    wordCount: post.split(/\s+/).filter(Boolean).length,
+    hasConcreteAnchor,
+    hasGenericFiller,
+  });
+
+  if (!hasConcreteAnchor || hasGenericFiller) {
     throw new Error("PostCraft generated a draft that was too generic. Try another angle or regenerate.");
   }
 
