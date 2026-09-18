@@ -62,16 +62,17 @@ Create short social-card copy that is easy to understand, specific, and human. I
 Use the user's idea and existing draft as raw material. Do not invent facts, statistics, quotes, names, or claims.
 
 For editorial or insight cards:
-- headline: one clear main thought, ideally 8-14 words
-- body: 1-2 short sentences explaining what it means in plain English
-- closing: one memorable human observation, ideally 6-14 words
+- headline: one clear main thought, 8-12 words and no more than about 70 characters
+- body: 1-2 short sentences explaining what it means in plain English, no more than about 180 characters
+- closing: one memorable human observation, 6-12 words and no more than about 80 characters
 
+These are hard layout limits, not suggestions. Shorter is better. Never add extra explanation.
 The body must answer "Why does this matter?" rather than repeat the headline. The closing should feel like a person's takeaway, not a generic motivational slogan.
 
 For statistic cards:
 - stat: preserve the supplied statistic exactly when present
-- statLabel: one plain-English sentence explaining what the statistic means
-- closing: one short human takeaway
+- statLabel: one plain-English sentence explaining what the statistic means, no more than about 100 characters
+- closing: one short human takeaway, no more than about 80 characters
 
 Avoid corporate clichés, generic motivational language, hashtags, emojis, and phrases like "in today's rapidly changing world", "this highlights the importance", "game changer", "revolutionary", or "it is important to note".
 
