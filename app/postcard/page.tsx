@@ -412,13 +412,6 @@ export default function PostCardPage() {
                           Edit profile
                         </button>
                       )}
-                    </>
-                  )}
-                  <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
-                  <Field label="Supporting thought" value={body} onChange={setBody} textarea />
-                  <Field label="Closing line" value={closing} onChange={setClosing} textarea />
-                </div>
-              )}
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -431,6 +424,14 @@ export default function PostCardPage() {
                 <span className="text-xs text-neutral-500">Clear language · human touch · no invented facts</span>
                 {generateMessage && <span className="w-full text-xs text-neutral-600">{generateMessage}</span>}
               </div>
+
+                    </>
+                  )}
+                  <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
+                  <Field label="Supporting thought" value={body} onChange={setBody} textarea />
+                  <Field label="Closing line" value={closing} onChange={setClosing} textarea />
+                </div>
+              )}
               <div className="mt-5">
                 <Field label="Source / footer" value={source} onChange={setSource} />
               </div>
