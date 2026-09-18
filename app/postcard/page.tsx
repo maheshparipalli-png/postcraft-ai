@@ -75,6 +75,7 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
+  const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -202,6 +203,7 @@ export default function PostCardPage() {
   }
 
   async function publishToLinkedIn() {
+    if (linkedinPublished) return;
     if (!linkedinConnected) { router.push("/api/linkedin/connect"); return; }
     setLinkedinLoading(true);
     setLinkedinMessage("");
@@ -212,7 +214,7 @@ export default function PostCardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          commentary: [headline, body, closing].filter(Boolean).join("\n\n"),
+          commentary: linkedinCommentary,
           sourceUrl: null,
           sourceTitle: name ? "PostCard by " + name : "PostCard visual",
           imageDataUrl,
@@ -221,6 +223,7 @@ export default function PostCardPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not publish to LinkedIn.");
+      setLinkedinPublished(true);
       setLinkedinMessage("Published to your LinkedIn profile.");
     } catch (error) {
       setLinkedinMessage(error instanceof Error ? error.message : "Could not publish to LinkedIn.");
@@ -356,8 +359,13 @@ export default function PostCardPage() {
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
-              <button type="button" onClick={publishToLinkedIn} disabled={linkedinLoading} className="rounded-full bg-[#0A66C2] px-5 py-3 text-sm font-semibold text-white hover:bg-[#084f96] disabled:opacity-50">
-                {linkedinLoading ? "Publishing..." : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
+              <button
+                type="button"
+                onClick={publishToLinkedIn}
+                disabled={linkedinLoading || linkedinPublished}
+                className={`rounded-full px-5 py-3 text-sm font-semibold text-white transition ${linkedinPublished ? "cursor-not-allowed bg-neutral-400" : "bg-[#0A66C2] hover:bg-[#084f96]"} disabled:opacity-70`}
+              >
+                {linkedinLoading ? "Publishing..." : linkedinPublished ? "✓ Published to LinkedIn" : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
               </button>
               <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
               {linkedinMessage && <span className="w-full text-xs text-neutral-600">{linkedinMessage}</span>}
