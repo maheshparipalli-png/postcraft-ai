@@ -59,6 +59,7 @@ export default function PostCardPage() {
   const [template, setTemplate] = useState<Template>("editorial");
   const [name, setName] = useState("Your Name");
   const [profileLocked, setProfileLocked] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [handle, setHandle] = useState("@yourhandle");
   const [headline, setHeadline] = useState("Working hard is not your edge anymore.");
   const [body, setBody] = useState(
@@ -100,16 +101,17 @@ export default function PostCardPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (profileLocked) return;
-    const hasProfile = name.trim() && handle.trim();
-    if (!hasProfile && !photo) return;
+  function saveProfile() {
+    if (!name.trim() || !handle.trim()) return;
     window.localStorage.setItem(
       "postcraft-postcard-profile",
-      JSON.stringify({ name, handle, photo })
+      JSON.stringify({ name: name.trim(), handle: handle.trim(), photo })
     );
+    setName(name.trim());
+    setHandle(handle.trim());
     setProfileLocked(true);
-  }, [name, handle, photo, profileLocked]);
+    setEditingProfile(false);
+  }
 
   useEffect(() => {
     fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
@@ -389,12 +391,12 @@ export default function PostCardPage() {
                   {template === "editorial" && (
                     <>
                       <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Name" value={name} onChange={setName} disabled={profileLocked} />
+                        <Field label="Name" value={name} onChange={setName} disabled={profileLocked && !editingProfile} />
                         <Field label="Handle" value={handle} onChange={setHandle} disabled={profileLocked} />
                       </div>
                       <div className="flex items-center gap-3">
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
-                        {!profileLocked && (
+                        {(!profileLocked || editingProfile) && (
                           <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold underline underline-offset-4">
                             {photo ? "Change profile photo" : "Add profile photo"}
                           </button>
