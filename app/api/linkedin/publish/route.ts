@@ -11,6 +11,51 @@ const linkedinHeaders = (accessToken: string) => ({
   "X-Restli-Protocol-Version": "2.0.0",
 });
 
+async function fetchImageDataUrl(imageUrl: string | null, sourceUrl: string | null) {
+  const candidates = [imageUrl, sourceUrl].filter(Boolean) as string[];
+  for (const candidate of candidates) {
+    try {
+      let resolvedImageUrl = candidate;
+
+      if (!/^https?:\/\//i.test(candidate) || /\.(html?|php)(?:[?#].*)?$/i.test(candidate)) {
+        const pageResponse = await fetch(candidate, {
+          redirect: "follow",
+          headers: { "User-Agent": "PostCraft AI/1.0" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!pageResponse.ok) continue;
+        const html = await pageResponse.text();
+        const match =
+          html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
+          html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/i) ||
+          html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
+          html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["'][^>]*>/i);
+        if (!match?.[1]) continue;
+        resolvedImageUrl = new URL(match[1], pageResponse.url || candidate).toString();
+      }
+
+      const imageResponse = await fetch(resolvedImageUrl, {
+        redirect: "follow",
+        headers: { "User-Agent": "PostCraft AI/1.0" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!imageResponse.ok) continue;
+
+      const contentType = (imageResponse.headers.get("content-type") || "").split(";")[0].toLowerCase();
+      if (contentType !== "image/png" && contentType !== "image/jpeg" && contentType !== "image/jpg") continue;
+
+      const bytes = Buffer.from(await imageResponse.arrayBuffer());
+      if (!bytes.length || bytes.length > 10 * 1024 * 1024) continue;
+
+      const mimeType = contentType === "image/jpg" ? "image/jpeg" : contentType;
+      return `data:${mimeType};base64,${bytes.toString("base64")}`;
+    } catch {
+      // Try the next candidate; publishing should still work as text if no image is accessible.
+    }
+  }
+  return null;
+}
+
 async function publishImage(accessToken: string, owner: string, imageDataUrl: string, _altText: string) {
   const match = imageDataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,(.+)$/);
   if (!match) throw new Error("The visual post image is invalid. Please generate it again.");
@@ -53,7 +98,9 @@ export async function POST(request: NextRequest) {
     const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : null;
     const sourceTitle = typeof body?.sourceTitle === "string" ? body.sourceTitle.trim() : null;
     const commentary = typeof body?.commentary === "string" ? body.commentary.trim() : "";
-    const imageDataUrl = typeof body?.imageDataUrl === "string" ? body.imageDataUrl : null;
+    const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl.trim() : null;
+    const includeSourceImage = body?.includeSourceImage === true;
+    const imageDataUrl = typeof body?.imageDataUrl === "string" ? body.imageDataUrl : (includeSourceImage ? await fetchImageDataUrl(imageUrl, sourceUrl) : null);
     if (!commentary) return NextResponse.json({ error: "There is no post to publish." }, { status: 400 });
 
     const supabase = await createClient();
