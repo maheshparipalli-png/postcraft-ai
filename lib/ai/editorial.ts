@@ -390,7 +390,7 @@ function validateEvidence(value: unknown): Evidence[] {
 function postHasConcreteAnchor(post: string) {
   const words = post.trim().split(/\s+/);
   const topicPattern =
-    /\b(ai|artificial intelligence|missile|guidance|targeting|autonomous|autonomy|non-state|military|weapon|weapons|technology|proliferation|model|research|evidence|scenario|jobs|workers|wages|unemployment|entry-level)\b/i;
+    /\b(ai|artificial intelligence|anthropic|claude|missile|guidance|targeting|autonomous|autonomy|non-state|military|weapon|weapons|technology|proliferation|model|research|evidence|scenario|jobs|workers|wages|unemployment|entry-level|engineers|engineering)\b/i;
 
   return words.length >= 70 && topicPattern.test(post);
 }
