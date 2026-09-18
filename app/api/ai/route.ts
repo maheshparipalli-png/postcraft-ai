@@ -50,6 +50,11 @@ export async function POST(request: Request) {
       const startedAt = Date.now();
       const template = typeof body?.template === "string" ? body.template : "editorial";
       const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
+      const category = typeof body?.category === "string" ? body.category.trim() : "general motivation";
+      const variationSeed = typeof body?.variationSeed === "string" ? body.variationSeed.trim() : "";
+      const previousHeadline = typeof body?.previousHeadline === "string" ? body.previousHeadline.trim() : "";
+      const previousBody = typeof body?.previousBody === "string" ? body.previousBody.trim() : "";
+      const previousClosing = typeof body?.previousClosing === "string" ? body.previousClosing.trim() : "";
       const currentHeadline = typeof body?.headline === "string" ? body.headline.trim() : "";
       const currentBody = typeof body?.supportingThought === "string" ? body.supportingThought.trim() : "";
       const currentClosing = typeof body?.closing === "string" ? body.closing.trim() : "";
@@ -57,9 +62,23 @@ export async function POST(request: Request) {
 
       const prompt = `You are PostCard, the human-sounding visual writing assistant inside PostCraft.
 
+Create a FRESH motivational social-card idea. Every Generate click is a request for a genuinely different idea, not a rewrite of the previous card.
+
+Today's editorial direction: ${category}
+Variation seed: ${variationSeed}
+
+The previous card was:
+Headline: ${previousHeadline || "(none)"}
+Body: ${previousBody || "(none)"}
+Closing: ${previousClosing || "(none)"}
+
+Do NOT reuse the previous card's topic, metaphor, message, structure, or wording. Do not simply replace a few words. Start with a different underlying idea.
+
+Prefer concrete inspiration from the requested direction: a sporting comeback, business lesson, leadership moment, entrepreneurial struggle, mastery, resilience, achievement, or an everyday human observation. Do not claim that a real event, person, quote, statistic, or company did something unless it is supplied as source material. When no source is supplied, write an original motivational idea rather than inventing a real-world story.
+
 Create short social-card copy that is easy to understand, specific, and human. It should sound like a thoughtful person sharing an observation, not a corporate marketing team and not an AI news summary.
 
-Use the user's idea and existing draft as raw material. Do not invent facts, statistics, quotes, names, or claims.
+Use the supplied idea and existing draft only when they contain useful source material. Do not invent facts, statistics, quotes, names, or claims.
 
 For editorial or insight cards:
 - headline: one clear main thought, 8-12 words and no more than about 70 characters
@@ -83,7 +102,7 @@ FORMAT: ${template}
 USER IDEA:
 ${idea || "(No separate idea provided.)"}
 
-EXISTING DRAFT:
+CURRENT INPUT:
 Main thought: ${currentHeadline || "(empty)"}
 Supporting thought: ${currentBody || "(empty)"}
 Closing line: ${currentClosing || "(empty)"}
