@@ -365,7 +365,7 @@ export default function PostCardPage() {
               <div className="text-xs text-neutral-400">1080 × 1080</div>
             </div>
             <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
-              <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: buildSvg(background) }} />
+              <div className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg(background) }} />
             </div>
           </div>
         </section>
