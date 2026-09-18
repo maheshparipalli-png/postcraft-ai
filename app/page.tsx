@@ -427,6 +427,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
             </div>
             <div className="flex items-center gap-3">
               <Link href="/auto-post" className="text-neutral-500 transition hover:text-neutral-900">Auto-post</Link>
+              <Link href="/postcard" className="text-neutral-500 transition hover:text-neutral-900">PostCard</Link>
               <Link href="/commentcraft/import" className="text-neutral-500 transition hover:text-neutral-900">CommentCraft</Link>
             <Link href="/workspace" className="text-xs text-neutral-500 transition hover:text-neutral-900">
                 ------- Workspace
