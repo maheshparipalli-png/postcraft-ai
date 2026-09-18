@@ -118,13 +118,20 @@ function extractJsonLdDescription(html: string) {
   return "";
 }
 
+const genericGoogleNewsText =
+  /comprehensive\s+up[-–—]to[-–—]date\s+news\s+coverage,\s+aggregated\s+from\s+sources\s+all\s+over\s+the\s+world\s+by\s+google\s+news/i;
+
 function extractSummary(html: string) {
-  return (
-    extractMeta(html, "description") ||
-    extractMeta(html, "og:description") ||
-    extractMeta(html, "twitter:description") ||
-    extractJsonLdDescription(html)
-  );
+  const candidates = [
+    extractMeta(html, "og:description"),
+    extractMeta(html, "description"),
+    extractMeta(html, "twitter:description"),
+    extractJsonLdDescription(html),
+  ];
+
+  return candidates.find(
+    (value) => value.length >= 40 && !genericGoogleNewsText.test(value),
+  ) ?? "";
 }
 
 export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
@@ -155,22 +162,36 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     throw new Error(`The original source could not be opened. The site returned HTTP ${response.status}.`);
   }
 
-  const finalUrl = response.url || parsedUrl.toString();  const html = await response.text();
+  const finalUrl = response.url || parsedUrl.toString();
+  const html = await response.text();
   if (!html || html.length < 200) {
     throw new Error("The original source returned insufficient content.");
   }
 
-  const title = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || extractTitle(html);
-  if (!title) {
-    throw new Error("The original source opened, but no article title could be verified.");
+  const title =
+    extractMeta(html, "og:title") ||
+    extractMeta(html, "twitter:title") ||
+    extractTitle(html);
+
+  const source = extractPublication(html, finalUrl);
+  const summary = extractSummary(html);
+
+  const isGoogleNews =
+    new URL(finalUrl).hostname === "news.google.com" ||
+    source.toLowerCase() === "google news";
+
+  if (!title || isGoogleNews || genericGoogleNewsText.test(summary)) {
+    throw new Error(
+      "PostCraft reached an aggregator page instead of the original article. The publisher source could not be verified.",
+    );
   }
 
   return {
     verified: true,
-    url: parsedUrl.toString(),
+    url: finalUrl,
     title,
-    source: extractPublication(html, parsedUrl.toString()),
+    source,
     publishedAt: extractDate(html),
-    summary: extractSummary(html),
+    summary,
   };
 }
