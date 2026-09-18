@@ -92,6 +92,7 @@ export default function PostCardPage() {
   const [downloading, setDownloading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedCardId, setSavedCardId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateMessage, setGenerateMessage] = useState("");
   const [generationCount, setGenerationCount] = useState(0);
@@ -384,6 +385,7 @@ export default function PostCardPage() {
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not save the PostCard.");
       setSaved(true);
+      setSavedCardId(data.id);
     } catch (error) {
       setGenerateMessage(error instanceof Error ? error.message : "Could not save the PostCard.");
     } finally {
@@ -466,7 +468,7 @@ export default function PostCardPage() {
           </div>
           <nav className="flex items-center gap-5 text-sm text-neutral-500">
             <Link href="/" className="hover:text-neutral-900">PostCraft</Link>
-            <Link href="/workspace" className="hover:text-neutral-900">Workspace</Link>
+            <Link href="/postcard/saved" className="hover:text-neutral-900">My PostCards</Link>
           </nav>
         </header>
 
@@ -600,6 +602,7 @@ export default function PostCardPage() {
               >
                 {saving ? "Saving..." : saved ? "✓ Saved" : "Save card"}
               </button>
+              {savedCardId && <Link href={`/postcard/${savedCardId}`} className="border-b border-neutral-900 pb-1 text-xs font-medium">View saved card →</Link>}
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
