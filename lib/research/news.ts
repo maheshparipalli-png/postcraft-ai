@@ -69,7 +69,7 @@ const searchQueries: Record<string, string[]> = {
   ],
 };
 
-const genericGoogleNewsText = /comprehensive, up-to-date news coverage, aggregated from sources all over the world by google news/i;
+const genericGoogleNewsText = /comprehensive\\s+up[-–—]to[-–—]date\\s+news\\s+coverage,\\s+aggregated\\s+from\\s+sources\\s+all\\s+over\\s+the\\s+world\\s+by\\s+google\\s+news/i;
 const sponsoredStoryText = /\b(sponsored|advertorial|advertisement|advertising|promoted|paid content|partner content|branded content)\b/i;
 
 function decodeHtml(value: string) {
@@ -121,7 +121,7 @@ function cleanDescription(value: string, title: string, source: string) {
     !normalizedDescription ||
     normalizedDescription === normalizedTitle ||
     normalizedDescription === `${normalizedTitle} ${normalizedSource}`.trim() ||
-    genericGoogleNewsText.test(description)
+    genericGoogleNewsText.test(description) ||    /^(?:comprehensive\\s+up[-–—]to[-–—]date\\s+news\\s+coverage|news\\s+from\\s+multiple\\s+sources)/i.test(description)
   ) {
     return "";
   }
