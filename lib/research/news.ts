@@ -4,6 +4,7 @@ export type ResearchItem = {
   url: string;
   publishedAt: string;
   snippet: string;
+  imageUrl?: string;
   score?: number;
 };
 
@@ -272,12 +273,18 @@ async function fetchBingFeed(query: string): Promise<ResearchItem[]> {
         const title = source && rawTitle.endsWith(` - ${source}`)
           ? rawTitle.slice(0, -(source.length + 3)).trim()
           : rawTitle;
+        const imageUrl =
+          block.match(/<media:content[^>]+url=["']([^"']+)["']/i)?.[1] ||
+          block.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1] ||
+          block.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]*>/i)?.[1] ||
+          "";
         return {
           title,
           source,
           url: resolveBingUrl(getTag(block, "link")),
           publishedAt: getTag(block, "pubDate"),
           snippet: cleanDescription(getTag(block, "description"), title, source),
+          imageUrl: imageUrl || undefined,
         };
       })
       .filter((item) => item.title && item.url);
