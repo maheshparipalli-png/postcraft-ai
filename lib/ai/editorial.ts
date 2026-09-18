@@ -459,7 +459,22 @@ export async function generateEditorialPost(
 
 Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
 
-Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading. Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions. The post should add a grounded perspective rather than merely restating the article.
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading.
+
+The post MUST add an editorial proposition, not merely rewrite the source. Think in this order:
+1. Identify the concrete fact or development in the story.
+2. Find the strongest tension, trade-off, contradiction, unanswered question, or second-order implication that is actually supported by the story and selected angle.
+3. State that insight clearly in your own words.
+4. Explain why the tension matters using only the supplied evidence.
+5. If appropriate, end with one specific question that follows naturally from that tension.
+
+A useful test: if the post could be created by copying the source summary and replacing a few words, it has failed. The reader should come away with a distinct idea about the story, not a recap of it.
+
+Prefer structures such as "The interesting part is not X. It is Y.", "That creates a less obvious problem: ...", or "The real tension here is ...", but use them naturally and do not force a template.
+
+For stories about AI monitoring, AI safety, AI agents, or AI systems supervising other AI systems, examine the concrete tension between capability and oversight, including who watches the monitoring system, without inventing facts that are not in the story.
+
+Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions.
 
 STORY
 Headline: ${story.headline}
