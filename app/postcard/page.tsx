@@ -90,6 +90,8 @@ export default function PostCardPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("paper");
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateMessage, setGenerateMessage] = useState("");
   const [generationCount, setGenerationCount] = useState(0);
@@ -357,6 +359,38 @@ export default function PostCardPage() {
     }
   }
 
+  async function saveCard() {
+    setSaving(true);
+    setSaved(false);
+    setGenerateMessage("");
+    try {
+      const response = await fetch("/api/postcard/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template,
+          background,
+          name,
+          handle,
+          photo,
+          headline,
+          body,
+          closing,
+          stat,
+          statLabel,
+          source,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Could not save the PostCard.");
+      setSaved(true);
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not save the PostCard.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function publishToLinkedIn() {
     if (linkedinPublished) return;
     if (!linkedinConnected) { router.push("/api/linkedin/connect"); return; }
@@ -536,6 +570,14 @@ export default function PostCardPage() {
               </div>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-5">
+              <button
+                type="button"
+                onClick={saveCard}
+                disabled={saving}
+                className={`rounded-full px-5 py-3 text-sm font-semibold transition ${saved ? "border border-green-600 bg-green-50 text-green-700" : "border border-neutral-900 bg-white text-neutral-900 hover:bg-neutral-100"} disabled:opacity-60`}
+              >
+                {saving ? "Saving..." : saved ? "✓ Saved" : "Save card"}
+              </button>
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
