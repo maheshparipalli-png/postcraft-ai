@@ -30,6 +30,12 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+button:not(:disabled),
+a,
+[role="button"] {
+  cursor: pointer;
+}
+
 ::selection {
   background: #171717;
   color: #ffffff;
