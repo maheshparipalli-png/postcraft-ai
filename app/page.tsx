@@ -669,7 +669,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
           <div className="max-w-4xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">01 / Find</div>
             <h1 className="mt-5 max-w-4xl font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Find something<br className="hidden sm:block" /> worth saying.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft analyzes the story, evaluates possible angles, and prepares the strongest LinkedIn post automatically.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Start with a story. PostCraft thinks through the story and writes the post automatically.</p>
           </div>
         </section>
 
@@ -731,19 +731,19 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
               >
                 --- Back to stories
               </button>
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">03 / Editorial analysis</div>
-              <h2 className="mt-2 font-serif text-2xl">PostCraft is finding the strongest way into this story.</h2>
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">03 / Write</div>
+              <h2 className="mt-2 font-serif text-2xl">PostCraft is writing your post.</h2>
             </div>
             <div>
               <div className="max-w-2xl border-b border-neutral-300/80 pb-7">
                 <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Selected story</div>
                 <div className="mt-2 font-serif text-xl leading-7">{selectedIdea.title}</div>
                 <p className="mt-3 max-w-xl text-xs leading-5 text-neutral-500">
-                  PostCraft is analyzing the story, selecting the strongest editorial angle, and writing the post automatically.
+                  PostCraft is generating your LinkedIn post automatically.
                 </p>
               </div>
             {angleLoading ? (
-                <div className="py-10 text-sm text-neutral-500"><span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-900" /> <span className="ml-2">Thinking through the story...</span></div>
+                <div className="py-10 text-sm text-neutral-500"><span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-900" /> <span className="ml-2">Creating your post...</span></div>
               ) : null}
             </div>
           </div>
