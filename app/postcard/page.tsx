@@ -87,30 +87,66 @@ export default function PostCardPage() {
   const initials = useMemo(() => initial(name), [name]);
 
   useEffect(() => {
-    const savedProfile = window.localStorage.getItem("postcraft-postcard-profile");
-    if (savedProfile) {
+    let cancelled = false;
+    async function loadAccountProfile() {
       try {
-        const profile = JSON.parse(savedProfile) as { name?: string; handle?: string; photo?: string | null };
-        if (profile.name) setName(profile.name);
-        if (profile.handle) setHandle(profile.handle);
-        if (profile.photo) setPhoto(profile.photo);
-        if (profile.name || profile.handle || profile.photo) setProfileLocked(true);
-      } catch {
-        window.localStorage.removeItem("postcraft-postcard-profile");
-      }
+        const response = await fetch("/api/postcard/profile", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        if (data?.profile) {
+          setName(data.profile.name || "");
+          setHandle(data.profile.handle || "");
+          setPhoto(data.profile.photo || null);
+          setProfileLocked(Boolean(data.profile.name && data.profile.handle));
+          setEditingProfile(false);
+          return;
+        }
+        const savedProfile = window.localStorage.getItem("postcraft-postcard-profile");
+        if (savedProfile) {
+          try {
+            const localProfile = JSON.parse(savedProfile) as { name?: string; handle?: string; photo?: string | null };
+            if (localProfile.name && localProfile.handle) {
+              const saveResponse = await fetch("/api/postcard/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: localProfile.name, handle: localProfile.handle, photo: localProfile.photo || null }),
+              });
+              if (saveResponse.ok && !cancelled) {
+                setName(localProfile.name);
+                setHandle(localProfile.handle);
+                setPhoto(localProfile.photo || null);
+                setProfileLocked(true);
+                setEditingProfile(false);
+                window.localStorage.removeItem("postcraft-postcard-profile");
+              }
+            }
+          } catch {}
+        }
+      } catch {}
     }
+    loadAccountProfile();
+    return () => { cancelled = true; };
   }, []);
 
-  function saveProfile() {
+  async function saveProfile() {
     if (!name.trim() || !handle.trim()) return;
-    window.localStorage.setItem(
-      "postcraft-postcard-profile",
-      JSON.stringify({ name: name.trim(), handle: handle.trim(), photo })
-    );
-    setName(name.trim());
-    setHandle(handle.trim());
-    setProfileLocked(true);
-    setEditingProfile(false);
+    try {
+      const response = await fetch("/api/postcard/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), handle: handle.trim(), photo }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not save profile.");
+      setName(data.profile.name);
+      setHandle(data.profile.handle);
+      setPhoto(data.profile.photo || null);
+      setProfileLocked(true);
+      setEditingProfile(false);
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not save profile.");
+    }
   }
 
   useEffect(() => {
