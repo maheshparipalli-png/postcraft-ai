@@ -48,6 +48,21 @@ function formatPublishedAtIST(value: string) {
   }).format(date) + " IST";
 }
 
+function isAggregatorLabel(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "google news" || normalized === "bing news" || normalized === "yahoo news";
+}
+
+function publisherFromUrl(value: string) {
+  try {
+    const hostname = new URL(value).hostname.replace(/^www\./, "");
+    if (!hostname || hostname === "news.google.com" || hostname === "www.bing.com") return "";
+    return hostname;
+  } catch {
+    return "";
+  }
+}
+
 function decodeHtmlEntities(value: string) {
   return value
     .replace(/&nbsp;|&#160;/gi, " ")
@@ -253,15 +268,20 @@ function resetFromStory() {
         );
       }
 
+      const verifiedUrl =
+        typeof data.url === "string" && data.url.trim()
+          ? data.url.trim()
+          : idea.url;
+      const verifiedTitle =
+        typeof data.title === "string" && data.title.trim() && !isAggregatorLabel(data.title)
+          ? data.title.trim()
+          : decodeHtmlEntities(idea.title).trim();
       const verifiedSource = {
-        title:
-          typeof data.title === "string" && data.title.trim()
-            ? data.title.trim()
-            : idea.title,
+        title: verifiedTitle,
         source:
-          typeof data.source === "string" && data.source.trim()
+          typeof data.source === "string" && data.source.trim() && !isAggregatorLabel(data.source)
             ? data.source.trim()
-            : idea.source,
+            : publisherFromUrl(verifiedUrl) || decodeHtmlEntities(idea.source).trim(),
         publishedAt:
           typeof data.publishedAt === "string" && data.publishedAt.trim()
             ? formatDateInput(data.publishedAt)
@@ -270,16 +290,14 @@ function resetFromStory() {
           typeof data.summary === "string" && data.summary.trim()
             ? data.summary.trim()
             : idea.description.trim(),
-        url:
-          typeof data.url === "string" && data.url.trim()
-            ? data.url.trim()
-            : idea.url,
+        url: verifiedUrl,
       };
 
-      setNewsTitle(verifiedSource.title || idea.title);
-      setNewsSource(verifiedSource.source || idea.source);
+      setNewsTitle(verifiedSource.title || decodeHtmlEntities(idea.title));
+      setNewsSource(verifiedSource.source || publisherFromUrl(verifiedSource.url) || decodeHtmlEntities(idea.source));
       setNewsDate(verifiedSource.publishedAt || formatDateInput(idea.publishedAt));
-      setVerifiedSummary(verifiedSource.summary);
+      setVerifiedSummary(verifiedSource.summary || idea.description.trim());
+      setSourceUrl(verifiedSource.url);
       setSourceVerified(true);
 
       return verifiedSource;
