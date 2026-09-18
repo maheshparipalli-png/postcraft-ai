@@ -51,6 +51,22 @@ function wrapText(text: string, maxChars: number) {
   return lines;
 }
 
+function fitLines(text: string, maxChars: number, maxLines: number) {
+  const lines = wrapText(text, maxChars);
+  if (lines.length <= maxLines) return lines;
+
+  const fitted = lines.slice(0, maxLines);
+  const last = fitted[maxLines - 1].replace(/[.!,;:?]+$/, "");
+  fitted[maxLines - 1] = last.length > 3 ? last + "…" : "…";
+  return fitted;
+}
+
+function fitSingleLine(text: string, maxChars: number) {
+  const value = text.trim();
+  if (value.length <= maxChars) return value;
+  return value.slice(0, Math.max(1, maxChars - 1)).trimEnd() + "…";
+}
+
 function initial(name: string) {
   return name.trim().slice(0, 1).toUpperCase() || "P";
 }
@@ -169,9 +185,11 @@ export default function PostCardPage() {
     const safeStat = escapeXml(stat);
     const safeStatLabel = escapeXml(statLabel);
     const safeSource = escapeXml(source);
-    const headlineLines = wrapText(headline, template === "stat" ? 24 : template === "editorial" ? 25 : 27);
-    const bodyLines = wrapText(body, 42);
-    const closingLines = wrapText(closing, 32);
+    const headlineLines = fitLines(headline, template === "stat" ? 24 : template === "editorial" ? 25 : 27, template === "stat" ? 2 : 4);
+    const bodyLines = fitLines(body, 42, 6);
+    const closingLines = fitLines(closing, 32, 3);
+    const statLabelLines = fitLines(statLabel, 31, 4);
+    const sourceLine = fitSingleLine(source, 78);
     const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
     const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
 
@@ -186,25 +204,34 @@ export default function PostCardPage() {
 
     let content = "";
     if (template === "stat") {
+      const statSize = stat.length > 6 ? 112 : 132;
+      const statY = 285;
+      const statLabelY = statY + statSize + 55;
+      const statLabelGap = 42;
+      const closingY = statLabelY + statLabelLines.length * statLabelGap + 55;
       content = `
-        <text x="68" y="290" font-family="Arial,sans-serif" font-size="132" font-weight="700" fill="${textColor}">${safeStat}</text>
-        ${textLines(wrapText(statLabel, 31), 68, 395, 34, 400, 47)}
-        ${textLines(wrapText(closing, 38), 68, 590, 30, 400, 41)}
+        <text x="68" y="${statY}" font-family="Arial,sans-serif" font-size="${statSize}" font-weight="700" fill="${textColor}">${safeStat}</text>
+        ${textLines(statLabelLines, 68, statLabelY, 32, 400, statLabelGap)}
+        ${textLines(closingLines, 68, closingY, 29, 600, 38)}
       `;
     } else {
       const contentX = 68;
-      const headlineY = template === "editorial" ? 325 : 250;
-      const headlineSize = template === "editorial" ? 64 : 62;
-      const headlineGap = template === "editorial" ? 74 : 74;
-      const bodyY = headlineY + headlineLines.length * headlineGap + 46;
-      const bodyEndY = bodyY + Math.max(1, bodyLines.length) * 45;
-      const dividerY = Math.min(790, Math.max(700, bodyEndY + 62));
-      const closingY = dividerY + 78;
+      const headlineSize = headlineLines.length >= 4 ? 54 : headlineLines.length === 3 ? 60 : 64;
+      const headlineGap = headlineSize * 1.1;
+      const headlineY = template === "editorial" ? 300 : 250;
+      const bodySize = bodyLines.length >= 6 ? 27 : 29;
+      const bodyGap = 39;
+      const bodyY = headlineY + (headlineLines.length - 1) * headlineGap + headlineSize + 46;
+      const bodyEndY = bodyY + Math.max(1, bodyLines.length - 1) * bodyGap + bodySize;
+      const dividerY = Math.min(805, Math.max(700, bodyEndY + 42));
+      const closingSize = closingLines.length >= 3 ? 27 : 29;
+      const closingGap = 37;
+      const closingY = template === "editorial" ? dividerY + 62 : bodyEndY + 72;
       content = `
         ${textLines(headlineLines, contentX, headlineY, headlineSize, 500, headlineGap)}
-        ${textLines(bodyLines, contentX, bodyY, 31, 400, 45)}
+        ${textLines(bodyLines, contentX, bodyY, bodySize, 400, bodyGap)}
         ${template === "editorial" ? `<line x1="${contentX}" y1="${dividerY}" x2="${contentX + 125}" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
-        ${textLines(closingLines, contentX, closingY, 31, 600, 42)}
+        ${textLines(closingLines, contentX, closingY, closingSize, 600, closingGap)}
       `;
     }
 
@@ -242,7 +269,7 @@ export default function PostCardPage() {
         <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="${mutedColor}">${safeName} · ${safeHandle}</text>
       `}
       ${content}
-      <text x="68" y="1008" font-family="Arial,sans-serif" font-size="19" fill="${mutedColor}">${safeSource}</text>
+      <text x="68" y="1020" font-family="Arial,sans-serif" font-size="18" fill="${mutedColor}">${escapeXml(sourceLine)}</text>
     </svg>`;
   }
 
