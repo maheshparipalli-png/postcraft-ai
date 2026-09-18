@@ -304,7 +304,7 @@ export default function PostCardPage() {
             <p className="mt-2 text-center text-xs text-neutral-400">PostCard will automatically create four visual variations from your content.</p>
 
             <div className="mt-8 flex flex-wrap items-center gap-5">
-              <button type="button" onClick={downloadPng} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
+              <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
               <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
