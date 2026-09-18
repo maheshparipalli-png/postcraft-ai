@@ -632,6 +632,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                 <Link href="/" className="text-xs text-neutral-500 transition hover:text-neutral-900">Home</Link>
                 <Link href="/create" className="text-xs text-neutral-500 transition hover:text-neutral-900">Write</Link>
                 <Link href="/auto-post" className="text-xs text-neutral-500 transition hover:text-neutral-900">Auto-post</Link>
+                <Link href="/postcard" className="text-xs text-neutral-500 transition hover:text-neutral-900">PostCard</Link>
                 <Link href="/commentcraft/import" className="text-xs text-neutral-500 transition hover:text-neutral-900">CommentCraft</Link>
                 <Link href="/workspace" className="text-xs text-neutral-500 transition hover:text-neutral-900">Workspace</Link>
                 <Link href="/billing" className="text-xs text-neutral-500 transition hover:text-neutral-900">Billing</Link>
