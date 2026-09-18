@@ -346,6 +346,11 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
   // pool first, but keep the richer/direct-publisher record when both exist.
   const byTitle = new Map<string, ResearchItem>();
   for (const item of combined) {
+    // Never let an aggregator URL enter the candidate pool. The selected story
+    // must point to a publisher page so source verification can report the
+    // actual publication rather than Google News.
+    if (isGoogleNewsUrl(item.url)) continue;
+
     const time = Date.parse(item.publishedAt);
     if (!Number.isFinite(time) || time < cutoff || isSponsoredStory(item) || isLowValueStory(item)) continue;
 
