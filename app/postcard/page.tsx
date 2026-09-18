@@ -108,6 +108,8 @@ export default function PostCardPage() {
     const headlineLines = wrapText(headline, template === "stat" ? 26 : 29);
     const bodyLines = wrapText(body, 48);
     const closingLines = wrapText(closing, 38);
+    const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
+    const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
 
     const avatar = photo
       ? `<image href="${escapeXml(photo)}" x="64" y="62" width="104" height="104" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>`
@@ -115,7 +117,7 @@ export default function PostCardPage() {
 
     const textLines = (lines: string[], x: number, y: number, size: number, weight = 400, gap = size * 1.28) =>
       lines.map((line, index) =>
-        `<text x="${x}" y="${y + index * gap}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${weight}" fill="#171717">${line}</text>`
+        `<text x="${x}" y="${y + index * gap}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${weight}" fill="${textColor}">${line}</text>`
       ).join("");
 
     let content = "";
@@ -159,16 +161,16 @@ export default function PostCardPage() {
 
       ${template === "editorial" ? `
         ${avatar}
-        <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#171717">${safeName}</text>
-        <text x="190" y="145" font-family="Arial,sans-serif" font-size="28" fill="#777">${safeHandle}</text>
+        <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
+        <text x="190" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
         <circle cx="500" cy="96" r="14" fill="#24a8e8"/>
         <path d="M493 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
       ` : `
-        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="#777">POSTCARD</text>
-        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="#999">${safeName} · ${safeHandle}</text>
+        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="${mutedColor}">POSTCARD</text>
+        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="${mutedColor}">${safeName} · ${safeHandle}</text>
       `}
       ${content}
-      <text x="68" y="1008" font-family="Arial,sans-serif" font-size="19" fill="#888">${safeSource}</text>
+      <text x="68" y="1008" font-family="Arial,sans-serif" font-size="19" fill="${mutedColor}">${safeSource}</text>
     </svg>`;
   }
 
