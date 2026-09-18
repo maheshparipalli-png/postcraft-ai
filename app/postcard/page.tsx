@@ -92,6 +92,7 @@ export default function PostCardPage() {
   const [downloading, setDownloading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateMessage, setGenerateMessage] = useState("");
+  const [generationCount, setGenerationCount] = useState(0);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
@@ -300,6 +301,22 @@ export default function PostCardPage() {
   async function generateCardCopy() {
     setGenerating(true);
     setGenerateMessage("");
+    const nextCount = generationCount + 1;
+    const directions = [
+      "sports comeback or breakthrough",
+      "business decision or company turnaround",
+      "entrepreneurship and persistence",
+      "leadership and people",
+      "an unexpected success lesson",
+      "failure, recovery, and resilience",
+      "discipline and long-term consistency",
+      "learning, craft, or mastery",
+      "a remarkable human achievement",
+      "a simple everyday lesson with a deeper meaning",
+    ];
+    const direction = directions[(nextCount - 1) % directions.length];
+    const seed = Math.random().toString(36).slice(2, 10);
+    setGenerationCount(nextCount);
     try {
       const response = await fetch("/api/ai", {
         method: "POST",
@@ -307,12 +324,17 @@ export default function PostCardPage() {
         body: JSON.stringify({
           action: "postcard",
           template,
-          idea: headline,
-          headline,
-          supportingThought: body,
-          closing,
+          idea: "",
+          category: direction,
+          variationSeed: seed,
+          previousHeadline: headline,
+          previousBody: body,
+          previousClosing: closing,
+          headline: "",
+          supportingThought: "",
+          closing: "",
           stat,
-          source,
+          source: "",
         }),
       });
       const data = await response.json();
