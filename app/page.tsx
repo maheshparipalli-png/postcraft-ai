@@ -48,37 +48,6 @@ function formatPublishedAtIST(value: string) {
   }).format(date) + " IST";
 }
 
-function isAggregatorLabel(value: string) {
-  const normalized = value.trim().toLowerCase();
-  return normalized === "google news" || normalized === "bing news" || normalized === "yahoo news";
-}
-
-function publisherFromUrl(value: string) {
-  try {
-    const hostname = new URL(value).hostname.replace(/^www\./, "");
-    if (!hostname || hostname === "news.google.com" || hostname === "www.bing.com") return "";
-    return hostname;
-  } catch {
-    return "";
-  }
-}
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&#x2F;/gi, "/")
-    .replace(/&#x60;/gi, "`")
-    .replace(/&#x3D;/gi, "=")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
-}
-
 function cleanGeneratedPost(value: string) {
   return value.replace(/^```(?:text|markdown|json)?\s*/i, "").replace(/\s*```$/i, "").replace(/^\s*(LinkedIn post|Post):\s*/i, "").trim();
 }
@@ -141,9 +110,6 @@ export default function Home() {
   const [originalityMessage, setOriginalityMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
-  const [postLoading, setPostLoading] = useState(false);
-  const [sourceVerifying, setSourceVerifying] = useState(false);
-  const [sourceVerified, setSourceVerified] = useState(false);
   const [error, setError] = useState("");
   const angleRequestRef = useRef(0);
   const angleAbortRef = useRef<AbortController | null>(null);
@@ -241,78 +207,9 @@ function resetFromStory() {
     setNewsSource("");
     setNewsDate("");
     setVerifiedSummary("");
-    setSourceVerified(false);
-    setSourceVerifying(false);
-  }
-
-
-
-  async function verifySource(idea: Idea) {
-    setSourceVerifying(true);
-    setSourceVerified(false);
-    setError("");
-
-    try {
-      const response = await fetch("/api/verify-source", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: idea.url }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data?.verified) {
-        throw new Error(
-          data?.error ||
-            "PostCraft could not verify the original news source.",
-        );
       }
 
-      const verifiedUrl =
-        typeof data.url === "string" && data.url.trim()
-          ? data.url.trim()
-          : idea.url;
-      const verifiedTitle =
-        typeof data.title === "string" && data.title.trim() && !isAggregatorLabel(data.title)
-          ? data.title.trim()
-          : decodeHtmlEntities(idea.title).trim();
-      const verifiedSource = {
-        title: verifiedTitle,
-        source:
-          typeof data.source === "string" && data.source.trim() && !isAggregatorLabel(data.source)
-            ? data.source.trim()
-            : publisherFromUrl(verifiedUrl) || decodeHtmlEntities(idea.source).trim(),
-        publishedAt:
-          typeof data.publishedAt === "string" && data.publishedAt.trim()
-            ? formatDateInput(data.publishedAt)
-            : formatDateInput(idea.publishedAt),
-        summary:
-          typeof data.summary === "string" && data.summary.trim()
-            ? data.summary.trim()
-            : idea.description.trim(),
-        url: verifiedUrl,
-      };
 
-      setNewsTitle(verifiedSource.title || decodeHtmlEntities(idea.title));
-      setNewsSource(verifiedSource.source || publisherFromUrl(verifiedSource.url) || decodeHtmlEntities(idea.source));
-      setNewsDate(verifiedSource.publishedAt || formatDateInput(idea.publishedAt));
-      setVerifiedSummary(verifiedSource.summary || idea.description.trim());
-      setSourceUrl(verifiedSource.url);
-      setSourceVerified(true);
-
-      return verifiedSource;
-    } catch (err) {
-      setSourceVerified(false);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "PostCraft could not verify the original news source.",
-      );
-      return null;
-    } finally {
-      setSourceVerifying(false);
-    }
-  }
 
   async function selectIdea(idea: Idea) {
     const requestId = ++angleRequestRef.current;
@@ -326,39 +223,37 @@ function resetFromStory() {
     setNewsTitle(decodeHtmlEntities(idea.title));
     setNewsSource(decodeHtmlEntities(idea.source));
     setNewsDate(formatDateInput(idea.publishedAt));
+    setSourceUrl(idea.url);
     setError("");
     setAngleLoading(true);
 
     try {
-      const verified = await verifySource(idea);
-      if (!verified || requestId !== angleRequestRef.current) return;
-
       const selectedTopic = topic;
-      const prompt = `Analyze this verified news story internally and create the strongest possible LinkedIn post.
+      const prompt = `Analyze this news story internally and immediately create the strongest possible LinkedIn post.
 
-Do not ask the user to choose an angle. Generate multiple candidate editorial angles internally, evaluate them, rank them, select the strongest one, and then write the post.
+Do not ask the user to choose an angle. Generate multiple candidate editorial angles internally, evaluate them, rank them, select the strongest one, and write the final post.
 
 Evaluate angles for:
-- reader interest: would a professional stop and read it?
-- discussion potential: does it create a specific point worth responding to?
-- relevance: does it matter to a LinkedIn audience?
-- clarity: can the thesis be understood immediately?
-- specificity: is it grounded in a concrete detail rather than a generic AI statement?
-- LinkedIn fit: does it work naturally as a professional post?
-- evidence strength: is it directly supported by the supplied story?
+- reader interest
+- discussion potential
+- relevance to a LinkedIn audience
+- clarity
+- specificity
+- LinkedIn fit
+- evidence strength
 
-Reject short fragments, generic observations, unsupported implications, invented motives, and conclusions not established by the story.
+Reject generic observations, unsupported implications, invented motives, and conclusions not established by the supplied story.
 
-Use only this verified story. Do not search the internet or add outside facts.
+Use only the supplied story. Do not search the internet or add outside facts.
 
 Topic: ${selectedTopic}
-News title: ${verified.title}
-News source: ${verified.source}
-News date: ${verified.publishedAt || "Unknown"}
-URL: ${verified.url}
-Summary: ${verified.summary || "No reliable summary was supplied."}
+News title: ${decodeHtmlEntities(idea.title)}
+News source: ${decodeHtmlEntities(idea.source)}
+News date: ${formatDateInput(idea.publishedAt) || "Unknown"}
+URL: ${idea.url}
+Summary: ${idea.description || "No reliable summary was supplied."}
 
-Return the strongest editorial result and finished LinkedIn post.`;
+Return the strongest editorial result and finished LinkedIn post. The application will append the source attribution separately.`;
 
       const response = await fetch("/api/ai", {
         method: "POST",
@@ -367,16 +262,16 @@ Return the strongest editorial result and finished LinkedIn post.`;
         signal: controller.signal,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "PostCraft could not finish the editorial analysis.");
+      if (!response.ok) throw new Error(data?.error || "PostCraft could not create the post.");
 
       if (requestId !== angleRequestRef.current) return;
 
       const selected = data?.selectedAngle;
       const selectedText = typeof selected?.angle === "string" ? selected.angle.trim() : "";
-      const generatedPost = typeof data?.post === "string" ? data.post.trim() : "";
+      const generatedPost = typeof data?.post === "string" ? cleanGeneratedPost(data.post) : "";
 
       if (!selectedText || !generatedPost) {
-        throw new Error("PostCraft could not produce a strong editorial draft for this story. Try another story.");
+        throw new Error("PostCraft could not create a strong post for this story. Try another story.");
       }
 
       const generatedAngles: AngleSuggestion[] = Array.isArray(data?.angles)
@@ -398,67 +293,17 @@ Return the strongest editorial result and finished LinkedIn post.`;
       setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
       setSuggestedAngles(generatedAngles);
       setAngle(selectedText);
-      setPost(generatedPost.trim() + `\n\nSource: ${verified.source.trim()} — ${verified.url}`);
-
+      setVerifiedSummary(idea.description || "");
+      setPost(generatedPost + `\n\nSource: ${decodeHtmlEntities(idea.source).trim()} — ${idea.url}`);
       setOriginalityStatus("idle");
       setOriginalityMessage("");
     } catch (err) {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
-        setError(err instanceof Error ? err.message : "PostCraft could not finish the editorial analysis.");
+        setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
       }
     } finally {
       if (requestId === angleRequestRef.current) setAngleLoading(false);
-    }
-  }
-
-  async function createPost(nextAngle?: string, sourceIsVerified = sourceVerified) {
-    const selectedAngleText = nextAngle ?? angle;
-    if (!selectedIdea || !selectedAngleText || !sourceIsVerified) {
-      setError("Verify the original news source before creating the post.");
-      return;
-    }
-    setPostLoading(true);
-    setError("");
-    setCopied(false);
-    const selectedAngle = suggestedAngles.find((item) => item.text === selectedAngleText);
-    const selectedPerspective = perspectives.find((item) => item.id === perspective);
-    const selectedTopic = topic;
-    const prompt = `You are PostCraft AI, an editorial thinking partner. Turn ONE news development, ONE selected angle, and the user's point of view into a LinkedIn post.\n\nTopic: ${selectedTopic}\nNews title: ${newsTitle || selectedIdea.title}\nNews source: ${newsSource || selectedIdea.source}\nNews date: ${newsDate || "Unknown"}\nHeadline: ${newsTitle || selectedIdea.title}\nSource: ${newsSource || selectedIdea.source}\nURL: ${selectedIdea.url}\nSummary: ${verifiedSummary || selectedIdea.description || "No reliable summary was supplied."}\nSelected angle: ${selectedAngleText}\nWhy this angle works: ${selectedAngle?.why || "It gives the story a specific point of view."}\nUser perspective: ${selectedPerspective?.label}\nPerspective guidance: ${selectedPerspective?.description}\nUser's own note: ${perspectiveNote || "No additional note supplied."}\nEvidence JSON: ${JSON.stringify(evidence)}\n\nThe evidence JSON above is the complete factual source. Do not search the internet. Do not add outside facts, personal experience, statistics, motives, or examples. Keep the selected angle intact. Make the thesis clear early. Use plain language and natural sentence rhythm. Avoid generic phrases such as "raises important questions", "future of work", "need to strike a balance", or "in today's rapidly changing world". Do not add a generic policy conclusion.
-
-Do not include a source title, publication name, or publication date in your response.
-The application will append the verified source details separately.
-Return ONLY the finished LinkedIn post body.`;
-    try {
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "post", prompt }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Post generation failed");
-      const generatedPost = cleanGeneratedPost(typeof data?.text === "string" ? data.text : "");
-      if (!generatedPost) throw new Error("PostCraft could not create the post. Please try again.");
-      let value = generatedPost;
-      try {
-        const parsed = JSON.parse(generatedPost);
-        if (typeof parsed?.post === "string") value = parsed.post.trim();
-      } catch {
-        // Plain-text response is expected.
-      }
-      const sourceTitle = (newsTitle || selectedIdea.title).trim();
-      const sourcePublication = (newsSource || selectedIdea.source).trim();
-      const sourceDate = newsDate
-      ? formatDate(`${newsDate}T00:00:00`)
-        : "Unknown date";
-
-      const sourceAttribution = `This post is based on an article published by ${sourcePublication} on ${sourceDate}, titled "${sourceTitle}".`;
-
-      setPost(`${sourceAttribution}\n\n${value.trim()}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "PostCraft could not create the post. Please try again.");
-    } finally {
-      setPostLoading(false);
     }
   }
 
@@ -893,138 +738,11 @@ Return ONLY the finished LinkedIn post body.`;
               <div className="max-w-2xl border-b border-neutral-300/80 pb-7">
                 <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Selected story</div>
                 <div className="mt-2 font-serif text-xl leading-7">{selectedIdea.title}</div>
-                <div
-                  className={`mt-3 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${
-                    sourceVerifying
-                      ? "border-amber-200 bg-amber-50 text-amber-700"
-                      : sourceVerified
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-neutral-300 bg-neutral-50 text-neutral-500"
-                  }`}
-                >
-                  {sourceVerifying
-                    ? "Verifying original source"
-                    : sourceVerified
-                      ? "Source verified"
-                      : "Source not verified"}
-                </div>
                 <p className="mt-3 max-w-xl text-xs leading-5 text-neutral-500">
-                  {sourceVerifying
-                    ? "Opening the original publisher page before editorial analysis."
-                    : sourceVerified
-                      ? "The source details below are verified and used internally by PostCraft."
-                      : "PostCraft verifies the original source before generating the editorial draft."}
+                  PostCraft is analyzing the story, selecting the strongest editorial angle, and writing the post automatically.
                 </p>
-                <div className="mt-6 grid gap-5 sm:grid-cols-[1fr_180px]">
-                  <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                    News source
-                    <input value={newsSource} onChange={(event) => setNewsSource(event.target.value)} className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900/10" placeholder="Publication or source" />
-                  </label>
-                  <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                    News date
-                    <input type="date" value={newsDate} onChange={(event) => setNewsDate(event.target.value)} className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900/10" />
-                  </label>
-                </div>
-                <label className="mt-5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                  News title
-                  <input value={newsTitle} onChange={(event) => setNewsTitle(event.target.value)} className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900/10" placeholder="Original news headline" />
-                </label>
               </div>
-              {false && angle && !angleLoading && (
-              <div className="mt-8 border-y border-neutral-300/80 py-7">
-                <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Validated angle</div>
-                <div className="mt-3 font-serif text-2xl leading-tight tracking-[-0.02em]">{angle}</div>
-                {suggestedAngles.find((item) => item.text === angle)?.why && <p className="mt-3 text-sm leading-6 text-neutral-600">{suggestedAngles.find((item) => item.text === angle)?.why}</p>}
-                {suggestedAngles.find((item) => item.text === angle)?.evidence && <p className="mt-3 text-xs leading-5 text-neutral-500"><span className="font-semibold text-neutral-700">Evidence anchor:</span> {suggestedAngles.find((item) => item.text === angle)?.evidence}</p>}
-                {!post && <button type="button" onClick={() => void createPost(angle)} disabled={postLoading || !sourceVerified} className="mt-5 border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400">Create post from this angle -</button>}
-              </div>
-            )}
-
-            {false && !post && !postLoading && !angleLoading && suggestedAngles.length > 0 && (
-              <div className="mt-8">
-                <div className="mb-4 text-[10px] uppercase tracking-[0.15em] text-neutral-400">
-                  Other validated angles
-                </div>
-
-                <div className="divide-y divide-neutral-300/80 border-y border-neutral-300/80">
-                  {suggestedAngles.map((item, index) => {
-                    const selected = angle === item.text;
-
-                    return (
-                      <button
-                        key={item.text}
-                        type="button"
-                        onClick={() => {
-                          setAngle(item.text);
-                          setPost("");
-                          setSaveMessage("");
-                          setCopied(false);
-                          setLinkedinMessage("");
-                          void createPost(item.text);
-                        }}
-                        className={`group block w-full py-7 text-left transition ${
-                          selected
-                            ? "bg-white px-5 sm:px-7"
-                            : "hover:bg-white/60"
-                        }`}
-                      >
-                        <div className="flex gap-5">
-                          <div className="pt-1 font-serif text-sm text-neutral-400">
-                            0{index + 1}
-                          </div>
-
-                          <div className="max-w-3xl">
-                            <div className="font-serif text-2xl leading-tight tracking-[-0.02em] sm:text-3xl">
-                              {item.text}
-                            </div>
-
-                            {item.why && (
-                              <div className="mt-3 text-sm leading-6 text-neutral-600">
-                                {item.why}
-                              </div>
-                            )}
-
-                            {item.evidence && (
-                              <div className="mt-3 text-xs leading-5 text-neutral-500">
-                                <span className="font-semibold text-neutral-700">
-                                  Evidence:
-                                </span>{" "}
-                                {item.evidence}
-                              </div>
-                            )}
-
-                            <div
-                              className={`mt-4 text-xs font-medium ${
-                                selected
-                                  ? "text-neutral-900"
-                                  : "text-neutral-500 group-hover:text-neutral-900"
-                              }`}
-                            >
-                              {selected
-                                ? "Selected angle"
-                                : "Choose this angle -"}
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {postLoading || post ? (
-                <div className="border-b border-neutral-300/80 py-10 text-sm text-neutral-500">
-                  {postLoading ? (
-                    <>
-                      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-900" />
-                      <span className="ml-2">Creating your post...</span>
-                    </>
-                  ) : (
-                    <span>Your post is ready below.</span>
-                  )}
-                </div>
-              ) : angleLoading ? (
+            {angleLoading ? (
                 <div className="py-10 text-sm text-neutral-500"><span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-900" /> <span className="ml-2">Thinking through the story...</span></div>
               ) : null}
             </div>
@@ -1046,7 +764,7 @@ Return ONLY the finished LinkedIn post body.`;
               >
                 --- Back to angles
               </button>
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">05 / Write</div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">04 / Write</div>
               <h2 className="mt-2 font-serif text-2xl">Your post.</h2>
               <p className="mt-3 text-xs leading-5 text-neutral-500">One clear idea, in your voice.</p>
             </div>
@@ -1078,14 +796,7 @@ Return ONLY the finished LinkedIn post body.`;
                     {saveLoading ? "Saving..." : editingPostId ? "Update post -" : "Save post -"}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => void createPost()}
-                    disabled={postLoading || !selectedIdea || !angle || !sourceVerified}
-                    className="border-b border-neutral-900 pb-1 text-sm font-medium hover:pr-2 disabled:cursor-not-allowed disabled:border-neutral-300 disabled:text-neutral-400"
-                  >
-                    {postLoading ? "Regenerating..." : "Regenerate -"}
-                  </button>
+                  
                   <button
                     type="button"
                     onClick={copyPost}
@@ -1116,7 +827,6 @@ Return ONLY the finished LinkedIn post body.`;
     </main>
   );
 }
-
 
 
 
