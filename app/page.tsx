@@ -711,7 +711,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                       {idea.description && <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">{idea.description}</p>}
                       {idea.whyItMatters && <div className="mt-5 max-w-2xl border-l border-neutral-400 pl-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">Why this is interesting</div><p className="mt-1.5 text-sm leading-6 text-neutral-800">{idea.whyItMatters}</p></div>}
                       <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-xs">
-                        <a href={idea.url} target="_blank" rel="noreferrer" className="text-neutral-500 underline underline-offset-4 hover:text-neutral-900">Read source</a>
+                        <a href={idea.url} target="_blank" rel="noreferrer" className="cursor-pointer text-neutral-500 underline underline-offset-4 hover:text-neutral-900">Read source</a>
                         <span className="font-medium text-neutral-900">{selected ? "Chosen" : "Explore this story -"}</span>
                       </div>
                     </div>
