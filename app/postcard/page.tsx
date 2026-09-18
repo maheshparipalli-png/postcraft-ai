@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Template = "editorial" | "insight" | "stat";
 type BackgroundId = "paper" | "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
@@ -75,9 +76,17 @@ export default function PostCardPage() {
   const [selectedCard, setSelectedCard] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [linkedinMessage, setLinkedinMessage] = useState("");
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = useMemo(() => initial(name), [name]);
+
+  useEffect(() => {
+    fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
+  }, []);
 
   function loadPhoto(file: File | undefined) {
     if (!file) return;
@@ -174,6 +183,57 @@ export default function PostCardPage() {
     </svg>`;
   }
 
+  async function renderPngDataUrl(backgroundId: BackgroundId) {
+    const svg = buildSvg(backgroundId);
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 1080;
+          canvas.height = 1080;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) { reject(new Error("Could not create the image canvas.")); return; }
+          ctx.drawImage(image, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        };
+        image.onerror = () => reject(new Error("Could not render the PostCard image."));
+        image.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function publishToLinkedIn() {
+    if (!linkedinConnected) { router.push("/api/linkedin/connect"); return; }
+    setLinkedinLoading(true);
+    setLinkedinMessage("");
+    try {
+      const backgroundId = generatedCards[selectedCard]?.background ?? background;
+      const imageDataUrl = await renderPngDataUrl(backgroundId);
+      const response = await fetch("/api/linkedin/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commentary: [headline, body, closing].filter(Boolean).join("\n\n"),
+          sourceUrl: null,
+          sourceTitle: name ? "PostCard by " + name : "PostCard visual",
+          imageDataUrl,
+          includeSourceImage: false,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not publish to LinkedIn.");
+      setLinkedinMessage("Published to your LinkedIn profile.");
+    } catch (error) {
+      setLinkedinMessage(error instanceof Error ? error.message : "Could not publish to LinkedIn.");
+    } finally {
+      setLinkedinLoading(false);
+    }
+  }
   async function downloadPng(backgroundId = background) {
     setDownloading(true);
     try {
@@ -307,7 +367,11 @@ export default function PostCardPage() {
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
+              <button type="button" onClick={publishToLinkedIn} disabled={linkedinLoading} className="rounded-full bg-[#0A66C2] px-5 py-3 text-sm font-semibold text-white hover:bg-[#084f96] disabled:opacity-50">
+                {linkedinLoading ? "Publishing..." : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
+              </button>
               <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
+              {linkedinMessage && <span className="w-full text-xs text-neutral-600">{linkedinMessage}</span>}
             </div>
           </div>
 
