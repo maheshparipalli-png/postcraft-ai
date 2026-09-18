@@ -398,7 +398,15 @@ Return the strongest editorial result and finished LinkedIn post.`;
       setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
       setSuggestedAngles(generatedAngles);
       setAngle(selectedText);
-      setPost(generatedPost);
+
+      const sourceTitle = verified.title.trim();
+      const sourcePublication = verified.source.trim();
+      const sourceDate = verified.publishedAt
+        ? formatDate(`${verified.publishedAt}T00:00:00`)
+        : "Unknown date";
+      const sourceAttribution = `This post is based on an article published by ${sourcePublication} on ${sourceDate}, titled "${sourceTitle}".`;
+
+      setPost(`${sourceAttribution}\n\n${generatedPost}`);
       setOriginalityStatus("idle");
       setOriginalityMessage("");
     } catch (err) {
