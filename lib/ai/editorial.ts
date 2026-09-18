@@ -457,15 +457,25 @@ End with ONE specific discussion question only when the story and the user's tak
 
 Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
 
-  const result = parseJson(
-    await provider().generateText(prompt, {
-      format: "json",
-      temperature: 0.3,
-      numPredict: 260,
-    })
-  );
+  // Keep the final post generation as plain text rather than JSON. The
+  // production model is intentionally small (qwen2.5:1.5b), and asking it to
+  // produce a 110-160 word post plus strict JSON structure can occasionally
+  // yield valid model output that is not parseable as JSON. The editorial pass
+  // still uses JSON because its structured evidence/angle output is needed.
+  const rawResult = await provider().generateText(prompt.replace(
+    "Return ONLY JSON: {\"post\":\"the finished LinkedIn post\"}",
+    "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
+  ), {
+    format: "text",
+    temperature: 0.3,
+    numPredict: 260,
+  });
 
-  const post = typeof result?.post === "string" ? result.post.trim() : "";
+  const parsedResult = parseJson(rawResult);
+  const post =
+    typeof parsedResult?.post === "string"
+      ? parsedResult.post.trim()
+      : rawResult.trim();
 
   if (!post) {
     throw new Error("PostCraft could not produce a post from the selected angle.");
