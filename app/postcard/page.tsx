@@ -123,7 +123,7 @@ export default function PostCardPage() {
         ${textLines(wrapText(closing, 38), 68, 590, 30, 400, 41)}
       `;
     } else {
-      const contentX = template === "editorial" ? 88 : 68;
+      const contentX = 68;
       const headlineY = template === "editorial" ? 325 : 250;
       const headlineSize = template === "editorial" ? 64 : 62;
       const headlineGap = template === "editorial" ? 74 : 74;
