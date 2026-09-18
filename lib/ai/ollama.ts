@@ -1,4 +1,4 @@
-﻿import type { AIGenerateOptions, AIProvider } from "./types";
+import type { AIGenerateOptions, AIProvider } from "./types";
 
 const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
 const model = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
@@ -25,6 +25,7 @@ export const ollamaProvider: AIProvider = {
       promptLength: prompt.length,
       numPredict: options.numPredict ?? 400,
       format: options.format ?? "text",
+      stream: true,
     });
 
     let response: Response;
@@ -44,7 +45,10 @@ export const ollamaProvider: AIProvider = {
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: prompt }],
-          stream: false,
+          // Stream Ollama's NDJSON response so Cloudflare receives data
+          // while the model is generating instead of waiting for the
+          // complete response. This avoids Cloudflare 524 idle timeouts.
+          stream: true,
           ...(options.format ? { format: options.format } : {}),
           options: {
             temperature: options.temperature ?? 0.78,
@@ -52,8 +56,6 @@ export const ollamaProvider: AIProvider = {
           },
         }),
         cache: "no-store",
-
-        // Ollama can take longer than 90 seconds on the local machine.
         signal: AbortSignal.timeout(180_000),
       });
     } catch (error) {
@@ -76,32 +78,26 @@ export const ollamaProvider: AIProvider = {
       throw error;
     }
 
-    const elapsedMs = Date.now() - startedAt;
-    const responseText = await response.text();
-
-    console.log("[Ollama] Response", {
-      status: response.status,
-      statusText: response.statusText,
-      elapsedMs,
-      contentType: response.headers.get("content-type"),
-      bodyLength: responseText.length,
-      bodyPreview: responseText.slice(0, 500),
-    });
-
-    let data: {
-      error?: string;
-      message?: {
-        content?: string;
-      };
-    } | null = null;
-
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      // Keep data null for non-JSON responses.
-    }
-
     if (!response.ok) {
+      const responseText = await response.text();
+
+      console.error("[Ollama] Error response", {
+        status: response.status,
+        statusText: response.statusText,
+        elapsedMs: Date.now() - startedAt,
+        contentType: response.headers.get("content-type"),
+        bodyLength: responseText.length,
+        bodyPreview: responseText.slice(0, 500),
+      });
+
+      let data: { error?: string } | null = null;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        // Keep data null for non-JSON responses.
+      }
+
       throw new Error(
         data?.error ??
           `Ollama request failed (${response.status}): ${responseText.slice(
@@ -111,9 +107,93 @@ export const ollamaProvider: AIProvider = {
       );
     }
 
-    const text = data?.message?.content;
+    if (!response.body) {
+      throw new Error("Ollama returned an empty response stream");
+    }
 
-    if (typeof text !== "string" || !text.trim()) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let text = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+
+          let chunk: {
+            error?: string;
+            done?: boolean;
+            message?: {
+              content?: string;
+            };
+          };
+
+          try {
+            chunk = JSON.parse(trimmed);
+          } catch {
+            console.warn("[Ollama] Ignoring malformed stream chunk");
+            continue;
+          }
+
+          if (chunk.error) {
+            throw new Error(chunk.error);
+          }
+
+          if (typeof chunk.message?.content === "string") {
+            text += chunk.message.content;
+          }
+        }
+      }
+
+      buffer += decoder.decode();
+
+      const trailing = buffer.trim();
+      if (trailing) {
+        try {
+          const chunk = JSON.parse(trailing) as {
+            error?: string;
+            message?: { content?: string };
+          };
+
+          if (chunk.error) {
+            throw new Error(chunk.error);
+          }
+
+          if (typeof chunk.message?.content === "string") {
+            text += chunk.message.content;
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message !== "Unexpected end of JSON input") {
+            throw error;
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+
+    console.log("[Ollama] Response", {
+      status: response.status,
+      statusText: response.statusText,
+      elapsedMs,
+      contentType: response.headers.get("content-type"),
+      outputLength: text.length,
+    });
+
+    if (!text.trim()) {
       throw new Error("Ollama returned an empty response");
     }
 
