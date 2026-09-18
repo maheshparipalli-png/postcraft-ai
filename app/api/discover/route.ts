@@ -4,6 +4,16 @@ import { searchCustomTopic } from "@/lib/research/custom-topic";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 
+function isAggregatorStory(source: string, url: string) {
+  if (/^(google news|bing news|yahoo news)$/i.test(source.trim())) return true;
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\\./, "");
+    return new Set(["news.google.com", "bing.com", "news.yahoo.com"]).has(hostname);
+  } catch {
+    return true;
+  }
+}
+
 function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const text = `${title} ${snippet}`.toLowerCase();
   const hasEvidence = snippet.trim().length >= 80;
@@ -105,6 +115,7 @@ export async function POST(request: Request) {
 
     const usableResearch = research.filter((item) =>
       !publishedUrls.has(normalizeUrl(item.url)) &&
+      !isAggregatorStory(item.source, item.url) &&
       Boolean(item.title?.trim()) &&
       Boolean(item.source?.trim()) &&
       Boolean(item.url?.trim()) &&
