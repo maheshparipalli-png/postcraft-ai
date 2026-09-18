@@ -73,6 +73,8 @@ export default function PostCardPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("paper");
   const [downloading, setDownloading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateMessage, setGenerateMessage] = useState("");
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
@@ -230,6 +232,44 @@ export default function PostCardPage() {
     }
   }
 
+  async function generateCardCopy() {
+    setGenerating(true);
+    setGenerateMessage("");
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "postcard",
+          template,
+          idea: headline,
+          headline,
+          supportingThought: body,
+          closing,
+          stat,
+          source,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not generate the card copy.");
+
+      if (template === "stat") {
+        if (data.stat) setStat(data.stat);
+        if (data.statLabel) setStatLabel(data.statLabel);
+        if (data.closing) setClosing(data.closing);
+      } else {
+        if (data.headline) setHeadline(data.headline);
+        if (data.body) setBody(data.body);
+        if (data.closing) setClosing(data.closing);
+      }
+      setGenerateMessage("Generated a fresh, human-sounding version.");
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not generate the card copy.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function publishToLinkedIn() {
     if (linkedinPublished) return;
     if (!linkedinConnected) { router.push("/api/linkedin/connect"); return; }
@@ -377,6 +417,18 @@ export default function PostCardPage() {
                   <Field label="Closing line" value={closing} onChange={setClosing} textarea />
                 </div>
               )}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={generateCardCopy}
+                  disabled={generating}
+                  className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-60"
+                >
+                  {generating ? "Writing..." : "Generate with AI →"}
+                </button>
+                <span className="text-xs text-neutral-500">Clear language · human touch · no invented facts</span>
+                {generateMessage && <span className="w-full text-xs text-neutral-600">{generateMessage}</span>}
+              </div>
               <div className="mt-5">
                 <Field label="Source / footer" value={source} onChange={setSource} />
               </div>
