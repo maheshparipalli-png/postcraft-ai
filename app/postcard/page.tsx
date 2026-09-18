@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 
 type Template = "editorial" | "insight" | "stat";
 type BackgroundId = "paper" | "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
-type GeneratedCard = { id: number; background: BackgroundId };
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
@@ -72,8 +71,6 @@ export default function PostCardPage() {
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("paper");
-  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
-  const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
