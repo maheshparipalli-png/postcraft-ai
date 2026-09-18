@@ -155,7 +155,7 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     throw new Error(`The original source could not be opened. The site returned HTTP ${response.status}.`);
   }
 
-  const html = await response.text();
+  const finalUrl = response.url || parsedUrl.toString();  const html = await response.text();
   if (!html || html.length < 200) {
     throw new Error("The original source returned insufficient content.");
   }
