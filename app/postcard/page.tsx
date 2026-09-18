@@ -123,18 +123,19 @@ export default function PostCardPage() {
         ${textLines(wrapText(closing, 38), 68, 590, 30, 400, 41)}
       `;
     } else {
-      const headlineY = template === "editorial" ? 305 : 250;
-      const headlineSize = template === "editorial" ? 58 : 62;
-      const headlineGap = template === "editorial" ? 70 : 74;
-      const bodyY = headlineY + headlineLines.length * headlineGap + 44;
-      const bodyEndY = bodyY + Math.max(1, bodyLines.length) * 43;
-      const dividerY = Math.min(735, Math.max(650, bodyEndY + 70));
+      const contentX = template === "editorial" ? 88 : 68;
+      const headlineY = template === "editorial" ? 325 : 250;
+      const headlineSize = template === "editorial" ? 64 : 62;
+      const headlineGap = template === "editorial" ? 74 : 74;
+      const bodyY = headlineY + headlineLines.length * headlineGap + 46;
+      const bodyEndY = bodyY + Math.max(1, bodyLines.length) * 45;
+      const dividerY = Math.min(790, Math.max(700, bodyEndY + 62));
       const closingY = dividerY + 78;
       content = `
-        ${textLines(headlineLines, 68, headlineY, headlineSize, 500, headlineGap)}
-        ${textLines(bodyLines, 68, bodyY, 31, 400, 43)}
-        ${template === "editorial" ? `<line x1="68" y1="${dividerY}" x2="190" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
-        ${textLines(closingLines, 68, closingY, 31, 600, 42)}
+        ${textLines(headlineLines, contentX, headlineY, headlineSize, 500, headlineGap)}
+        ${textLines(bodyLines, contentX, bodyY, 31, 400, 45)}
+        ${template === "editorial" ? `<line x1="${contentX}" y1="${dividerY}" x2="${contentX + 125}" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
+        ${textLines(closingLines, contentX, closingY, 31, 600, 42)}
       `;
     }
 
@@ -163,10 +164,10 @@ export default function PostCardPage() {
 
       ${template === "editorial" ? `
         ${avatar}
-        <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
-        <text x="190" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
-        <circle cx="500" cy="96" r="14" fill="#24a8e8"/>
-        <path d="M493 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
+        <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
+        <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
+        <circle cx="510" cy="96" r="14" fill="#24a8e8"/>
+        <path d="M503 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
       ` : `
         <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="${mutedColor}">POSTCARD</text>
         <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="${mutedColor}">${safeName} · ${safeHandle}</text>
