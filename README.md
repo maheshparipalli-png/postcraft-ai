@@ -76,3 +76,4 @@ Discovery is handled in code. AI is called only after the user selects a story, 
 
 Authenticated users can view saved posts at `/workspace`, filter by status, search saved content, and delete saved posts.
 Deployment refresh - September 18, 2026
+Supabase Preview environment fix - September 18, 2026
