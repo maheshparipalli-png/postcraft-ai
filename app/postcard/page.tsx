@@ -4,11 +4,24 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
 type Template = "editorial" | "insight" | "stat";
+type BackgroundId = "paper" | "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
+type GeneratedCard = { id: number; background: BackgroundId };
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
   { id: "insight", name: "Insight", description: "One idea, big and clear" },
   { id: "stat", name: "Statistic", description: "Lead with a number" },
+];
+
+const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
+  { id: "paper", name: "Paper", className: "bg-[#f4f1e9]" },
+  { id: "gradient", name: "Gradient", className: "bg-[linear-gradient(135deg,#f7d6c9,#c9d8ff)]" },
+  { id: "dark", name: "Dark", className: "bg-[#151515]" },
+  { id: "photo", name: "Photo", className: "bg-[linear-gradient(160deg,#b8d3df,#7896a0)]" },
+  { id: "minimal", name: "Minimal", className: "bg-[#f7f5ef]" },
+  { id: "abstract", name: "Abstract", className: "bg-[linear-gradient(160deg,#e8edf5,#d6dce7)]" },
+  { id: "ink", name: "Ink", className: "bg-[linear-gradient(135deg,#f5e9dc,#303640)]" },
+  { id: "nature", name: "Nature", className: "bg-[linear-gradient(145deg,#edf0df,#cbd8c0)]" },
 ];
 
 function escapeXml(value: string) {
@@ -57,6 +70,10 @@ export default function PostCardPage() {
   const [statLabel, setStatLabel] = useState("of Anthropic's R&D work is now led by Claude");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [background, setBackground] = useState<BackgroundId>("paper");
+  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState(0);
+  const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -69,7 +86,17 @@ export default function PostCardPage() {
     reader.readAsDataURL(file);
   }
 
-  function buildSvg() {
+  function generateOptions() {
+    setGenerating(true);
+    const ids = backgrounds.map((item) => item.id);
+    const start = Math.max(0, ids.indexOf(background));
+    const chosen = [0, 1, 2, 3].map((offset) => ids[(start + offset) % ids.length]);
+    setGeneratedCards(chosen.map((id, index) => ({ id: index + 1, background: id })));
+    setSelectedCard(0);
+    window.setTimeout(() => setGenerating(false), 450);
+  }
+
+  function buildSvg(backgroundId = background) {
     const safeName = escapeXml(name);
     const safeHandle = escapeXml(handle);
     const safeHeadline = escapeXml(headline);
@@ -110,10 +137,10 @@ export default function PostCardPage() {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
       <defs>
         <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
+        <linearGradient id="gradientBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d6c9"/><stop offset="100%" stop-color="#c9d8ff"/></linearGradient>
         <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
       </defs>
-      <rect width="1080" height="1080" fill="#f7f6f2"/>
-      <rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>
+      ${backgroundId === "dark" ? '<rect width="1080" height="1080" fill="#151515"/>' : backgroundId === "gradient" ? '<rect width="1080" height="1080" fill="url(#gradientBg)"/>' : backgroundId === "minimal" ? '<rect width="1080" height="1080" fill="#f7f5ef"/>' : '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>'}
       ${template === "editorial" ? `
         ${avatar}
         <text x="190" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="#171717">${safeName}</text>
@@ -129,10 +156,10 @@ export default function PostCardPage() {
     </svg>`;
   }
 
-  async function downloadPng() {
+  async function downloadPng(backgroundId = background) {
     setDownloading(true);
     try {
-      const svg = buildSvg();
+      const svg = buildSvg(backgroundId);
       const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const image = new Image();
@@ -239,6 +266,24 @@ export default function PostCardPage() {
                 <Field label="Source / footer" value={source} onChange={setSource} />
               </div>
             </div>
+
+            <div className="mt-10 border-t border-neutral-300 pt-7">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Choose a background</div>
+              <div className="mt-4 grid grid-cols-4 gap-3">
+                {backgrounds.map((item) => (
+                  <button key={item.id} type="button" onClick={() => setBackground(item.id)} className="group text-left">
+                    <span className={`relative block aspect-square overflow-hidden rounded-lg border-2 transition ${item.className} ${background === item.id ? "border-blue-500 ring-2 ring-blue-100" : "border-transparent group-hover:border-neutral-400"}`}>
+                      {background === item.id && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white">✓</span>}
+                    </span>
+                    <span className="mt-1.5 block text-center text-[11px] text-neutral-500">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button type="button" onClick={generateOptions} disabled={generating} className="mt-8 flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-70">
+              {generating ? "Creating your visual options..." : "✦ Generate 4 options"}
+            </button>
+            <p className="mt-2 text-center text-xs text-neutral-400">PostCard will automatically create four visual variations from your content.</p>
 
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <button type="button" onClick={downloadPng} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
