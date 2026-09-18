@@ -46,6 +46,75 @@ export async function POST(request: Request) {
     if (!prompt) return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
+    if (action === "postcard") {
+      const startedAt = Date.now();
+      const template = typeof body?.template === "string" ? body.template : "editorial";
+      const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
+      const currentHeadline = typeof body?.headline === "string" ? body.headline.trim() : "";
+      const currentBody = typeof body?.supportingThought === "string" ? body.supportingThought.trim() : "";
+      const currentClosing = typeof body?.closing === "string" ? body.closing.trim() : "";
+      const source = typeof body?.source === "string" ? body.source.trim() : "";
+
+      const prompt = `You are PostCard, the human-sounding visual writing assistant inside PostCraft.
+
+Create short social-card copy that is easy to understand, specific, and human. It should sound like a thoughtful person sharing an observation, not a corporate marketing team and not an AI news summary.
+
+Use the user's idea and existing draft as raw material. Do not invent facts, statistics, quotes, names, or claims.
+
+For editorial or insight cards:
+- headline: one clear main thought, ideally 8-14 words
+- body: 1-2 short sentences explaining what it means in plain English
+- closing: one memorable human observation, ideally 6-14 words
+
+The body must answer "Why does this matter?" rather than repeat the headline. The closing should feel like a person's takeaway, not a generic motivational slogan.
+
+For statistic cards:
+- stat: preserve the supplied statistic exactly when present
+- statLabel: one plain-English sentence explaining what the statistic means
+- closing: one short human takeaway
+
+Avoid corporate clichés, generic motivational language, hashtags, emojis, and phrases like "in today's rapidly changing world", "this highlights the importance", "game changer", "revolutionary", or "it is important to note".
+
+Keep the language conversational. Prefer concrete words and short sentences. A little personality is good. Do not pretend to have personal experiences.
+
+FORMAT: ${template}
+
+USER IDEA:
+${idea || "(No separate idea provided.)"}
+
+EXISTING DRAFT:
+Main thought: ${currentHeadline || "(empty)"}
+Supporting thought: ${currentBody || "(empty)"}
+Closing line: ${currentClosing || "(empty)"}
+
+SOURCE / FOOTER:
+${source || "(none)"}
+
+Return ONLY valid JSON with keys: headline, body, closing, stat, statLabel.`;
+
+      const raw = await getAIProvider().generateText(prompt, {
+        temperature: 0.72,
+        numPredict: 220,
+      });
+
+      let generated: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") generated = parsed as Record<string, unknown>;
+      } catch {
+        throw new Error("PostCard AI returned an invalid response. Please try again.");
+      }
+
+      console.info("[PostCraft] postcard_generation_ms=" + (Date.now() - startedAt));
+      return NextResponse.json({
+        headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
+        body: typeof generated.body === "string" ? generated.body.trim() : "",
+        closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
+        stat: typeof generated.stat === "string" ? generated.stat.trim() : "",
+        statLabel: typeof generated.statLabel === "string" ? generated.statLabel.trim() : "",
+      });
+    }
+
     const editorialRequest = action === "editorial";
 
     if (editorialRequest) {
