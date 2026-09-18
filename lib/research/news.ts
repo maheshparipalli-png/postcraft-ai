@@ -271,9 +271,10 @@ async function fetchFeed(query: string): Promise<ResearchItem[]> {
       .filter((item) => item.title && item.url);
 
     const bingItems = await fetchBingFeed(query);
-    // Prefer Bing's publisher URLs over Google's redirect URLs so article enrichment
-    // has a real chance to reach the source page and extract usable evidence.
-    return [...bingItems, ...googleItems];
+    // Use direct publisher URLs whenever Bing has results. Mixing Google News
+    // redirects back into the pool can cause the same story to be represented
+    // by an aggregator URL and later verified as "Google News".
+    return bingItems.length ? bingItems : googleItems;
   } catch {
     return fetchBingFeed(query);
   }
