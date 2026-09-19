@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
-    const query = `site:linkedin.com/posts/ "${slug}"`;
+    const query = `site:linkedin.com/posts/ "${slug}" LinkedIn`;
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -59,10 +59,7 @@ export async function POST(request: Request) {
     }
 
     const candidates = (Array.isArray(data?.results) ? data.results : [])
-      .filter((item: TavilyResult) => {
-        const itemUrl = String(item.url || "");
-        return /linkedin\.com\/posts\//i.test(itemUrl) && itemUrl.toLowerCase().includes(`/in/${slug.toLowerCase()}`);
-      })
+      .filter((item: TavilyResult) => /linkedin\.com\/posts\//i.test(String(item.url || "")))
       .slice(0, 5)
       .map((item: TavilyResult) => ({
         title: String(item.title || "LinkedIn post").trim(),
