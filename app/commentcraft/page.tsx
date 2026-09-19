@@ -12,6 +12,28 @@ export default function CommentCraftDashboard() {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
 
+  function getEmbedUrl(value: string) {
+    try {
+      const parsed = new URL(value.trim());
+      if (parsed.hostname !== "www.linkedin.com" && parsed.hostname !== "linkedin.com") return null;
+
+      const activityMatch = parsed.pathname.match(/activity-(\d+)/i);
+      if (activityMatch?.[1]) {
+        return `https://www.linkedin.com/embed/feed/update/urn:li:activity:${activityMatch[1]}?collapsed=1`;
+      }
+
+      const feedMatch = parsed.pathname.match(/^\/feed\/update\/urn:li:(share|ugcPost|activity):([^/]+)/i);
+      if (feedMatch?.[1] && feedMatch?.[2]) {
+        return `https://www.linkedin.com/embed/feed/update/urn:li:${feedMatch[1]}:${feedMatch[2]}?collapsed=1`;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  const embedUrl = getEmbedUrl(postUrl);
+
   function openLinkedIn() {
     const value = profileUrl.trim();
     if (!value) {
@@ -114,7 +136,7 @@ export default function CommentCraftDashboard() {
             <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">2 / Confirm the post</div>
             <h2 className="mt-2 font-serif text-3xl">Paste the latest LinkedIn post</h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-600">
-              In LinkedIn, open the person's latest post, copy the full text, and paste it below. Adding the post URL is optional but helps keep the source attached to the comment review.
+              Open the person's Posts in LinkedIn, choose the latest post, and paste its URL below. If the post is public, PostCraft will show the actual LinkedIn post here. You can then paste the full text for analysis.
             </p>
 
             <label className="mt-6 block text-xs font-medium uppercase tracking-[.14em] text-neutral-500">LinkedIn post URL <span className="font-normal normal-case tracking-normal text-neutral-400">(optional)</span></label>
@@ -124,6 +146,27 @@ export default function CommentCraftDashboard() {
               placeholder="https://www.linkedin.com/posts/..."
               className="mt-3 w-full border-b border-neutral-300 bg-transparent py-3 text-sm outline-none focus:border-black"
             />
+
+            {embedUrl ? (
+              <div className="mt-6 overflow-hidden border border-neutral-200 bg-white">
+                <div className="border-b border-neutral-200 px-4 py-3 text-[10px] font-semibold uppercase tracking-[.14em] text-neutral-400">
+                  LinkedIn post preview
+                </div>
+                <div className="flex justify-center bg-[#f7f6f2] p-4">
+                  <iframe
+                    src={embedUrl}
+                    title="LinkedIn post preview"
+                    className="h-[680px] w-full max-w-[504px] border-0 bg-white"
+                    loading="lazy"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 border border-dashed border-neutral-300 bg-[#f7f6f2] px-5 py-8 text-sm text-neutral-500">
+                Paste a LinkedIn post URL above to preview the actual post here.
+              </div>
+            )}
 
             <label className="mt-6 block text-xs font-medium uppercase tracking-[.14em] text-neutral-500">Post text</label>
             <textarea
