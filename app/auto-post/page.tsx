@@ -34,17 +34,16 @@ async function renderVisual(visual: VisualCopy) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Your browser could not create the visual post.");
+
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Your browser could not create the visual post.");
-  const ctx: CanvasRenderingContext2D = context;
+  const ctx = context;
 
   ctx.fillStyle = "#171717";
   ctx.fillRect(0, 0, width, height);
 
   function wrapText(text: string, maxWidth: number) {
-    const words = text.trim().split(/\\s+/).filter(Boolean);
+    const words = text.trim().split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let line = "";
 
@@ -74,7 +73,10 @@ async function renderVisual(visual: VisualCopy) {
     for (let size = startSize; size >= minSize; size -= 1) {
       ctx.font = weight + " " + size + "px " + family;
       const lines = wrapText(text, maxWidth);
-      if (lines.length <= maxLines && lines.every((line) => ctx.measureText(line).width <= maxWidth)) {
+      if (
+        lines.length <= maxLines &&
+        lines.every((line) => ctx.measureText(line).width <= maxWidth)
+      ) {
         return { size, lines };
       }
     }
@@ -88,35 +90,71 @@ async function renderVisual(visual: VisualCopy) {
   ctx.font = "16px Arial";
   ctx.fillText("POSTCRAFT · LINKEDIN VISUAL", margin, 82);
 
-  const headlineFit = fitWrappedText(visual.headline, 42, 30, 4, maxTextWidth, "Georgia", "700");
+  const headlineFit = fitWrappedText(
+    visual.headline,
+    42,
+    30,
+    4,
+    maxTextWidth,
+    "Georgia",
+    "700",
+  );
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 " + headlineFit.size + "px Georgia";
   const headlineLineHeight = Math.round(headlineFit.size * 1.28);
   const headlineY = 190;
-  headlineFit.lines.forEach((line, index) => ctx.fillText(line, margin, headlineY + index * headlineLineHeight));
+  headlineFit.lines.forEach((line, index) =>
+    ctx.fillText(line, margin, headlineY + index * headlineLineHeight),
+  );
 
-  const bodyFit = fitWrappedText(visual.body, 31, 22, 7, maxTextWidth, "Georgia");
+  const bodyFit = fitWrappedText(
+    visual.body,
+    31,
+    22,
+    7,
+    maxTextWidth,
+    "Georgia",
+  );
   ctx.fillStyle = "#e7e5e4";
   ctx.font = bodyFit.size + "px Georgia";
   const bodyLineHeight = Math.round(bodyFit.size * 1.38);
-  const bodyY = headlineY + headlineFit.lines.length * headlineLineHeight + 62;
-  bodyFit.lines.forEach((line, index) => ctx.fillText(line, margin, bodyY + index * bodyLineHeight));
+  const bodyY =
+    headlineY + headlineFit.lines.length * headlineLineHeight + 62;
+  bodyFit.lines.forEach((line, index) =>
+    ctx.fillText(line, margin, bodyY + index * bodyLineHeight),
+  );
 
-  const divider = Math.min(bodyY + bodyFit.lines.length * bodyLineHeight + 20, height - 104);
+  const divider = Math.min(
+    bodyY + bodyFit.lines.length * bodyLineHeight + 20,
+    height - 104,
+  );
   ctx.strokeStyle = "#3f3f46";
   ctx.beginPath();
   ctx.moveTo(margin, divider);
   ctx.lineTo(width - margin, divider);
   ctx.stroke();
 
-  const attributionFit = fitWrappedText(visual.attribution.trim(), 18, 14, 2, maxTextWidth, "Arial");
+  const attributionFit = fitWrappedText(
+    visual.attribution.trim(),
+    18,
+    14,
+    2,
+    maxTextWidth,
+    "Arial",
+  );
   ctx.fillStyle = "#a3a3a3";
   ctx.font = attributionFit.size + "px Arial";
-  attributionFit.lines.forEach((line, index) => ctx.fillText(line, margin, divider + 34 + index * 22));
+  attributionFit.lines.forEach((line, index) =>
+    ctx.fillText(line, margin, divider + 34 + index * 22),
+  );
 
   ctx.fillStyle = "#737373";
   ctx.font = "16px Arial";
-  ctx.fillText("A considered point of view, prepared with PostCraft AI", margin, height - 30);
+  ctx.fillText(
+    "A considered point of view, prepared with PostCraft AI",
+    margin,
+    height - 30,
+  );
 
   return canvas.toDataURL("image/png");
 }
