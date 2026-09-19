@@ -158,7 +158,7 @@ export default function CommentCraftPage() {
                 <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.linkedin.com/posts/..." className="mt-5 w-full border-b border-neutral-300 bg-transparent py-3 text-sm outline-none focus:border-neutral-900" />
                 <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Optional label" className="mt-4 w-full border-b border-neutral-300 bg-transparent py-3 text-sm outline-none focus:border-neutral-900" />
                 <button disabled={adding} className="mt-6 rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{adding ? "Adding..." : "Add source →"}</button>
-                <p className="mt-4 text-xs leading-5 text-neutral-500">For this first version, use a direct LinkedIn post URL. Profile-level automatic discovery requires LinkedIn read access that is restricted to approved developers. citeturn0search1turn0search3</p>
+                <p className="mt-4 text-xs leading-5 text-neutral-500">For this first version, use a direct LinkedIn post URL. Profile-level automatic discovery requires LinkedIn read access that is restricted to approved developers.</p>
               </form>
 
               <div className="border border-neutral-200 bg-white p-6">
