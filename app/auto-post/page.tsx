@@ -28,36 +28,93 @@ function fallbackVisual(preview: Preview): VisualCopy {
 
 async function renderVisual(visual: VisualCopy) {
   const width = 1080;
+  const height = 720;
   const margin = 72;
+  const maxTextWidth = width - margin * 2;
   const canvas = document.createElement("canvas");
   canvas.width = width;
-  canvas.height = 720;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Your browser could not create the visual post.");
+
   ctx.fillStyle = "#171717";
-  ctx.fillRect(0, 0, width, canvas.height);
+  ctx.fillRect(0, 0, width, height);
+
+  function wrapText(text: string, maxWidth: number) {
+    const words = text.trim().split(/\\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let line = "";
+
+    for (const word of words) {
+      const candidate = line ? line + " " + word : word;
+      if (!line || ctx.measureText(candidate).width <= maxWidth) {
+        line = candidate;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function fitWrappedText(
+    text: string,
+    startSize: number,
+    minSize: number,
+    maxLines: number,
+    maxWidth: number,
+    family: string,
+    weight = "400",
+  ) {
+    for (let size = startSize; size >= minSize; size -= 1) {
+      ctx.font = weight + " " + size + "px " + family;
+      const lines = wrapText(text, maxWidth);
+      if (lines.length <= maxLines && lines.every((line) => ctx.measureText(line).width <= maxWidth)) {
+        return { size, lines };
+      }
+    }
+
+    ctx.font = weight + " " + minSize + "px " + family;
+    const lines = wrapText(text, maxWidth);
+    return { size: minSize, lines: lines.slice(0, maxLines) };
+  }
+
   ctx.fillStyle = "#a3a3a3";
   ctx.font = "16px Arial";
-  ctx.letterSpacing = "4px";
   ctx.fillText("POSTCRAFT · LINKEDIN VISUAL", margin, 82);
+
+  const headlineFit = fitWrappedText(visual.headline, 42, 30, 4, maxTextWidth, "Georgia", "700");
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 42px Georgia";
-  const headline = visual.headline.match(/.{1,42}(?:\s|$)/g) || [visual.headline];
-  headline.slice(0, 4).forEach((line, index) => ctx.fillText(line.trim(), margin, 190 + index * 54));
+  ctx.font = "700 " + headlineFit.size + "px Georgia";
+  const headlineLineHeight = Math.round(headlineFit.size * 1.28);
+  const headlineY = 190;
+  headlineFit.lines.forEach((line, index) => ctx.fillText(line, margin, headlineY + index * headlineLineHeight));
+
+  const bodyFit = fitWrappedText(visual.body, 31, 22, 7, maxTextWidth, "Georgia");
   ctx.fillStyle = "#e7e5e4";
-  ctx.font = "31px Georgia";
-  const body = visual.body.match(/.{1,54}(?:\s|$)/g) || [visual.body];
-  const bodyY = 190 + Math.min(headline.length, 4) * 54 + 65;
-  body.slice(0, 7).forEach((line, index) => ctx.fillText(line.trim(), margin, bodyY + index * 43));
-  const divider = bodyY + Math.min(body.length, 7) * 43 + 24;
+  ctx.font = bodyFit.size + "px Georgia";
+  const bodyLineHeight = Math.round(bodyFit.size * 1.38);
+  const bodyY = headlineY + headlineFit.lines.length * headlineLineHeight + 62;
+  bodyFit.lines.forEach((line, index) => ctx.fillText(line, margin, bodyY + index * bodyLineHeight));
+
+  const divider = Math.min(bodyY + bodyFit.lines.length * bodyLineHeight + 20, height - 104);
   ctx.strokeStyle = "#3f3f46";
-  ctx.beginPath(); ctx.moveTo(margin, divider); ctx.lineTo(width - margin, divider); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(margin, divider);
+  ctx.lineTo(width - margin, divider);
+  ctx.stroke();
+
+  const attributionFit = fitWrappedText(visual.attribution.trim(), 18, 14, 2, maxTextWidth, "Arial");
   ctx.fillStyle = "#a3a3a3";
-  ctx.font = "18px Arial";
-  ctx.fillText(visual.attribution, margin, divider + 34);
+  ctx.font = attributionFit.size + "px Arial";
+  attributionFit.lines.forEach((line, index) => ctx.fillText(line, margin, divider + 34 + index * 22));
+
   ctx.fillStyle = "#737373";
   ctx.font = "16px Arial";
-  ctx.fillText("A considered point of view, prepared with PostCraft AI", margin, divider + 78);
+  ctx.fillText("A considered point of view, prepared with PostCraft AI", margin, height - 30);
+
   return canvas.toDataURL("image/png");
 }
 
