@@ -99,7 +99,8 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
-  const linkedinCommentary = useMemo(() => [headline, body, closing].filter(Boolean).join("\n\n"), [headline, body, closing]);
+  const [linkedinCaption, setLinkedinCaption] = useState("");
+  const linkedinCommentary = linkedinCaption.trim();
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -560,6 +561,15 @@ export default function PostCardPage() {
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
                   <Field label="Supporting thought" value={body} onChange={setBody} textarea />
                   <Field label="Closing line" value={closing} onChange={setClosing} textarea />
+                  <Field
+                    label="LinkedIn caption"
+                    value={linkedinCaption}
+                    onChange={setLinkedinCaption}
+                    textarea
+                  />
+                  <p className="text-[11px] leading-5 text-neutral-500">
+                    This caption is published above the visual. It is separate from the text on the card, so it should add context rather than repeat it.
+                  </p>
                 </div>
               )}
 
@@ -612,7 +622,7 @@ export default function PostCardPage() {
               <button
                 type="button"
                 onClick={publishToLinkedIn}
-                disabled={linkedinLoading || linkedinPublished}
+                disabled={linkedinLoading || linkedinPublished || !linkedinCommentary}
                 className={`rounded-full px-5 py-3 text-sm font-semibold text-white transition ${linkedinPublished ? "cursor-not-allowed bg-neutral-400" : "bg-[#0A66C2] hover:bg-[#084f96]"} disabled:opacity-70`}
               >
                 {linkedinLoading ? "Publishing..." : linkedinPublished ? "✓ Published to LinkedIn" : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
