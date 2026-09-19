@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+// CommentCraft public discovery uses Tavily; Bing Search API is retired.
+
 function normalizeProfileUrl(value: string) {
   const parsed = new URL(value);
   if (parsed.hostname !== "www.linkedin.com" && parsed.hostname !== "linkedin.com") {
