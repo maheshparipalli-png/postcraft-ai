@@ -24,21 +24,7 @@ function isOwnLinkedInPost(value: string, slug: string) {
   try {
     const parsed = new URL(value);
     if (parsed.hostname !== "www.linkedin.com" && parsed.hostname !== "linkedin.com") return false;
-    return new RegExp(`^/posts/${slug}_[^/]+-activity-\\d+\\-[^/]+/?import { NextResponse } from "next/server";
-
-// CommentCraft public discovery uses Tavily; Bing Search API is retired.
-
-function normalizeProfileUrl(value: string) {
-  const parsed = new URL(value);
-  if (parsed.hostname !== "www.linkedin.com" && parsed.hostname !== "linkedin.com") {
-    throw new Error("Enter a LinkedIn profile URL.");
-  }
-  const match = parsed.pathname.match(/^\/in\/([^/]+)\/?$/i);
-  if (!match) throw new Error("Enter a LinkedIn profile URL such as https://www.linkedin.com/in/warikoo/.");
-  return { url: `https://www.linkedin.com/in/${match[1]}/`, slug: match[1] };
-}
-
-, "i").test(parsed.pathname);
+    return new RegExp(`^/posts/${slug}_[^/]+-activity-\\d+-[^/]+/?$`, "i").test(parsed.pathname);
   } catch {
     return false;
   }
@@ -65,10 +51,8 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
-    // Do not treat Tavily's relevance order as "latest". The previous implementation
-    // returned the first search hit, which could be an old LinkedIn post even when newer
-    // posts existed. Restrict discovery to the profile's own post URL pattern and a
-    // recent date window, then sort by Tavily's publication date.
+    // Tavily relevance order is not chronological. Restrict discovery to this
+    // profile's own LinkedIn post URL pattern and a recent dated window.
     const query = `site:linkedin.com/posts/${slug}_ "${slug}"`;
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
@@ -96,8 +80,11 @@ export async function POST(request: Request) {
     }
 
     const candidates = (Array.isArray(data?.results) ? data.results : [])
-      .filter((item: TavilyResult) => /linkedin\.com\/posts\//i.test(String(item.url || "")))
-      .slice(0, 5)
+      .filter((item: TavilyResult) => {
+        const candidateUrl = String(item.url || "").trim();
+        const published = String(item.published_date || "").trim();
+        return isOwnLinkedInPost(candidateUrl, slug) && Boolean(published);
+      })
       .map((item: TavilyResult) => ({
         title: String(item.title || "LinkedIn post").trim(),
         url: String(item.url || "").trim(),
@@ -105,7 +92,11 @@ export async function POST(request: Request) {
         discoveredAt: item.published_date || null,
         score: typeof item.score === "number" ? item.score : null,
       }))
-      .filter((item: { url: string; snippet: string }) => item.url && item.snippet);
+      .filter((item: { url: string; snippet: string; discoveredAt?: string | null }) => item.url && item.snippet && item.discoveredAt)
+      .sort((a: { discoveredAt?: string | null }, b: { discoveredAt?: string | null }) => {
+        return new Date(String(b.discoveredAt)).getTime() - new Date(String(a.discoveredAt)).getTime();
+      })
+      .slice(0, 5);
 
     return NextResponse.json({
       profile: { url, slug },
