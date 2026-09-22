@@ -190,6 +190,9 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     },
     redirect: "follow",
     cache: "no-store",
+    // Some publisher pages never finish responding. Never let source
+    // verification consume the entire Auto-publish request.
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!response.ok) {
