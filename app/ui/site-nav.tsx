@@ -146,6 +146,7 @@ export default function SiteNav() {
               <div className="mt-2 border-t border-neutral-200 pt-2">
                 <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Account</div>
                 <Link href="/billing" onClick={() => setMobileOpen(false)} className={pathname === "/billing" ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Billing</Link>
+                {isAdmin && <Link href="/admin" onClick={() => setMobileOpen(false)} className={pathname.startsWith("/admin") ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Admin</Link>}
                 <Link href="/help" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Help Center</Link>
                 <Link href="/help/contact" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Contact Support</Link>
               </div>
