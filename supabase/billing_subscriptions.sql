@@ -10,6 +10,9 @@ create table if not exists public.billing_subscriptions (
   current_period_start timestamptz,
   current_period_end timestamptz,
   grace_ends_at timestamptz,
+  trial_reset_count integer not null default 0,
+  last_trial_reset_at timestamptz,
+  last_trial_reset_reason text,
   razorpay_order_id text,
   razorpay_subscription_id text,
   razorpay_payment_id text,
@@ -17,7 +20,7 @@ create table if not exists public.billing_subscriptions (
   updated_at timestamptz not null default now(),
 
   constraint billing_subscriptions_status_check
-    check (status in ('trialing', 'active', 'expired', 'cancelled', 'past_due'))
+    check (status in ('trialing', 'grace', 'active', 'expired', 'cancelled', 'past_due', 'suspended'))
 );
 
 create unique index if not exists billing_subscriptions_user_id_unique
@@ -48,3 +51,13 @@ create trigger billing_subscriptions_updated_at
 before update on public.billing_subscriptions
 for each row
 execute function public.set_billing_subscriptions_updated_at();
+
+
+drop policy if exists "users can create own billing subscription"
+on public.billing_subscriptions;
+
+create policy "users can create own billing subscription"
+on public.billing_subscriptions
+for insert
+to authenticated
+with check (auth.uid() = user_id);
