@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyWebhookSignature, unixToIso } from "@/lib/billing/razorpay";
 
@@ -15,17 +14,25 @@ type RazorpayEntity = {
   current_end?: number;
 };
 
-function getSubscriptionEntity(payload: any): RazorpayEntity {
+type RazorpayWebhookPayload = {
+  event?: unknown;
+  payload?: {
+    subscription?: { entity?: RazorpayEntity };
+    payment?: { entity?: RazorpayEntity };
+  };
+};
+
+function getSubscriptionEntity(payload: RazorpayWebhookPayload): RazorpayEntity {
   return payload?.payload?.subscription?.entity ?? {};
 }
 
-function getPaymentEntity(payload: any): RazorpayEntity {
+function getPaymentEntity(payload: RazorpayWebhookPayload): RazorpayEntity {
   return payload?.payload?.payment?.entity ?? {};
 }
 
 function mapStatus(event: string, entityStatus?: string) {
   if (event === "subscription.activated" || event === "subscription.charged") return "active";
-  if (event === "subscription.pending") return "past_due";
+  if (event === "subscription.pending" || event === "payment.failed") return "past_due";
   if (event === "subscription.halted") return "suspended";
   if (event === "subscription.cancelled") return "cancelled";
   if (event === "subscription.completed" || event === "subscription.expired") return "expired";
@@ -56,14 +63,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook is not configured" }, { status: 500 });
   }
 
-  let payload: any;
+  let payload: RazorpayWebhookPayload;
   try {
-    payload = JSON.parse(rawBody);
+    payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const event = typeof payload?.event === "string" ? payload.event : "";
+  const event = typeof payload.event === "string" ? payload.event : "";
   const admin = createAdminClient();
 
   const { data: existingEvent } = await admin
