@@ -557,37 +557,60 @@ export default function PostCardPage() {
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">0 / Your brand <span className="font-normal tracking-normal">(optional)</span></div>
-              <div className="mt-4 grid gap-5 sm:grid-cols-[120px_1fr_1fr] sm:items-end">
-                <div>
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
+              {profileLocked && !editingProfile ? (
+                <div className="mt-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-white/60 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initial(name)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{name}</div>
+                      <div className="truncate text-xs text-neutral-500">{handle}</div>
+                    </div>
+                    <span className="text-xs font-medium text-green-700">✓ Saved</span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-900 text-center text-xs font-semibold text-white transition hover:opacity-90"
-                    aria-label={photo ? "Change profile photo" : "Upload profile photo"}
+                    onClick={() => setEditingProfile(true)}
+                    className="ml-4 shrink-0 text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
                   >
-                    {photo ? (
-                      <img src={photo} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="px-3">◉<br />Upload photo</span>
-                    )}
+                    Edit
                   </button>
                 </div>
-                <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Mahesh Paripalli" />
-                <Field label="Handle (e.g. @yourhandle)" value={handle} onChange={setHandle} placeholder="e.g. @maheshparipalli" />
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <button
-                  type="button"
-                  onClick={saveProfile}
-                  disabled={!name.trim() || !handle.trim()}
-                  className="rounded-full border border-neutral-900 px-4 py-2 text-xs font-semibold hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Save brand profile
-                </button>
-                {profileLocked && <span className="text-xs text-neutral-500">✓ Profile saved</span>}
-                <span className="text-[11px] text-neutral-400">Used on your PostCards and remembered for future cards.</span>
-              </div>
+              ) : (
+                <>
+                  <div className="mt-4 grid gap-5 sm:grid-cols-[120px_1fr_1fr] sm:items-end">
+                    <div>
+                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-900 text-center text-xs font-semibold text-white transition hover:opacity-90"
+                        aria-label={photo ? "Change profile photo" : "Upload profile photo"}
+                      >
+                        {photo ? (
+                          <img src={photo} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="px-3">◉<br />Upload photo</span>
+                        )}
+                      </button>
+                    </div>
+                    <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Mahesh Paripalli" />
+                    <Field label="Handle (e.g. @yourhandle)" value={handle} onChange={setHandle} placeholder="e.g. @maheshparipalli" />
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={saveProfile}
+                      disabled={!name.trim() || !handle.trim()}
+                      className="rounded-full border border-neutral-900 px-4 py-2 text-xs font-semibold hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {saving ? "Saving..." : "Save brand profile"}
+                    </button>
+                    <span className="text-[11px] text-neutral-400">Used on your PostCards and remembered for future cards.</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
