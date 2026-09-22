@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type NavLink = { label: string; href: string; exact?: boolean };
 
@@ -21,12 +22,35 @@ function isActive(pathname: string, link: NavLink) {
 export default function SiteNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadAuth() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!active) return;
+        setSignedIn(Boolean(user));
+        if (user) {
+          const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
+          if (active) setIsAdmin(profile?.role === "admin" || profile?.role === "super_admin");
+        }
+      } finally {
+        if (active) setAuthReady(true);
+      }
+    }
+    void loadAuth();
+    return () => { active = false; };
+  }, []);
 
   if (pathname === "/login") return null;
 
   const publishActive = pathname === "/auto-post" || pathname === "/auto-publish";
   const helpActive = pathname === "/help" || pathname.startsWith("/help/");
-  const accountActive = pathname === "/billing";
+  const accountActive = pathname === "/billing" || pathname.startsWith("/admin");
 
   return (
     <header className="postcraft-site-nav sticky top-0 z-50 border-b border-neutral-300/80 bg-[#f7f6f2]/95 backdrop-blur">
@@ -36,6 +60,7 @@ export default function SiteNav() {
             POSTCRAFT
           </Link>
 
+          {!authReady || signedIn ? (
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
             {primaryLinks.map((link) => {
               const active = isActive(pathname, link);
@@ -83,7 +108,18 @@ export default function SiteNav() {
                 </Link>
               </div>
             </details>
+            {isAdmin && (
+              <Link href="/admin" className={pathname.startsWith("/admin") ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white" : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
+                Admin
+              </Link>
+            )}
           </nav>
+          ) : (
+            <div className="hidden items-center gap-4 lg:flex">
+              <Link href="/login" className="text-xs font-medium text-neutral-600 hover:text-neutral-950">Sign in</Link>
+              <Link href="/login" className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white">Start free trial</Link>
+            </div>
+          )}
 
           <button type="button" className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium lg:hidden" aria-expanded={mobileOpen} aria-controls="postcraft-mobile-navigation" onClick={() => setMobileOpen((open) => !open)}>
             {mobileOpen ? "Close" : "Menu"}
