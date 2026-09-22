@@ -61,15 +61,6 @@ function getLocalScheduleParts(timezone: string) {
   return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
 }
 
-function scheduleIsDue(publishTime: string, timezone: string) {
-  const current = getLocalScheduleParts(timezone);
-  const [scheduledHour, scheduledMinute] = publishTime.split(":").map(Number);
-  const [currentHour, currentMinute] = current.time.split(":").map(Number);
-  const scheduledTotal = scheduledHour * 60 + scheduledMinute;
-  const currentTotal = currentHour * 60 + currentMinute;
-  return currentTotal >= scheduledTotal && currentTotal < scheduledTotal + 15;
-}
-
 async function buildDraft() {
   const maxAttempts = 2;
   const maxCandidatesPerAttempt = 5;
@@ -176,8 +167,6 @@ async function reserveCronDraft(admin: ReturnType<typeof createAdminClient>, use
 async function processScheduledUser(userId: string, mode: string, timezone: string, publishTime: string) {
   const admin = createAdminClient();
   const local = getLocalScheduleParts(timezone);
-  if (!scheduleIsDue(publishTime, timezone)) return { userId, status: "not_due", date: local.date };
-
   const { data: billing } = await admin.from("billing_subscriptions").select("status,trial_ends_at,grace_ends_at").eq("user_id", userId).maybeSingle();
   const now = Date.now();
   const allowed = billing?.status === "active" ||
@@ -214,7 +203,7 @@ async function processScheduledUser(userId: string, mode: string, timezone: stri
     updated_at: new Date().toISOString(),
   }).eq("user_id", userId).eq("draft_date", local.date);
 
-  return { userId, status: "ready", date: local.date, mode, linkedinPublish: "held" };
+  return { userId, status: "ready", date: local.date, mode, preferredTime: publishTime, linkedinPublish: "held" };
 }
 
 async function runAutomaticWorkflow(request: NextRequest, userId?: string) {
