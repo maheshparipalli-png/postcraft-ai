@@ -26,19 +26,27 @@ export async function POST() {
     return NextResponse.json({ error: "Your subscription is already active.", subscription: existing }, { status: 409 });
   }
 
-  if (existing.razorpay_subscription_id &&
-      ["created", "authenticated", "pending"].includes(existing.status)) {
+  if (existing.status === "trialing") {
+    const trialEnds = existing.trial_ends_at ? new Date(existing.trial_ends_at).getTime() : NaN;
+    if (Number.isFinite(trialEnds) && trialEnds > Date.now()) {
+      return NextResponse.json(
+        { error: "Your free trial is still active. You can subscribe after the trial ends." },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Reuse an existing Razorpay subscription while checkout is still in progress.
+  // Local billing statuses do not mirror Razorpay's "created"/"authenticated" states,
+  // so grace/past_due are the states in which an existing checkout can be resumed.
+  if (
+    existing.razorpay_subscription_id &&
+    (existing.status === "grace" || existing.status === "past_due")
+  ) {
     return NextResponse.json({
       keyId: getRazorpayPublicKey(),
       subscriptionId: existing.razorpay_subscription_id,
     });
-  }
-
-  if (existing.status === "trialing") {
-    const trialEnds = existing.trial_ends_at ? new Date(existing.trial_ends_at).getTime() : NaN;
-    if (Number.isFinite(trialEnds) && trialEnds > Date.now()) {
-      return NextResponse.json({ error: "Your free trial is still active. You can subscribe after the trial ends." }, { status: 409 });
-    }
   }
 
   const subscription = await createRazorpaySubscription({
@@ -52,6 +60,11 @@ export async function POST() {
     .update({
       razorpay_subscription_id: subscription.id,
       razorpay_customer_id: subscription.customer_id ?? null,
+      razorpay_payment_id: null,
+      razorpay_signature_verified_at: null,
+      payment_verified_at: null,
+      current_period_start: null,
+      current_period_end: null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id);
