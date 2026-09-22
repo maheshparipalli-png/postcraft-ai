@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Card = {
   id: string; template: string; background: string; name: string; handle: string;
