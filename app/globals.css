@@ -43,7 +43,7 @@ a,
 
 
 /* The shared SiteNav is the application's primary navigation. */
-main header > nav {
+main header nav {
   display: none !important;
 }
 
