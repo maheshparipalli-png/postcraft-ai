@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Template = "editorial" | "insight" | "stat";
@@ -148,10 +148,9 @@ export default function PostCardPage() {
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinCaption, setLinkedinCaption] = useState("");
   const linkedinCommentary = linkedinCaption.trim();
-  const linkedinNotice = searchParams.get("linkedinConnected") === "1" ? "LinkedIn connected successfully." : searchParams.get("linkedinError");
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [linkedinNotice, setLinkedinNotice] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = useMemo(() => initial(name), [name]);
@@ -269,6 +268,16 @@ export default function PostCardPage() {
       setProfileSaving(false);
     }
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("linkedinConnected") === "1") setLinkedinNotice("LinkedIn connected successfully.");
+    const error = params.get("linkedinError");
+    if (error) setLinkedinNotice(error);
+    if (params.has("linkedinConnected") || params.has("linkedinError")) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
