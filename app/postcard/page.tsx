@@ -312,7 +312,6 @@ export default function PostCardPage() {
       </defs>
       ${backgroundMarkup}
 
-
       ${template === "editorial" ? `
         ${avatar}
         <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
