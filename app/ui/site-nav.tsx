@@ -25,6 +25,7 @@ export default function SiteNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [trialLabel, setTrialLabel] = useState("");
   const [linkedinConnected, setLinkedinConnected] = useState(false);
@@ -40,6 +41,7 @@ export default function SiteNav() {
 
         if (!active) return;
         setSignedIn(Boolean(user));
+        setUserEmail(user?.email ?? "");
 
         if (user) {
           const [{ data: profile }, linkedinResponse, billingResponse] = await Promise.all([
@@ -175,6 +177,10 @@ export default function SiteNav() {
                     Account <span className="ml-1 text-[10px]">⌄</span>
                   </summary>
                   <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
+                    <div className="px-3 py-2.5">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Signed in as</div>
+                      <div className="mt-1 truncate text-xs font-medium text-neutral-800" title={userEmail}>{userEmail || "Signed-in user"}</div>
+                    </div>
                     <Link href="/billing" className={pathname === "/billing" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>
                       Billing
                       <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Plan &amp; trial</span>
@@ -257,6 +263,7 @@ export default function SiteNav() {
 
                 <div className="mt-2 border-t border-neutral-200 pt-2">
                   <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Account</div>
+                  <div className="px-3 py-2.5"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Signed in as</div><div className="mt-1 truncate text-sm font-medium text-neutral-800" title={userEmail}>{userEmail || "Signed-in user"}</div></div>
                   <Link href="/billing" onClick={() => setMobileOpen(false)} className={pathname === "/billing" ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Billing</Link>
 
                   {linkedinConnected ? (
