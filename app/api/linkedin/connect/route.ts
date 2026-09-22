@@ -3,10 +3,9 @@ import { getLinkedInConfig } from "@/lib/linkedin";
 
 export async function GET(request: NextRequest) {
   try {
-    const { clientId, redirectUri: configuredRedirectUri } = getLinkedInConfig();
+    const { clientId } = getLinkedInConfig();
     const redirectUri =
       process.env.LINKEDIN_REDIRECT_URI?.trim() ||
-      configuredRedirectUri ||
       `${request.nextUrl.origin}/api/linkedin/callback`;
 
     const state = crypto.randomUUID();
