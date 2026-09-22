@@ -1,4 +1,4 @@
--- PostCraft billing and one-time 24-hour free trial
+-- PostCraft billing and 15-day free trial with 3-day grace period
 
 create table if not exists public.billing_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -9,6 +9,7 @@ create table if not exists public.billing_subscriptions (
   trial_ends_at timestamptz,
   current_period_start timestamptz,
   current_period_end timestamptz,
+  grace_ends_at timestamptz,
   razorpay_order_id text,
   razorpay_subscription_id text,
   razorpay_payment_id text,
