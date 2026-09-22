@@ -46,9 +46,9 @@ export default function SavedPostcardsPage() {
             <Link href="/postcard" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCARD</Link>
             <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">Saved visuals</div>
           </div>
-          <nav className="flex items-center gap-5 text-sm text-neutral-500">
-            <Link href="/postcard" className="hover:text-neutral-900">Create</Link>
-            <Link href="/workspace" className="hover:text-neutral-900">Workspace</Link>
+          <nav className="flex items-center gap-3 text-sm">
+            <Link href="/postcard" className="rounded-full border border-neutral-900 bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700">Create PostCard</Link>
+            <Link href="/workspace" className="text-neutral-500 hover:text-neutral-900">Workspace</Link>
           </nav>
         </header>
 
@@ -56,6 +56,7 @@ export default function SavedPostcardsPage() {
           <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">My PostCards</div>
           <h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[.98] tracking-[-0.045em] sm:text-7xl">Your visuals,<br />kept together.</h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">Open a saved card, copy its link, or return to the visual studio to create another.</p>
+          <Link href="/postcard" className="mt-7 inline-flex rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700">+ Create a new PostCard</Link>
         </section>
 
         {error && <div className="border-b border-red-300 py-5 text-sm text-red-700">{error}</div>}
