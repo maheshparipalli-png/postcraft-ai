@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import SignOutButton from "./SignOutButton";
+import MarketingHome from "./ui/marketing-home";
 
 type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string };
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
@@ -124,6 +125,70 @@ export default function Home() {
   const angleRequestRef = useRef(0);
   const angleAbortRef = useRef<AbortController | null>(null);
 
+  const [authUser, setAuthUser] = useState<{ id: string; email?: string | null } | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [appAccessAllowed, setAppAccessAllowed] = useState(false);
+  const [billingStatus, setBillingStatus] = useState<string>("not_started");
+  const [accessNotice, setAccessNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAccess() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!active) return;
+
+        if (!user) {
+          setAuthUser(null);
+          setBillingStatus("not_started");
+          setAppAccessAllowed(false);
+          setAuthReady(true);
+          return;
+        }
+
+        setAuthUser({ id: user.id, email: user.email });
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profile?.role === "admin" || profile?.role === "super_admin") {
+          setBillingStatus("admin");
+          setAppAccessAllowed(true);
+          setAuthReady(true);
+          return;
+        }
+
+        const response = await fetch("/api/billing/status", { cache: "no-store" });
+        const billing = await response.json();
+        if (!active) return;
+
+        const status = typeof billing?.status === "string" ? billing.status : "not_started";
+        setBillingStatus(status);
+        setAppAccessAllowed(Boolean(billing?.allowed));
+        if (status === "expired") {
+          setAccessNotice("Your free trial has ended. Start a subscription to continue using PostCraft.");
+        } else if (status === "not_started") {
+          setAccessNotice("Your 15-day free trial is ready to start.");
+        }
+        setAuthReady(true);
+      } catch {
+        if (!active) return;
+        setBillingStatus("error");
+        setAppAccessAllowed(false);
+        setAuthReady(true);
+      }
+    }
+
+    void loadAccess();
+    return () => { active = false; };
+  }, []);
+
+
   // URL callback parameters and saved-post hydration are intentionally handled after mount.
 async function discoverIdeas() {
     setLoading(true);
@@ -149,6 +214,7 @@ async function discoverIdeas() {
   }
 
   useEffect(() => {
+    if (!authReady || !authUser || !appAccessAllowed) return;
     const params = new URLSearchParams(window.location.search);
     const connectedMessage = params.get("linkedinConnected") === "1" ? "LinkedIn connected. You can publish your post now." : "";
     const errorMessage = params.get("linkedinError") || "";
@@ -204,7 +270,16 @@ async function discoverIdeas() {
 
     loadSavedPost();
     return () => { cancelled = true; };
-  }, []);
+  }, [authReady, authUser?.id, appAccessAllowed]);
+
+  if (!authReady) {
+    return <MarketingHome />;
+  }
+
+  if (!authUser || !appAccessAllowed) {
+    return <MarketingHome authenticated={Boolean(authUser)} notice={accessNotice} />;
+  }
+
 function resetFromStory() {
     setAngle("");
     setSuggestedAngles([]);
