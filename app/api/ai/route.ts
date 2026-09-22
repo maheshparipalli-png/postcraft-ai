@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
 import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
+import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 function isPostCraftAnglePrompt(prompt: string) {
   return prompt.includes("You are PostCraft AI, an editorial thinking partner.") &&
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       const currentHeadline = typeof body?.headline === "string" ? body.headline.trim() : "";
       const currentBody = typeof body?.supportingThought === "string" ? body.supportingThought.trim() : "";
       const currentClosing = typeof body?.closing === "string" ? body.closing.trim() : "";
+      const currentStat = typeof body?.stat === "string" ? body.stat.trim() : "";
       const source = typeof body?.source === "string" ? body.source.trim() : "";
 
       const prompt = `You are PostCard, the human-sounding visual writing assistant inside PostCraft.
@@ -89,9 +91,14 @@ These are hard layout limits, not suggestions. Shorter is better. Never add extr
 The body must answer "Why does this matter?" rather than repeat the headline. The closing should feel like a person's takeaway, not a generic motivational slogan.
 
 For statistic cards:
-- stat: preserve the supplied statistic exactly when present
-- statLabel: one plain-English sentence explaining what the statistic means, no more than about 100 characters
-- closing: one short human takeaway, no more than about 80 characters
+- stat: ONLY the compact numeric/value hero, such as "70%", "3.2x", "$4.2B", "1 in 5", or "42". Never put a sentence, clause, explanation, or source name in stat.
+- If a statistic is supplied by the user, preserve its value exactly.
+- If the supplied statistic is embedded in a sentence, extract only the numeric/value portion into stat.
+- If no statistic is supplied, leave stat empty. NEVER invent a statistic.
+- statLabel: one short plain-English sentence explaining the supplied statistic, ideally 1-2 lines, no more than about 100 characters.
+- closing: one short human takeaway, no more than about 80 characters.
+
+The statistic card has a strict visual hierarchy: the number is the hero, the explanation is secondary, and the takeaway is tertiary. Never make the explanation the giant headline.
 
 Avoid corporate clichés, generic motivational language, hashtags, emojis, and phrases like "in today's rapidly changing world", "this highlights the importance", "game changer", "revolutionary", or "it is important to note".
 
@@ -106,6 +113,7 @@ CURRENT INPUT:
 Main thought: ${currentHeadline || "(empty)"}
 Supporting thought: ${currentBody || "(empty)"}
 Closing line: ${currentClosing || "(empty)"}
+Statistic: ${currentStat || "(empty)"}
 
 SOURCE / FOOTER:
 ${source || "(none)"}
@@ -125,13 +133,19 @@ Return ONLY valid JSON with keys: headline, body, closing, stat, statLabel.`;
         throw new Error("PostCard AI returned an invalid response. Please try again.");
       }
 
+      const statistic = normalizeStatisticContent(
+        currentStat,
+        typeof generated.stat === "string" ? generated.stat : "",
+        typeof generated.statLabel === "string" ? generated.statLabel : "",
+      );
+
       console.info("[PostCraft] postcard_generation_ms=" + (Date.now() - startedAt));
       return NextResponse.json({
         headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
         body: typeof generated.body === "string" ? generated.body.trim() : "",
         closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
-        stat: typeof generated.stat === "string" ? generated.stat.trim() : "",
-        statLabel: typeof generated.statLabel === "string" ? generated.statLabel.trim() : "",
+        stat: statistic.stat,
+        statLabel: statistic.statLabel,
       });
     }
 
