@@ -53,10 +53,6 @@ function createVisualCopy(generated: string, angle: string) {
   };
 }
 
-async function pause(milliseconds: number) {
-  await new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 function getCandidateKey(item: ResearchItem) {
   return item.url.trim().toLowerCase().replace(/\/$/, "");
 }
