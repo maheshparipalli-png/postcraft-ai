@@ -128,7 +128,6 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<{ id: string; email?: string | null } | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [appAccessAllowed, setAppAccessAllowed] = useState(false);
-  const [billingStatus, setBillingStatus] = useState<string>("not_started");
   const [accessNotice, setAccessNotice] = useState("");
 
   useEffect(() => {
@@ -142,7 +141,6 @@ export default function Home() {
 
         if (!user) {
           setAuthUser(null);
-          setBillingStatus("not_started");
           setAppAccessAllowed(false);
           setAuthReady(true);
           return;
@@ -157,7 +155,6 @@ export default function Home() {
           .maybeSingle();
 
         if (profile?.role === "admin" || profile?.role === "super_admin") {
-          setBillingStatus("admin");
           setAppAccessAllowed(true);
           setAuthReady(true);
           return;
@@ -168,7 +165,6 @@ export default function Home() {
         if (!active) return;
 
         const status = typeof billing?.status === "string" ? billing.status : "not_started";
-        setBillingStatus(status);
         setAppAccessAllowed(Boolean(billing?.allowed));
         if (status === "expired") {
           setAccessNotice("Your free trial has ended. Start a subscription to continue using PostCraft.");
@@ -178,7 +174,6 @@ export default function Home() {
         setAuthReady(true);
       } catch {
         if (!active) return;
-        setBillingStatus("error");
         setAppAccessAllowed(false);
         setAuthReady(true);
       }
