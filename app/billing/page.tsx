@@ -7,6 +7,7 @@ type Subscription = {
   status: string;
   trial_ends_at: string | null;
   trial_started_at: string | null;
+  grace_ends_at: string | null;
 };
 
 type BillingResponse = {
@@ -68,7 +69,7 @@ export default function BillingPage() {
       if (!response.ok) {
         setMessage(data.error ?? "Unable to start the trial");
       } else {
-        setMessage("Your 24-hour free trial is now active.");
+        setMessage("Your 15-day free trial is now active.");
       }
       await loadBilling();
     } catch {
@@ -99,7 +100,7 @@ export default function BillingPage() {
           <div className="max-w-3xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Account settings</div>
             <h1 className="mt-5 font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Payment,<br />kept simple.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Try PostCraft Pro free for 24 hours. No card is required to start. After the trial, Pro costs $12 per month.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Try PostCraft Pro free for 15 days. No card is required to start. You will also have a 3-day grace period after the trial ends. Pricing will be announced before paid checkout is enabled.</p>
           </div>
         </section>
 
@@ -108,9 +109,9 @@ export default function BillingPage() {
             <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Current plan</div>
             <h2 className="mt-3 font-serif text-3xl tracking-[-0.025em]">PostCraft Pro</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600">Research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
-            <div className="mt-6 flex items-baseline gap-2"><span className="font-serif text-4xl">$12</span><span className="text-sm text-neutral-500">/ month</span></div>
+            <div className="mt-6 font-serif text-3xl">Paid plan — pricing coming soon</div>
             <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
-              Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
+              Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
             </div>
           </div>
 
@@ -139,11 +140,11 @@ export default function BillingPage() {
                 </div>
                 <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
               </div>
-            ) : status === "expired" ? (
+             ) : status === "grace" ? (\n              <div className="mt-5 space-y-4">\n                <div className="font-medium text-amber-800">Your trial has ended — grace period active</div>\n                <p className="text-sm leading-6 text-neutral-600">You still have temporary access while you decide whether to subscribe.</p>\n                <p className="text-sm text-neutral-500">Paid checkout will be enabled once pricing is finalized.</p>\n              </div>\n            ) : status === "expired" ? (
               <div className="mt-5 space-y-4">
                 <div className="font-medium">Your free trial has ended</div>
-                <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft Pro for $12 per month to continue using paid features.</p>
-                <p className="text-sm text-neutral-500">Secure Razorpay checkout will be connected next.</p>
+                <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft when paid checkout is enabled to continue using your workspace.</p>
+                <button type="button" disabled className="border border-neutral-300 px-4 py-2 text-sm text-neutral-400">Subscribe with Razorpay — coming soon</button>
               </div>
             ) : (
               <p className="mt-5 text-sm leading-6 text-neutral-600">{billing?.error ?? "Billing information is unavailable."}</p>
