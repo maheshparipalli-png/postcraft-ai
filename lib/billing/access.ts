@@ -3,15 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 export type BillingAccessStatus =
   | "not_started"
   | "trialing"
+  | "grace"
   | "active"
   | "expired"
   | "cancelled"
   | "past_due"
+  | "suspended"
   | "billing_unavailable";
 
 export type BillingSubscription = Record<string, unknown> & {
   status: BillingAccessStatus;
   trial_ends_at?: string | null;
+  grace_ends_at?: string | null;
 };
 
 export async function getBillingAccess() {
@@ -22,13 +25,7 @@ export async function getBillingAccess() {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return {
-      authenticated: false,
-      allowed: false,
-      status: "not_started" as const,
-      user: null,
-      subscription: null,
-    };
+    return { authenticated: false, allowed: false, status: "not_started" as const, user: null, subscription: null };
   }
 
   const { data: subscription, error } = await supabase
@@ -39,51 +36,33 @@ export async function getBillingAccess() {
 
   if (error) {
     console.error("Billing access lookup error:", error);
-    return {
-      authenticated: true,
-      allowed: false,
-      status: "billing_unavailable" as const,
-      user,
-      subscription: null,
-    };
+    return { authenticated: true, allowed: false, status: "billing_unavailable" as const, user, subscription: null };
   }
 
   if (!subscription) {
-    return {
-      authenticated: true,
-      allowed: false,
-      status: "not_started" as const,
-      user,
-      subscription: null,
-    };
+    return { authenticated: true, allowed: false, status: "not_started" as const, user, subscription: null };
   }
 
-  if (subscription.status === "trialing") {
-    const trialEndsAt = subscription.trial_ends_at
-      ? new Date(subscription.trial_ends_at).getTime()
-      : NaN;
+  if (subscription.status === "suspended") {
+    return { authenticated: true, allowed: false, status: "suspended" as const, user, subscription: subscription as BillingSubscription };
+  }
+
+  if (subscription.status === "trialing" || subscription.status === "grace") {
+    const trialEndsAt = subscription.trial_ends_at ? new Date(subscription.trial_ends_at).getTime() : NaN;
+    const graceEndsAt = subscription.grace_ends_at ? new Date(subscription.grace_ends_at).getTime() : NaN;
 
     if (Number.isFinite(trialEndsAt) && trialEndsAt > Date.now()) {
-      return {
-        authenticated: true,
-        allowed: true,
-        status: "trialing" as const,
-        user,
-        subscription: subscription as BillingSubscription,
-      };
+      return { authenticated: true, allowed: true, status: "trialing" as const, user, subscription: subscription as BillingSubscription };
     }
 
-    return {
-      authenticated: true,
-      allowed: false,
-      status: "expired" as const,
-      user,
-      subscription: subscription as BillingSubscription,
-    };
+    if (Number.isFinite(graceEndsAt) && graceEndsAt > Date.now()) {
+      return { authenticated: true, allowed: true, status: "grace" as const, user, subscription: subscription as BillingSubscription };
+    }
+
+    return { authenticated: true, allowed: false, status: "expired" as const, user, subscription: subscription as BillingSubscription };
   }
 
   const status = subscription.status as BillingAccessStatus;
-
   return {
     authenticated: true,
     allowed: status === "active",
