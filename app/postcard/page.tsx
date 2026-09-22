@@ -286,13 +286,6 @@ export default function PostCardPage() {
       `;
     }
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
-      <defs>
-        <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
-        <linearGradient id="gradientBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d6c9"/><stop offset="100%" stop-color="#c9d8ff"/></linearGradient>
-        <linearGradient id="photoBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8d3df"/><stop offset="100%" stop-color="#7896a0"/></linearGradient>
-        <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
-      </defs>
     let backgroundMarkup = '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>';
     if (backgroundId === "dark") {
       backgroundMarkup = '<rect width="1080" height="1080" fill="#151515"/><circle cx="900" cy="120" r="260" fill="#2a2a2a" opacity=".65"/>';
@@ -310,7 +303,15 @@ export default function PostCardPage() {
       backgroundMarkup = '<rect width="1080" height="1080" fill="#f7f5ef"/>';
     }
 
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+      <defs>
+        <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
+        <linearGradient id="gradientBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d6c9"/><stop offset="100%" stop-color="#c9d8ff"/></linearGradient>
+        <linearGradient id="photoBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8d3df"/><stop offset="100%" stop-color="#7896a0"/></linearGradient>
+        <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
+      </defs>
       ${backgroundMarkup}
+
 
       ${template === "editorial" ? `
         ${avatar}
