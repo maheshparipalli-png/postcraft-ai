@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Template = "editorial" | "insight" | "stat";
-type BackgroundId = "paper" | "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
+type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
@@ -15,14 +15,13 @@ const templates: { id: Template; name: string; description: string }[] = [
 ];
 
 const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
-  { id: "paper", name: "Paper", className: "bg-[#f4f1e9]" },
-  { id: "gradient", name: "Gradient", className: "bg-[linear-gradient(135deg,#f7d6c9,#c9d8ff)]" },
-  { id: "dark", name: "Dark", className: "bg-[#151515]" },
-  { id: "photo", name: "Photo", className: "bg-[linear-gradient(160deg,#b8d3df,#7896a0)]" },
+  { id: "gradient", name: "Gradient", className: "bg-[linear-gradient(135deg,#dff5fb,#c9d8ff_58%,#9b8cff)]" },
+  { id: "ink", name: "Ink", className: "bg-[linear-gradient(135deg,#f4e9dc,#303640)]" },
+  { id: "dark", name: "Dark", className: "bg-[linear-gradient(145deg,#0f172a,#25334a)]" },
   { id: "minimal", name: "Minimal", className: "bg-[#f7f5ef]" },
   { id: "abstract", name: "Abstract", className: "bg-[linear-gradient(160deg,#e8edf5,#d6dce7)]" },
-  { id: "ink", name: "Ink", className: "bg-[linear-gradient(135deg,#f5e9dc,#303640)]" },
   { id: "nature", name: "Nature", className: "bg-[linear-gradient(145deg,#edf0df,#cbd8c0)]" },
+  { id: "photo", name: "Photo", className: "bg-[linear-gradient(160deg,#d7e9f2,#8caec1)]" },
 ];
 
 function escapeXml(value: string) {
@@ -133,7 +132,7 @@ export default function PostCardPage() {
   const [statLabel, setStatLabel] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
-  const [background, setBackground] = useState<BackgroundId>("paper");
+  const [background, setBackground] = useState<BackgroundId>("gradient");
   const [downloading, setDownloading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -147,7 +146,7 @@ export default function PostCardPage() {
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinCaption, setLinkedinCaption] = useState("");
-  const linkedinCommentary = linkedinCaption.trim();
+  const linkedinCommentary = linkedinCaption.trim() || body.trim() || headline.trim();
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const [linkedinNotice, setLinkedinNotice] = useState("");
@@ -364,17 +363,17 @@ export default function PostCardPage() {
       `;
     }
 
-    let backgroundMarkup = '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>';
+    let backgroundMarkup = '<rect width="1080" height="1080" fill="#dff5fb"/>';
     if (backgroundId === "dark") {
       backgroundMarkup = '<rect width="1080" height="1080" fill="#151515"/><circle cx="900" cy="120" r="260" fill="#2a2a2a" opacity=".65"/>';
     } else if (backgroundId === "gradient") {
-      backgroundMarkup = '<rect width="1080" height="1080" fill="url(#gradientBg)"/>';
+      backgroundMarkup = '<rect width="1080" height="1080" fill="url(#gradientBg)"/><path d="M-60 840C180 690 320 730 480 800s310 80 660-210v490H-60z" fill="#6f8fff" opacity=".22"/><path d="M-60 930C210 760 390 820 550 875s300 50 650-220v425H-60z" fill="#6d4cff" opacity=".18"/>';
     } else if (backgroundId === "photo") {
-      backgroundMarkup = '<rect width="1080" height="1080" fill="url(#photoBg)"/><path d="M0 760L240 570l190 150 180-230 470 350v240H0z" fill="#344e59" opacity=".65"/><path d="M0 820l240-150 190 120 180-180 470 300v170H0z" fill="#1f3943" opacity=".55"/>';
+      backgroundMarkup = '<rect width="1080" height="1080" fill="url(#photoBg)"/><circle cx="820" cy="230" r="115" fill="#f8e4bd" opacity=".9"/><path d="M0 690L220 500l170 150 190-250 500 390v290H0z" fill="#7896a0" opacity=".88"/><path d="M0 800l210-155 180 125 200-175 490 310v175H0z" fill="#46636e" opacity=".92"/><path d="M0 905l220-125 180 110 200-140 480 245v150H0z" fill="#304d58" opacity=".88"/>';
     } else if (backgroundId === "abstract") {
       backgroundMarkup = '<rect width="1080" height="1080" fill="#e9edf4"/><path d="M-80 620C180 360 360 390 510 540s310 210 650-20v560H-80z" fill="#d7deea"/><path d="M-80 760c260-250 430-210 600-50s310 160 640-70v440H-80z" fill="#c5cedd" opacity=".72"/>';
     } else if (backgroundId === "ink") {
-      backgroundMarkup = '<rect width="1080" height="1080" fill="#f4e9dc"/><path d="M760 0c-40 190-220 260-260 430s170 250 80 430-260 120-420 220H1080V0z" fill="#242b33" opacity=".94"/>';
+      backgroundMarkup = '<rect width="1080" height="1080" fill="#f4e9dc"/><path d="M760 0c-40 190-220 260-260 430s170 250 80 430-260 120-420 220H1080V0z" fill="#242b33" opacity=".97"/><path d="M860 -20C790 170 900 250 980 310s60 120 150 190" fill="none" stroke="#d9a13a" stroke-width="8" opacity=".95"/><path d="M850 0C800 160 880 230 955 290" fill="none" stroke="#d9a13a" stroke-width="3" opacity=".7"/> ';
     } else if (backgroundId === "nature") {
       backgroundMarkup = '<rect width="1080" height="1080" fill="#f2f0e7"/><path d="M820 80c-180 140-190 350-60 500s100 280-10 500h330V0z" fill="#d5dfc9"/><path d="M940 160c-150 130-160 320-30 480s80 270 0 440" fill="none" stroke="#839b78" stroke-width="38" opacity=".65"/>';
     } else if (backgroundId === "minimal") {
@@ -725,11 +724,8 @@ export default function PostCardPage() {
               ) : (
                 <div className="mt-5 space-y-5">
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
-                  <Field label="Supporting thought" value={body} onChange={setBody} textarea />
-                  <Field label="Closing line" value={closing} onChange={setClosing} textarea />
-                  <Field label="LinkedIn caption" value={linkedinCaption} onChange={setLinkedinCaption} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
-                    This caption is published above the visual. It is separate from the text on the card, so it should add context rather than repeat it.
+                    Supporting thought and closing line are generated automatically and used in the PostCard layout.
                   </p>
                 </div>
               )}
