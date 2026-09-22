@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import SignOutButton from "@/app/SignOutButton";
 
 type NavLink = { label: string; href: string; exact?: boolean };
 
@@ -82,9 +81,6 @@ export default function SiteNav() {
                   Billing
                   <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Plan &amp; trial</span>
                 </Link>
-                <div className="mt-1 border-t border-neutral-100 pt-1">
-                  <SignOutButton />
-                </div>
               </div>
             </details>
           </nav>
@@ -115,9 +111,6 @@ export default function SiteNav() {
                 <Link href="/billing" onClick={() => setMobileOpen(false)} className={pathname === "/billing" ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Billing</Link>
                 <Link href="/help" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Help Center</Link>
                 <Link href="/help/contact" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Contact Support</Link>
-              </div>
-              <div className="mt-2 border-t border-neutral-200 px-3 pt-3">
-                <SignOutButton />
               </div>
             </nav>
           </div>
