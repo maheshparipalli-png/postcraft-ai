@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Template = "editorial" | "insight" | "stat";
@@ -148,8 +148,10 @@ export default function PostCardPage() {
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinCaption, setLinkedinCaption] = useState("");
   const linkedinCommentary = linkedinCaption.trim();
+  const linkedinNotice = searchParams.get("linkedinConnected") === "1" ? "LinkedIn connected successfully." : searchParams.get("linkedinError");
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = useMemo(() => initial(name), [name]);
@@ -759,8 +761,9 @@ export default function PostCardPage() {
               >
                 {linkedinLoading ? "Publishing..." : linkedinPublished ? "✓ Published to LinkedIn" : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
               </button>
+              <Link href="/postcard/saved" className="border-b border-neutral-500 pb-1 text-xs font-medium text-neutral-600 hover:text-neutral-900">My PostCards →</Link>
               <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
-              {linkedinMessage && <span className="w-full text-xs text-neutral-600">{linkedinMessage}</span>}
+              {(linkedinMessage || linkedinNotice) && <span className="w-full text-xs text-neutral-600">{linkedinMessage || linkedinNotice}</span>}
             </div>
           </div>
 
