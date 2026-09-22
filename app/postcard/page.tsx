@@ -591,9 +591,14 @@ export default function PostCardPage() {
             <Link href="/" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCARD</Link>
             <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">AI visual studio</div>
           </div>
-          <nav className="flex items-center gap-5 text-sm text-neutral-500">
-            <Link href="/" className="hover:text-neutral-900">PostCraft</Link>
-            <Link href="/postcard/saved" className="hover:text-neutral-900">My PostCards</Link>
+          <nav className="flex items-center gap-3 text-sm">
+            <Link href="/" className="text-neutral-500 hover:text-neutral-900">PostCraft</Link>
+            <Link
+              href="/postcard/saved"
+              className="rounded-full border border-neutral-900 bg-white px-4 py-2 text-xs font-semibold text-neutral-900 transition hover:bg-neutral-900 hover:text-white"
+            >
+              Saved PostCards →
+            </Link>
           </nav>
         </header>
 
@@ -758,7 +763,12 @@ export default function PostCardPage() {
               >
                 {saving ? "Saving..." : saved ? "✓ Saved" : "Save card"}
               </button>
-              {savedCardId && <Link href={`/postcard/${savedCardId}`} className="border-b border-neutral-900 pb-1 text-xs font-medium">View saved card →</Link>}
+              {savedCardId && (
+                <>
+                  <Link href={`/postcard/${savedCardId}`} className="border-b border-neutral-900 pb-1 text-xs font-medium">Open this card →</Link>
+                  <Link href="/postcard/saved" className="border-b border-neutral-500 pb-1 text-xs font-medium text-neutral-600 hover:text-neutral-900">Open all saved cards →</Link>
+                </>
+              )}
               <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
                 {downloading ? "Creating card..." : "Download PNG →"}
               </button>
@@ -770,7 +780,7 @@ export default function PostCardPage() {
               >
                 {linkedinLoading ? "Publishing..." : linkedinPublished ? "✓ Published to LinkedIn" : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
               </button>
-              <Link href="/postcard/saved" className="border-b border-neutral-500 pb-1 text-xs font-medium text-neutral-600 hover:text-neutral-900">My PostCards →</Link>
+              <Link href="/postcard/saved" className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900">📁 Saved PostCards</Link>
               <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
               {(linkedinMessage || linkedinNotice) && <span className="w-full text-xs text-neutral-600">{linkedinMessage || linkedinNotice}</span>}
             </div>
