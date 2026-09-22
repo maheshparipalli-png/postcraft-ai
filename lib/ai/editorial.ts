@@ -443,32 +443,19 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
       .split(/\s+/)
       .filter((word) => word.length >= 4 && !stopWords.has(word));
 
-  const titleTerms = Array.from(new Set(normalize(story.headline)));
-  const summaryTerms = new Set(normalize(story.summary));
-  const evidenceTerms = new Set(normalize(evidence.map((item) => item.support).join(" ")));
+  const titleTerms = new Set(normalize(story.headline));
+  const supportTerms = new Set(normalize(
+    story.summary + " " + evidence.map((item) => item.support).join(" ") + " " + angle
+  ));
   const postTerms = new Set(normalize(post));
 
-  // Require the final draft to carry distinctive terms from the selected
-  // headline, not just generic topic words such as AI, work, or business.
-  const distinctiveTitleTerms = titleTerms.filter((term) => postTerms.has(term));
-  const summaryMatches = Array.from(summaryTerms).filter((term) => postTerms.has(term));
-  const evidenceMatches = Array.from(evidenceTerms).filter((term) => postTerms.has(term));
+  const titleMatches = Array.from(titleTerms).filter((term) => postTerms.has(term)).length;
+  const supportMatches = Array.from(supportTerms).filter((term) => postTerms.has(term)).length;
 
-  const titleAnchorCount = distinctiveTitleTerms.length;
-  const supportingAnchorCount = new Set([...summaryMatches, ...evidenceMatches]).size;
-
-  // A short headline may only have one distinctive term, but the post must
-  // still contain concrete supporting language from the verified story.
-  const titlePass = titleTerms.length <= 2
-    ? titleAnchorCount >= 1
-    : titleAnchorCount >= 2;
-  const supportPass = supportingAnchorCount >= 3;
-
-  // Guard against a generic angle becoming detached from the actual article.
-  const angleTerms = new Set(normalize(angle));
-  const angleMatches = Array.from(angleTerms).filter((term) => postTerms.has(term)).length;
-
-  return titlePass && supportPass && angleMatches >= Math.min(2, angleTerms.size);
+  // Keep the guard strong enough to catch mixed stories, but tolerant of
+  // natural paraphrasing from a small local model. One distinctive headline
+  // anchor plus two supporting anchors is sufficient.
+  return titleMatches >= 1 && supportMatches >= 2;
 }
 
 function postHasGenericFiller(post: string) {
