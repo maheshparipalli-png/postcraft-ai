@@ -150,7 +150,7 @@ export default function BillingPage() {
             setMessage(verifyData.error ?? "Payment verification failed. Please contact support.");
             return;
           }
-          setMessage("Payment verified. Your PostCraft Pro subscription is active.");
+          setMessage("Payment verified. Your PostCraft Pro subscription is being activated.");
           await loadBilling();
         },
         modal: { ondismiss: () => setMessage("Checkout was closed. No payment was made.") },
