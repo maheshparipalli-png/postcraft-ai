@@ -25,6 +25,7 @@ export default function SiteNav() {
   const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [trialLabel, setTrialLabel] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -37,6 +38,23 @@ export default function SiteNav() {
         if (user) {
           const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
           if (active) setIsAdmin(profile?.role === "admin" || profile?.role === "super_admin");
+
+          const billingResponse = await fetch("/api/billing/status", { cache: "no-store" });
+          const billing = await billingResponse.json();
+          if (active) {
+            if (billing?.status === "trialing" && billing?.subscription?.trial_ends_at) {
+              const days = Math.max(0, Math.ceil((new Date(billing.subscription.trial_ends_at).getTime() - Date.now()) / 86400000));
+              setTrialLabel(days === 1 ? "1 day left" : `${days} days left`);
+            } else if (billing?.status === "grace") {
+              setTrialLabel("Grace period");
+            } else if (billing?.status === "active") {
+              setTrialLabel("Pro");
+            } else if (billing?.status === "expired") {
+              setTrialLabel("Trial ended");
+            } else {
+              setTrialLabel("Start trial");
+            }
+          }
         }
       } finally {
         if (active) setAuthReady(true);
@@ -61,7 +79,9 @@ export default function SiteNav() {
           </Link>
 
           {!authReady || signedIn ? (
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
+          <div className="hidden items-center gap-2 lg:flex">
+          {trialLabel && <Link href="/billing" className="rounded-full border border-neutral-300 px-3 py-2 text-[10px] font-medium text-neutral-600 hover:border-neutral-900 hover:text-neutral-950">{trialLabel}</Link>}
+          <nav className="flex items-center gap-1" aria-label="Primary navigation">
             {primaryLinks.map((link) => {
               const active = isActive(pathname, link);
               return (
@@ -114,6 +134,7 @@ export default function SiteNav() {
               </Link>
             )}
           </nav>
+          </div>
           ) : (
             <div className="hidden items-center gap-4 lg:flex">
               <Link href="/login" className="text-xs font-medium text-neutral-600 hover:text-neutral-950">Sign in</Link>
