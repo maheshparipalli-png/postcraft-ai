@@ -86,6 +86,12 @@ alter table public.postcraft_daily_drafts
   add column if not exists error_message text;
 
 alter table public.postcraft_daily_drafts
+  alter column source_url drop not null,
+  alter column source_title drop not null,
+  alter column generated_post drop not null,
+  alter column working_post drop not null;
+
+alter table public.postcraft_daily_drafts
   drop constraint if exists postcraft_daily_drafts_status_check;
 
 alter table public.postcraft_daily_drafts
