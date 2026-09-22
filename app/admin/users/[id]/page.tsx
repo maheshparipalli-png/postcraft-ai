@@ -39,11 +39,11 @@ export default function AdminUserPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadUser(params.id);
-  }, [params.id]);
+  }, [loadUser, params.id]);
 
   async function resetTrial() {
     setSaving(true);
