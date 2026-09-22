@@ -17,7 +17,7 @@ function getOllamaConfig() {
   return { baseUrl, model };
 }
 
-function getCloudflareAccessHeaders() {
+function getCloudflareAccessHeaders(): Record<string, string> {
   const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
   const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
 
