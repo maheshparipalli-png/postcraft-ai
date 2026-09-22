@@ -87,8 +87,12 @@ export async function updateSession(request: NextRequest) {
     const graceEnds = subscription?.grace_ends_at ? new Date(subscription.grace_ends_at).getTime() : NaN;
     const allowed =
       subscription?.status === "active" ||
-      (Number.isFinite(trialEnds) && trialEnds > now) ||
-      (Number.isFinite(graceEnds) && graceEnds > now);
+      (subscription?.status === "trialing" &&
+        Number.isFinite(trialEnds) &&
+        trialEnds > now) ||
+      (subscription?.status === "grace" &&
+        Number.isFinite(graceEnds) &&
+        graceEnds > now);
 
     if (!allowed) {
       if (isApiRoute) {
