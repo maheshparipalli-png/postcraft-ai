@@ -125,7 +125,7 @@ export default function BillingPage() {
               <div className="mt-5 space-y-5">
                 <div>
                   <div className="font-medium text-emerald-700">Your trial is active</div>
-                  <p className="mt-2 text-sm leading-6 text-neutral-600">You have access to Pro features for the remainder of your 24-hour trial.</p>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">You have full access during your 15-day trial.</p>
                 </div>
                 <div className="border border-emerald-200 bg-emerald-50 p-5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-800">Time remaining</div>
@@ -135,12 +135,18 @@ export default function BillingPage() {
             ) : status === "not_started" ? (
               <div className="mt-5 space-y-5">
                 <div>
-                  <div className="font-medium">Start your 24-hour free trial</div>
+                  <div className="font-medium">Start your 15-day free trial</div>
                   <p className="mt-2 text-sm leading-6 text-neutral-600">No payment details are required. Your trial can only be used once.</p>
                 </div>
                 <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
               </div>
-             ) : status === "grace" ? (\n              <div className="mt-5 space-y-4">\n                <div className="font-medium text-amber-800">Your trial has ended — grace period active</div>\n                <p className="text-sm leading-6 text-neutral-600">You still have temporary access while you decide whether to subscribe.</p>\n                <p className="text-sm text-neutral-500">Paid checkout will be enabled once pricing is finalized.</p>\n              </div>\n            ) : status === "expired" ? (
+             ) : status === "grace" ? (
+              <div className="mt-5 space-y-4">
+                <div className="font-medium text-amber-800">Your trial has ended — grace period active</div>
+                <p className="text-sm leading-6 text-neutral-600">You still have temporary access while you decide whether to subscribe.</p>
+                <p className="text-sm text-neutral-500">Paid checkout will be enabled once pricing is finalized.</p>
+              </div>
+            ) : status === "expired" ? (
               <div className="mt-5 space-y-4">
                 <div className="font-medium">Your free trial has ended</div>
                 <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft when paid checkout is enabled to continue using your workspace.</p>
