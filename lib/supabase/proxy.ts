@@ -12,6 +12,13 @@ function isProtected(pathname: string) {
     .some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
 }
 
+function isAuthorizedCron(request: NextRequest, pathname: string) {
+  if (pathname !== "/api/auto-publish/run") return false;
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!secret) return false;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
+}
+
 function copyCookies(from: NextResponse, to: NextResponse) {
   from.cookies.getAll().forEach((cookie) => to.cookies.set(cookie));
   for (const header of ["cache-control", "expires", "pragma"]) {
@@ -48,8 +55,11 @@ export async function updateSession(request: NextRequest) {
   const isBillingApi = pathname.startsWith("/api/billing/");
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin/");
+  const isCronRequest = isAuthorizedCron(request, pathname);
 
   if (!isApiRoute && isPublic(pathname)) return response;
+
+  if (!userId && isCronRequest) return response;
 
   if (!userId) {
     if (isApiRoute) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -87,19 +97,12 @@ export async function updateSession(request: NextRequest) {
     const graceEnds = subscription?.grace_ends_at ? new Date(subscription.grace_ends_at).getTime() : NaN;
     const allowed =
       subscription?.status === "active" ||
-      (subscription?.status === "trialing" &&
-        Number.isFinite(trialEnds) &&
-        trialEnds > now) ||
-      (subscription?.status === "grace" &&
-        Number.isFinite(graceEnds) &&
-        graceEnds > now);
+      (subscription?.status === "trialing" && Number.isFinite(trialEnds) && trialEnds > now) ||
+      (subscription?.status === "grace" && Number.isFinite(graceEnds) && graceEnds > now);
 
     if (!allowed) {
       if (isApiRoute) {
-        return NextResponse.json(
-          { error: "Start your free trial or subscribe to continue", billingStatus: "expired" },
-          { status: 402 },
-        );
+        return NextResponse.json({ error: "Start your free trial or subscribe to continue", billingStatus: "expired" }, { status: 402 });
       }
       const redirect = NextResponse.redirect(new URL("/billing", request.url));
       copyCookies(response, redirect);
