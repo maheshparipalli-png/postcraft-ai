@@ -1,27 +1,47 @@
 import type { AIGenerateOptions, AIProvider } from "./types";
 
-const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
-const model = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+function normalizeBaseUrl(value: string) {
+  return value.trim().replace(/\/+$/, "");
+}
 
-const accessClientId = process.env.CF_ACCESS_CLIENT_ID;
-const accessClientSecret = process.env.CF_ACCESS_CLIENT_SECRET;
+function getOllamaConfig() {
+  const baseUrl = normalizeBaseUrl(
+    process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434",
+  );
+  const model = process.env.OLLAMA_MODEL?.trim() || "qwen2.5:7b";
 
-console.log("[Ollama] Configuration", {
-  baseUrl,
-  model,
-  hasClientId: Boolean(accessClientId),
-  hasClientSecret: Boolean(accessClientSecret),
-});
+  if (!/^https?:\/\//i.test(baseUrl)) {
+    throw new Error("OLLAMA_BASE_URL must start with http:// or https://");
+  }
+
+  return { baseUrl, model };
+}
+
+function getCloudflareAccessHeaders() {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+
+  if (clientId && clientSecret) {
+    return {
+      "CF-Access-Client-Id": clientId,
+      "CF-Access-Client-Secret": clientSecret,
+    };
+  }
+
+  return {};
+}
 
 export const ollamaProvider: AIProvider = {
   async generateText(prompt: string, options: AIGenerateOptions = {}) {
+    const { baseUrl, model } = getOllamaConfig();
     const ollamaUrl = `${baseUrl}/api/chat`;
+    const accessHeaders = getCloudflareAccessHeaders();
     const startedAt = Date.now();
 
     console.log("[Ollama] Sending request", {
       url: ollamaUrl,
       model,
-      hasAccessHeaders: Boolean(accessClientId && accessClientSecret),
+      hasAccessHeaders: Object.keys(accessHeaders).length > 0,
       promptLength: prompt.length,
       numPredict: options.numPredict ?? 400,
       format: options.format ?? "text",
@@ -35,19 +55,11 @@ export const ollamaProvider: AIProvider = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(accessClientId && accessClientSecret
-            ? {
-                "CF-Access-Client-Id": accessClientId,
-                "CF-Access-Client-Secret": accessClientSecret,
-              }
-            : {}),
+          ...accessHeaders,
         },
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: prompt }],
-          // Stream Ollama's NDJSON response so Cloudflare receives data
-          // while the model is generating instead of waiting for the
-          // complete response. This avoids Cloudflare 524 idle timeouts.
           stream: true,
           ...(options.format ? { format: options.format } : {}),
           options: {
@@ -71,11 +83,14 @@ export const ollamaProvider: AIProvider = {
 
       if (error instanceof DOMException && error.name === "TimeoutError") {
         throw new Error(
-          "PostCraft AI took too long to respond. Please try again."
+          "PostCraft AI took too long to respond. Please try again.",
         );
       }
 
-      throw error;
+      throw new Error(
+        "PostCraft could not reach the Ollama service. Check OLLAMA_BASE_URL and make sure the endpoint is reachable from the server.",
+        { cause: error },
+      );
     }
 
     if (!response.ok) {
@@ -95,15 +110,21 @@ export const ollamaProvider: AIProvider = {
       try {
         data = JSON.parse(responseText);
       } catch {
-        // Keep data null for non-JSON responses.
+        // Non-JSON errors are handled below.
+      }
+
+      if (response.status === 530) {
+        throw new Error(
+          "Ollama endpoint returned Cloudflare HTTP 530. The configured OLLAMA_BASE_URL is not resolving to a reachable Ollama origin. Check the URL, DNS/Cloudflare tunnel, and Cloudflare Access settings.",
+        );
       }
 
       throw new Error(
         data?.error ??
           `Ollama request failed (${response.status}): ${responseText.slice(
             0,
-            300
-          )}`
+            300,
+          )}`,
       );
     }
 
@@ -174,7 +195,10 @@ export const ollamaProvider: AIProvider = {
             text += chunk.message.content;
           }
         } catch (error) {
-          if (error instanceof Error && error.message !== "Unexpected end of JSON input") {
+          if (
+            error instanceof Error &&
+            error.message !== "Unexpected end of JSON input"
+          ) {
             throw error;
           }
         }
@@ -185,22 +209,14 @@ export const ollamaProvider: AIProvider = {
 
     const elapsedMs = Date.now() - startedAt;
 
-    console.log("[Ollama] Response", {
-      status: response.status,
-      statusText: response.statusText,
+    console.log("[Ollama] Generation complete", {
       elapsedMs,
-      contentType: response.headers.get("content-type"),
       outputLength: text.length,
     });
 
     if (!text.trim()) {
       throw new Error("Ollama returned an empty response");
     }
-
-    console.log("[Ollama] Generation complete", {
-      elapsedMs,
-      outputLength: text.length,
-    });
 
     return text.trim();
   },
