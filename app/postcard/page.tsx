@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Template = "editorial" | "insight" | "stat";
 type BackgroundId = "paper" | "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
@@ -33,14 +34,20 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
-function wrapText(text: string, maxChars: number) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
+function wrapText(text: string, maxWidth: number, fontSize: number, fontWeight = 400) {
+  const value = text.trim();
+  if (!value) return [];
+  if (typeof document === "undefined") return value.split(/\\s+/);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [value];
+  ctx.font = \`\${fontWeight} \${fontSize}px Arial\`;
+  const words = value.split(/\\s+/);
   const lines: string[] = [];
   let line = "";
-
   for (const word of words) {
     const next = line ? line + " " + word : word;
-    if (next.length > maxChars && line) {
+    if (ctx.measureText(next).width > maxWidth && line) {
       lines.push(line);
       line = word;
     } else {
@@ -51,26 +58,37 @@ function wrapText(text: string, maxChars: number) {
   return lines;
 }
 
-function fitLines(text: string, maxChars: number, maxLines: number) {
-  const lines = wrapText(text, maxChars);
-  if (lines.length <= maxLines) return lines;
-
-  // Prefer showing the complete thought by widening the wrapping before truncating.
-  for (let width = maxChars + 2; width <= Math.max(maxChars + 2, Math.ceil(text.trim().length / maxLines) + 2); width += 2) {
-    const widened = wrapText(text, width);
-    if (widened.length <= maxLines) return widened;
+function fitText(text: string, options: {
+  maxWidth: number;
+  maxLines: number;
+  startSize: number;
+  minSize: number;
+  weight?: number;
+  lineHeight?: number;
+}) {
+  const weight = options.weight ?? 400;
+  for (let size = options.startSize; size >= options.minSize; size -= 2) {
+    const lines = wrapText(text, options.maxWidth, size, weight);
+    if (lines.length <= options.maxLines) {
+      return { lines, size, gap: options.lineHeight ?? size * 1.2 };
+    }
   }
-
-  const fitted = lines.slice(0, maxLines);
-  const last = fitted[maxLines - 1].replace(/[.!,;:?]+$/, "");
-  fitted[maxLines - 1] = last.length > 3 ? last + "…" : "…";
-  return fitted;
+  const size = options.minSize;
+  return { lines: wrapText(text, options.maxWidth, size, weight), size, gap: options.lineHeight ?? size * 1.2 };
 }
 
-function fitSingleLine(text: string, maxChars: number) {
+function fitSingleLine(text: string, maxWidth: number, startSize: number, minSize: number, weight = 400) {
   const value = text.trim();
-  if (value.length <= maxChars) return value;
-  return value.slice(0, Math.max(1, maxChars - 1)).trimEnd() + "…";
+  if (!value) return { text: "", size: startSize };
+  if (typeof document === "undefined") return { text: value, size: minSize };
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { text: value, size: minSize };
+  for (let size = startSize; size >= minSize; size -= 2) {
+    ctx.font = \`\${weight} \${size}px Arial\`;
+    if (ctx.measureText(value).width <= maxWidth) return { text: value, size };
+  }
+  return { text: value, size: minSize };
 }
 
 function initial(name: string) {
@@ -188,74 +206,87 @@ export default function PostCardPage() {
   }
 
   function buildSvg(backgroundId = background) {
+    const normalizedStat = normalizeStatisticContent(stat, stat, statLabel);
+    const displayStat = normalizedStat.stat;
+    const displayStatLabel = normalizedStat.statLabel;
+
     const safeName = escapeXml(name);
     const safeHandle = escapeXml(handle);
     const safeHeadline = escapeXml(headline);
     const safeBody = escapeXml(body);
     const safeClosing = escapeXml(closing);
-    const safeStat = escapeXml(stat);
-    const safeStatLabel = escapeXml(statLabel);
+    const safeStat = escapeXml(displayStat || "—");
+    const safeStatLabel = escapeXml(displayStatLabel);
     const safeSource = escapeXml(source);
-    const headlineLines = fitLines(headline, template === "stat" ? 24 : template === "editorial" ? 25 : 27, template === "stat" ? 2 : 4);
-    const bodyLines = fitLines(body, 42, 8);
-    const closingLines = fitLines(closing, 32, 4);
-    const statLabelLines = fitLines(statLabel, 31, 5);
-    const sourceLine = fitSingleLine(source, 78);
     const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
     const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
 
     const avatar = photo
-      ? `<image href="${escapeXml(photo)}" x="64" y="62" width="104" height="104" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>`
-      : `<circle cx="116" cy="114" r="52" fill="#171717"/><text x="116" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="40" fill="white">${escapeXml(initials)}</text>`;
+      ? \`<image href="\${escapeXml(photo)}" x="64" y="62" width="104" height="104" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>\`
+      : \`<circle cx="116" cy="114" r="52" fill="#171717"/><text x="116" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="40" fill="white">\${escapeXml(initials)}</text>\`;
 
-    const textLines = (lines: string[], x: number, y: number, size: number, weight = 400, gap = size * 1.28) =>
-      lines.map((line, index) =>
-        `<text x="${x}" y="${y + index * gap}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${weight}" fill="${textColor}">${line}</text>`
+    const textLines = (items: string[], x: number, y: number, size: number, weight = 400, gap = size * 1.2, anchor = "start") =>
+      items.map((line, index) =>
+        \`<text x="\${x}" y="\${y + index * gap}" text-anchor="\${anchor}" font-family="Arial,sans-serif" font-size="\${size}" font-weight="\${weight}" fill="\${textColor}">\${escapeXml(line)}</text>\`
       ).join("");
 
     let content = "";
     if (template === "stat") {
-      const statSize = stat.length > 6 ? 112 : 132;
-      const statY = 285;
-      const statLabelY = statY + statSize + 55;
-      const statLabelGap = 42;
-      const closingY = statLabelY + statLabelLines.length * statLabelGap + 55;
-      const statClosingSize = closingLines.length >= 4 ? 25 : 29;
-      const statClosingGap = closingLines.length >= 4 ? 33 : 38;
-      content = `
-        <text x="68" y="${statY}" font-family="Arial,sans-serif" font-size="${statSize}" font-weight="700" fill="${textColor}">${safeStat}</text>
-        ${textLines(statLabelLines, 68, statLabelY, statLabelLines.length >= 5 ? 29 : 32, 400, statLabelLines.length >= 5 ? 38 : statLabelGap)}
-        ${textLines(closingLines, 68, closingY, statClosingSize, 600, statClosingGap)}
-      `;
+      const statFit = fitSingleLine(displayStat || "—", 880, 138, 78, 700);
+      const labelFit = fitText(displayStatLabel || "Add a short explanation for this statistic.", {
+        maxWidth: 820, maxLines: 4, startSize: 38, minSize: 28, weight: 400, lineHeight: 46,
+      });
+      const closingFit = fitText(closing || "The takeaway matters as much as the number.", {
+        maxWidth: 820, maxLines: 3, startSize: 34, minSize: 26, weight: 600, lineHeight: 41,
+      });
+
+      const statY = 330;
+      const labelY = statY + statFit.size + 72;
+      const labelEnd = labelY + Math.max(1, labelFit.lines.length - 1) * labelFit.gap + labelFit.size;
+      const dividerY = labelEnd + 48;
+      const closingY = dividerY + 58;
+
+      content = \`
+        <text x="540" y="\${statY}" text-anchor="middle" font-family="Arial,sans-serif" font-size="\${statFit.size}" font-weight="700" fill="\${textColor}">\${safeStat}</text>
+        \${textLines(labelFit.lines, 540, labelY, labelFit.size, 400, labelFit.gap, "middle")}
+        <line x1="68" y1="\${dividerY}" x2="193" y2="\${dividerY}" stroke="\${textColor}" stroke-width="7" stroke-linecap="round"/>
+        \${textLines(closingFit.lines, 68, closingY, closingFit.size, 600, closingFit.gap)}
+      \`;
     } else {
+      const headlineFit = fitText(headline || "Your main thought goes here.", {
+        maxWidth: 900, maxLines: 5, startSize: 68, minSize: 46, weight: 500, lineHeight: 68,
+      });
+      const bodyFit = fitText(body || "Add the supporting thought that explains why this matters.", {
+        maxWidth: 900, maxLines: 7, startSize: 31, minSize: 25, weight: 400, lineHeight: 38,
+      });
+      const closingFit = fitText(closing || "End with a clear human takeaway.", {
+        maxWidth: 900, maxLines: 4, startSize: 32, minSize: 26, weight: 600, lineHeight: 39,
+      });
+
       const contentX = 68;
-      const headlineSize = headlineLines.length >= 4 ? 50 : headlineLines.length === 3 ? 58 : 64;
-      const headlineGap = headlineSize * 1.08;
       const headlineY = template === "editorial" ? 300 : 250;
-      const bodySize = bodyLines.length >= 8 ? 24 : bodyLines.length >= 6 ? 27 : 29;
-      const bodyGap = bodyLines.length >= 8 ? 34 : 39;
-      const bodyY = headlineY + (headlineLines.length - 1) * headlineGap + headlineSize + 46;
-      const bodyEndY = bodyY + Math.max(1, bodyLines.length - 1) * bodyGap + bodySize;
-      const dividerY = template === "editorial" ? bodyEndY + 36 : bodyEndY + 24;
-      const closingSize = closingLines.length >= 4 ? 24 : closingLines.length >= 3 ? 27 : 29;
-      const closingGap = closingLines.length >= 4 ? 33 : 37;
-      const closingY = template === "editorial" ? dividerY + 58 : bodyEndY + 58;
-      content = `
-        ${textLines(headlineLines, contentX, headlineY, headlineSize, 500, headlineGap)}
-        ${textLines(bodyLines, contentX, bodyY, bodySize, 400, bodyGap)}
-        ${template === "editorial" ? `<line x1="${contentX}" y1="${dividerY}" x2="${contentX + 125}" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
-        ${textLines(closingLines, contentX, closingY, closingSize, 600, closingGap)}
-      `;
+      const headlineEnd = headlineY + Math.max(1, headlineFit.lines.length - 1) * headlineFit.gap + headlineFit.size;
+      const bodyY = headlineEnd + 50;
+      const bodyEnd = bodyY + Math.max(1, bodyFit.lines.length - 1) * bodyFit.gap + bodyFit.size;
+      const dividerY = template === "editorial" ? bodyEnd + 34 : bodyEnd + 22;
+      const closingY = template === "editorial" ? dividerY + 56 : bodyEnd + 54;
+
+      content = \`
+        \${textLines(headlineFit.lines, contentX, headlineY, headlineFit.size, 500, headlineFit.gap)}
+        \${textLines(bodyFit.lines, contentX, bodyY, bodyFit.size, 400, bodyFit.gap)}
+        \${template === "editorial" ? \`<line x1="\${contentX}" y1="\${dividerY}" x2="\${contentX + 125}" y2="\${dividerY}" stroke="\${textColor}" stroke-width="7" stroke-linecap="round"/>\` : ""}
+        \${textLines(closingFit.lines, contentX, closingY, closingFit.size, 600, closingFit.gap)}
+      \`;
     }
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+    return \`<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
       <defs>
         <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="1 0 0 0 .91 0 1 0 0 .91 0 0 1 0 .89 0 0 0 .08 0"/></filter>
         <linearGradient id="gradientBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d6c9"/><stop offset="100%" stop-color="#c9d8ff"/></linearGradient>
         <linearGradient id="photoBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b8d3df"/><stop offset="100%" stop-color="#7896a0"/></linearGradient>
         <clipPath id="avatarClip"><circle cx="116" cy="114" r="52"/></clipPath>
       </defs>
-      ${backgroundId === "dark"
+      \${backgroundId === "dark"
         ? '<rect width="1080" height="1080" fill="#151515"/><circle cx="900" cy="120" r="260" fill="#2a2a2a" opacity=".65"/>'
         : backgroundId === "gradient"
           ? '<rect width="1080" height="1080" fill="url(#gradientBg)"/>'
@@ -269,21 +300,21 @@ export default function PostCardPage() {
                   ? '<rect width="1080" height="1080" fill="#f2f0e7"/><path d="M820 80c-180 140-190 350-60 500s100 280-10 500h330V0z" fill="#d5dfc9"/><path d="M940 160c-150 130-160 320-30 480s80 270 0 440" fill="none" stroke="#839b78" stroke-width="38" opacity=".65"/>'
                   : backgroundId === "minimal"
                     ? '<rect width="1080" height="1080" fill="#f7f5ef"/>'
-                    : '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>'}
+                    : '<rect width="1080" height="1080" fill="#f4f1e9"/><rect width="1080" height="1080" filter="url(#paper)" opacity=".55"/>}
 
-      ${template === "editorial" ? `
-        ${avatar}
-        <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
-        <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
+      \${template === "editorial" ? \`
+        \${avatar}
+        <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="\${textColor}">\${safeName}</text>
+        <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="\${mutedColor}">\${safeHandle}</text>
         <circle cx="510" cy="96" r="14" fill="#24a8e8"/>
         <path d="M503 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
-      ` : `
-        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="${mutedColor}">POSTCARD</text>
-        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="${mutedColor}">${safeName} · ${safeHandle}</text>
-      `}
-      ${content}
-      <text x="68" y="1020" font-family="Arial,sans-serif" font-size="18" fill="${mutedColor}">${escapeXml(sourceLine)}</text>
-    </svg>`;
+      \` : \`
+        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="\${mutedColor}">POSTCARD</text>
+        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="\${mutedColor}">\${safeName} · \${safeHandle}</text>
+      \`}
+      \${content}
+      <text x="68" y="1020" font-family="Arial,sans-serif" font-size="18" fill="\${mutedColor}">\${safeSource}</text>
+    </svg>\`;
   }
 
   async function renderPngDataUrl(backgroundId: BackgroundId) {
@@ -370,6 +401,7 @@ export default function PostCardPage() {
   }
 
   async function saveCard() {
+    const normalizedStat = normalizeStatisticContent(stat, stat, statLabel);
     setSaving(true);
     setSaved(false);
     setGenerateMessage("");
@@ -386,8 +418,8 @@ export default function PostCardPage() {
           headline,
           body,
           closing,
-          stat,
-          statLabel,
+          stat: normalizedStat.stat,
+          statLabel: normalizedStat.statLabel,
           source,
         }),
       });
@@ -514,8 +546,9 @@ export default function PostCardPage() {
 
               {template === "stat" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Statistic" value={stat} onChange={setStat} />
+                  <Field label="Statistic" value={stat} onChange={setStat} placeholder="e.g. 70%, 3.2x, $4.2B, 1 in 5" />
                   <Field label="What it means" value={statLabel} onChange={setStatLabel} textarea />
+                  <p className="text-[11px] leading-5 text-neutral-500">Keep the statistic itself short. The explanation belongs here and stays visually secondary.</p>
                 </div>
               ) : (
                 <div className="mt-5 space-y-5">
@@ -654,15 +687,15 @@ export default function PostCardPage() {
   );
 }
 
-function Field({ label, value, onChange, textarea = false, disabled = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean; disabled?: boolean }) {
+function Field({ label, value, onChange, textarea = false, disabled = false, placeholder = "" }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean; disabled?: boolean; placeholder?: string }) {
   const className = "mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none transition focus:border-neutral-900";
   return (
     <label className="block">
       <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">{label}</span>
       {textarea ? (
-        <textarea rows={3} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " resize-y leading-6 disabled:cursor-not-allowed disabled:text-neutral-400"} />
+        <textarea rows={3} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " resize-y leading-6 disabled:cursor-not-allowed disabled:text-neutral-400"} />
       ) : (
-        <input value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " disabled:cursor-not-allowed disabled:text-neutral-400"} />
+        <input value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={className + " disabled:cursor-not-allowed disabled:text-neutral-400"} />
       )}
     </label>
   );
