@@ -8,13 +8,14 @@ export async function GET(request: NextRequest) {
   const expectedState = request.cookies.get("postcraft_linkedin_state")?.value;
   const error = params.get("error");
 
-  if (error) return NextResponse.redirect(new URL(`/?linkedinError=${encodeURIComponent(params.get("error_description") || error)}`, request.url));
+  if (error) return NextResponse.redirect(new URL(`/postcard?linkedinError=${encodeURIComponent(params.get("error_description") || error)}`, request.url));
   if (!code || !state || !expectedState || state !== expectedState) {
-    return NextResponse.redirect(new URL("/?linkedinError=LinkedIn authorization could not be verified.", request.url));
+    return NextResponse.redirect(new URL("/postcard?linkedinError=LinkedIn authorization could not be verified.", request.url));
   }
 
   try {
-    const { clientId, clientSecret, redirectUri } = getLinkedInConfig();
+    const { clientId, clientSecret } = getLinkedInConfig();
+    const redirectUri = process.env.LINKEDIN_REDIRECT_URI?.trim() || `${request.nextUrl.origin}/api/linkedin/callback`;
     const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -45,6 +46,6 @@ export async function GET(request: NextRequest) {
     response.cookies.delete("postcraft_linkedin_state");
     return response;
   } catch (err) {
-    return NextResponse.redirect(new URL(`/?linkedinError=${encodeURIComponent(err instanceof Error ? err.message : "LinkedIn connection failed.")}`, request.url));
+    return NextResponse.redirect(new URL(`/postcard?linkedinError=${encodeURIComponent(err instanceof Error ? err.message : "LinkedIn connection failed.")}`, request.url));
   }
 }
