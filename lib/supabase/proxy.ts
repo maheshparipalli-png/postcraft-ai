@@ -43,15 +43,22 @@ export async function updateSession(request: NextRequest) {
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub as string | undefined;
 
-  if (isPublic(request.nextUrl.pathname)) return response;
+  const pathname = request.nextUrl.pathname;
+  const isApiRoute = pathname.startsWith("/api/");
+  const isBillingApi = pathname.startsWith("/api/billing/");
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isAdminApi = pathname.startsWith("/api/admin/");
+
+  if (!isApiRoute && isPublic(pathname)) return response;
 
   if (!userId) {
+    if (isApiRoute) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     const redirect = NextResponse.redirect(new URL("/login", request.url));
     copyCookies(response, redirect);
     return redirect;
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (isAdminRoute || isAdminApi) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -66,9 +73,9 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  if (request.nextUrl.pathname === "/billing") return response;
+  if (pathname === "/billing" || isBillingApi) return response;
 
-  if (isProtected(request.nextUrl.pathname)) {
+  if (isProtected(pathname) || (isApiRoute && !isBillingApi)) {
     const { data: subscription } = await supabase
       .from("billing_subscriptions")
       .select("status,trial_ends_at,grace_ends_at")
@@ -84,6 +91,12 @@ export async function updateSession(request: NextRequest) {
       (Number.isFinite(graceEnds) && graceEnds > now);
 
     if (!allowed) {
+      if (isApiRoute) {
+        return NextResponse.json(
+          { error: "Start your free trial or subscribe to continue", billingStatus: "expired" },
+          { status: 402 },
+        );
+      }
       const redirect = NextResponse.redirect(new URL("/billing", request.url));
       copyCookies(response, redirect);
       return redirect;
