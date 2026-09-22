@@ -108,8 +108,8 @@ export default function PostCardPage() {
   const [closing, setClosing] = useState(
     "Work earns a seat, but people-centered impact builds a legacy."
   );
-  const [stat, setStat] = useState("26%");
-  const [statLabel, setStatLabel] = useState("of Anthropic's R&D work is now led by Claude");
+  const [stat, setStat] = useState("");
+  const [statLabel, setStatLabel] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("paper");
@@ -130,6 +130,13 @@ export default function PostCardPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = useMemo(() => initial(name), [name]);
+
+  useEffect(() => {
+    if (template !== "stat") return;
+    const normalized = normalizeStatisticContent(stat, stat, statLabel);
+    if (normalized.stat && normalized.stat !== stat.trim()) setStat(normalized.stat);
+    if (normalized.statLabel && normalized.statLabel !== statLabel.trim()) setStatLabel(normalized.statLabel);
+  }, [template]);
 
   useEffect(() => {
     let cancelled = false;
@@ -546,9 +553,22 @@ export default function PostCardPage() {
 
               {template === "stat" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Statistic" value={stat} onChange={setStat} placeholder="e.g. 70%, 3.2x, $4.2B, 1 in 5" />
+                  <Field
+                    label="Statistic"
+                    value={stat}
+                    onChange={(value) => {
+                      const normalized = normalizeStatisticContent(value, value, "");
+                      if (normalized.stat) {
+                        setStat(normalized.stat);
+                        if (normalized.statLabel) setStatLabel(normalized.statLabel);
+                      } else {
+                        setStat(value);
+                      }
+                    }}
+                    placeholder="e.g. 70%, 3.2x, $4.2B, 1 in 5"
+                  />
                   <Field label="What it means" value={statLabel} onChange={setStatLabel} textarea />
-                  <p className="text-[11px] leading-5 text-neutral-500">Keep the statistic itself short. The explanation belongs here and stays visually secondary.</p>
+                  <p className="text-[11px] leading-5 text-neutral-500">Enter only the number/value here. If you paste a sentence containing a statistic, PostCard will split the value from the explanation.</p>
                 </div>
               ) : (
                 <div className="mt-5 space-y-5">

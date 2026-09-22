@@ -36,8 +36,8 @@ export function normalizeStatisticContent(
   if (!statLabel && suppliedStat && stat) {
     const remainder = suppliedStat
       .replace(stat, "")
-      .replace(/^\\s*[-:;,|]+\\s*/, "")
-      .replace(/\\s+/g, " ")
+      .replace(/^\s*[-:;,|]+\s*/, "")
+      .replace(/\s+/g, " ")
       .trim();
     if (remainder) statLabel = remainder;
   }
