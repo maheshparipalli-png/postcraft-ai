@@ -41,7 +41,6 @@ export async function POST(request: Request) {
   const { data: updated, error } = await supabase
     .from("billing_subscriptions")
     .update({
-      status: "active",
       razorpay_payment_id: paymentId,
       razorpay_signature_verified_at: now,
       payment_verified_at: now,
@@ -57,5 +56,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Payment verified, but subscription activation failed. Please contact support." }, { status: 500 });
   }
 
-  return NextResponse.json({ status: "active", subscription: updated });
+  return NextResponse.json({ status: updated.status, paymentVerified: true, subscription: updated });
 }
