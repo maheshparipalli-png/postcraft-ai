@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type NavLink = { label: string; href: string; exact?: boolean };
@@ -30,6 +30,8 @@ export default function SiteNav() {
   const [trialLabel, setTrialLabel] = useState("");
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +86,27 @@ export default function SiteNav() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountOpen]);
 
   if (pathname === "/login") return null;
 
@@ -170,13 +193,20 @@ export default function SiteNav() {
                   </div>
                 </details>
 
-                <details className="group relative">
-                  <summary className={accountActive
-                    ? "list-none rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
-                    : "list-none rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
-                    Account <span className="ml-1 text-[10px]">⌄</span>
-                  </summary>
-                  <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
+                <div ref={accountRef} className="relative">
+                  <button
+                    type="button"
+                    aria-expanded={accountOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setAccountOpen((open) => !open)}
+                    className={accountActive || accountOpen
+                      ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
+                      : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}
+                  >
+                    Account <span className="ml-1 text-[10px]">{accountOpen ? "⌃" : "⌄"}</span>
+                  </button>
+                  {accountOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" role="menu">
                     <div className="px-3 py-2.5">
                       <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Signed in as</div>
                       <div className="mt-1 truncate text-xs font-medium text-neutral-800" title={userEmail}>{userEmail || "Signed-in user"}</div>
@@ -191,7 +221,7 @@ export default function SiteNav() {
                     {linkedinConnected ? (
                       <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5">
                         <span className="text-xs font-medium text-neutral-800">LinkedIn Connected</span>
-                        <button type="button" onClick={disconnectLinkedIn} className="text-[10px] text-neutral-500 hover:text-neutral-950">
+                        <button type="button" onClick={() => { void disconnectLinkedIn(); setAccountOpen(false); }} className="text-[10px] text-neutral-500 hover:text-neutral-950">
                           Disconnect
                         </button>
                       </div>
@@ -206,14 +236,15 @@ export default function SiteNav() {
 
                     <button
                       type="button"
-                      onClick={signOut}
+                      onClick={() => { void signOut(); setAccountOpen(false); }}
                       disabled={signingOut}
                       className="block w-full rounded-lg px-3 py-2.5 text-left text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                     >
                       {signingOut ? "Signing out…" : "Sign out"}
                     </button>
                   </div>
-                </details>
+                  )}
+                </div>
 
                 {isAdmin && (
                   <Link href="/admin" className={pathname.startsWith("/admin")
