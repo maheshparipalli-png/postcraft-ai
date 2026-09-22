@@ -40,3 +40,18 @@ a,
   background: #171717;
   color: #ffffff;
 }
+
+
+/* The shared SiteNav is the application's primary navigation. */
+main header > nav {
+  display: none !important;
+}
+
+/* Keep page content clear of the sticky shared navigation. */
+.postcraft-site-nav summary::-webkit-details-marker {
+  display: none;
+}
+
+.postcraft-site-nav summary {
+  cursor: pointer;
+}
