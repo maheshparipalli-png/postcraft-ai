@@ -379,16 +379,11 @@ export default function PostCardPage() {
       </defs>
       ${backgroundMarkup}
 
-      ${template === "editorial" ? `
-        ${avatar}
-        <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
-        <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
-        <circle cx="510" cy="96" r="14" fill="#24a8e8"/>
-        <path d="M503 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
-      ` : `
-        <text x="68" y="88" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="${mutedColor}">POSTCARD</text>
-        <text x="68" y="125" font-family="Arial,sans-serif" font-size="20" fill="${mutedColor}">${safeName} · ${safeHandle}</text>
-      `}
+      ${avatar}
+      <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
+      <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
+      <circle cx="510" cy="96" r="14" fill="#24a8e8"/>
+      <path d="M503 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
       ${content}
       <text x="68" y="1020" font-family="Arial,sans-serif" font-size="18" fill="${mutedColor}">${safeSource}</text>
     </svg>`;
