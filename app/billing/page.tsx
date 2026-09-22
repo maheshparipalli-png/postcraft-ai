@@ -16,6 +16,27 @@ type BillingResponse = {
   error?: string;
 };
 
+
+
+type RazorpayCheckout = {
+  open: () => void;
+};
+
+type RazorpayOptions = {
+  key: string;
+  subscription_id: string;
+  name: string;
+  description: string;
+  handler: (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => void;
+  modal?: { ondismiss?: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => RazorpayCheckout;
+  }
+}
+
 function formatRemaining(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -30,6 +51,7 @@ export default function BillingPage() {
   const [starting, setStarting] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
 
   async function loadBilling() {
     try {
@@ -82,6 +104,66 @@ export default function BillingPage() {
   const status = billing?.status ?? "loading";
   const trialActive = status === "trialing" && remaining !== null && remaining > 0;
 
+  async function subscribe() {
+    setSubscribing(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/billing/create-subscription", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to start checkout.");
+        return;
+      }
+
+      if (!window.Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+          if (existing) {
+            existing.addEventListener("load", () => resolve(), { once: true });
+            existing.addEventListener("error", () => reject(new Error("Razorpay Checkout failed to load")), { once: true });
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Razorpay Checkout failed to load"));
+          document.body.appendChild(script);
+        });
+      }
+
+      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable.");
+
+      const checkout = new window.Razorpay({
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+        name: "PostCraft AI",
+        description: "PostCraft Pro subscription",
+        handler: async (payment) => {
+          const verifyResponse = await fetch("/api/billing/verify-subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payment),
+          });
+          const verifyData = await verifyResponse.json();
+          if (!verifyResponse.ok) {
+            setMessage(verifyData.error ?? "Payment verification failed. Please contact support.");
+            return;
+          }
+          setMessage("Payment verified. Your PostCraft Pro subscription is active.");
+          await loadBilling();
+        },
+        modal: { ondismiss: () => setMessage("Checkout was closed. No payment was made.") },
+      });
+      checkout.open();
+    } catch (error) {
+      console.error("Razorpay checkout error:", error);
+      setMessage("Unable to open secure checkout. Please try again.");
+    } finally {
+      setSubscribing(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
@@ -100,7 +182,7 @@ export default function BillingPage() {
           <div className="max-w-3xl">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Account settings</div>
             <h1 className="mt-5 font-serif text-5xl leading-[0.98] tracking-[-0.045em] sm:text-7xl">Payment,<br />kept simple.</h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Try PostCraft Pro free for 15 days. No card is required to start. You will also have a 3-day grace period after the trial ends. Pricing will be announced before paid checkout is enabled.</p>
+            <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600">Try PostCraft Pro free for 15 days. No card is required to start. When your trial or grace period ends, you can continue with secure Razorpay checkout.</p>
           </div>
         </section>
 
@@ -109,7 +191,7 @@ export default function BillingPage() {
             <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Current plan</div>
             <h2 className="mt-3 font-serif text-3xl tracking-[-0.025em]">PostCraft Pro</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600">Research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
-            <div className="mt-6 font-serif text-3xl">Paid plan — pricing coming soon</div>
+            <div className="mt-6 font-serif text-3xl">PostCraft Pro — monthly</div>
             <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
               Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
             </div>
@@ -144,13 +226,13 @@ export default function BillingPage() {
               <div className="mt-5 space-y-4">
                 <div className="font-medium text-amber-800">Your trial has ended — grace period active</div>
                 <p className="text-sm leading-6 text-neutral-600">You still have temporary access while you decide whether to subscribe.</p>
-                <p className="text-sm text-neutral-500">Paid checkout will be enabled once pricing is finalized.</p>
+                <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe with Razorpay →"}</button>
               </div>
             ) : status === "expired" ? (
               <div className="mt-5 space-y-4">
                 <div className="font-medium">Your free trial has ended</div>
                 <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft when paid checkout is enabled to continue using your workspace.</p>
-                <button type="button" disabled className="border border-neutral-300 px-4 py-2 text-sm text-neutral-400">Subscribe with Razorpay — coming soon</button>
+                <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe with Razorpay →"}</button>
               </div>
             ) : (
               <p className="mt-5 text-sm leading-6 text-neutral-600">{billing?.error ?? "Billing information is unavailable."}</p>
