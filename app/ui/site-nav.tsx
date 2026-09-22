@@ -31,7 +31,11 @@ export default function SiteNav() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+  const publishRef = useRef<HTMLDivElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -88,16 +92,27 @@ export default function SiteNav() {
   }, []);
 
   useEffect(() => {
-    if (!accountOpen) return;
+    if (!accountOpen && !publishOpen && !helpOpen) return;
 
     function handlePointerDown(event: MouseEvent) {
-      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (accountOpen && accountRef.current && !accountRef.current.contains(target)) {
         setAccountOpen(false);
+      }
+      if (publishOpen && publishRef.current && !publishRef.current.contains(target)) {
+        setPublishOpen(false);
+      }
+      if (helpOpen && helpRef.current && !helpRef.current.contains(target)) {
+        setHelpOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setAccountOpen(false);
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+        setPublishOpen(false);
+        setHelpOpen(false);
+      }
     }
 
     document.addEventListener("mousedown", handlePointerDown);
@@ -106,7 +121,7 @@ export default function SiteNav() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [accountOpen]);
+  }, [accountOpen, publishOpen, helpOpen]);
 
   if (pathname === "/login") return null;
 
@@ -163,35 +178,59 @@ export default function SiteNav() {
                   );
                 })}
 
-                <details className="group relative">
-                  <summary className={publishActive
-                    ? "list-none rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
-                    : "list-none rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
-                    Publish <span className="ml-1 text-[10px]">⌄</span>
-                  </summary>
-                  <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
-                    <Link href="/auto-post" className={pathname === "/auto-post" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>
-                      Auto-post
-                      <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Prepare &amp; review</span>
-                    </Link>
-                    <Link href="/auto-publish" className={pathname === "/auto-publish" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>
-                      Auto-publish
-                      <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Recurring automation</span>
-                    </Link>
-                  </div>
-                </details>
+                <div ref={publishRef} className="relative">
+                  <button
+                    type="button"
+                    aria-expanded={publishOpen}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      setPublishOpen((open) => !open);
+                      setHelpOpen(false);
+                      setAccountOpen(false);
+                    }}
+                    className={publishActive || publishOpen
+                      ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
+                      : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}
+                  >
+                    Publish <span className="ml-1 text-[10px]">{publishOpen ? "⌃" : "⌄"}</span>
+                  </button>
+                  {publishOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" role="menu">
+                      <Link href="/auto-post" onClick={() => setPublishOpen(false)} className={pathname === "/auto-post" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>
+                        Auto-post
+                        <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Prepare &amp; review</span>
+                      </Link>
+                      <Link href="/auto-publish" onClick={() => setPublishOpen(false)} className={pathname === "/auto-publish" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>
+                        Auto-publish
+                        <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Recurring automation</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
 
-                <details className="group relative">
-                  <summary className={helpActive
-                    ? "list-none rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
-                    : "list-none rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
-                    Help <span className="ml-1 text-[10px]">⌄</span>
-                  </summary>
-                  <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg">
-                    <Link href="/help" className={pathname === "/help" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Help Center</Link>
-                    <Link href="/help/contact" className={pathname === "/help/contact" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Contact Support</Link>
-                  </div>
-                </details>
+                <div ref={helpRef} className="relative">
+                  <button
+                    type="button"
+                    aria-expanded={helpOpen}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      setHelpOpen((open) => !open);
+                      setPublishOpen(false);
+                      setAccountOpen(false);
+                    }}
+                    className={helpActive || helpOpen
+                      ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
+                      : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}
+                  >
+                    Help <span className="ml-1 text-[10px]">{helpOpen ? "⌃" : "⌄"}</span>
+                  </button>
+                  {helpOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" role="menu">
+                      <Link href="/help" onClick={() => setHelpOpen(false)} className={pathname === "/help" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Help Center</Link>
+                      <Link href="/help/contact" onClick={() => setHelpOpen(false)} className={pathname === "/help/contact" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Contact Support</Link>
+                    </div>
+                  )}
+                </div>
 
                 <div ref={accountRef} className="relative">
                   <button
