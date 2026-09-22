@@ -424,6 +424,53 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   return words.length >= 55 && sharedTerms >= 2;
 }
 
+function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should", "article",
+    "source", "selected", "interesting", "important", "today", "people",
+    "company", "companies", "technology", "technologies", "business",
+  ]);
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 4 && !stopWords.has(word));
+
+  const titleTerms = Array.from(new Set(normalize(story.headline)));
+  const summaryTerms = new Set(normalize(story.summary));
+  const evidenceTerms = new Set(normalize(evidence.map((item) => item.support).join(" ")));
+  const postTerms = new Set(normalize(post));
+
+  // Require the final draft to carry distinctive terms from the selected
+  // headline, not just generic topic words such as AI, work, or business.
+  const distinctiveTitleTerms = titleTerms.filter((term) => postTerms.has(term));
+  const summaryMatches = Array.from(summaryTerms).filter((term) => postTerms.has(term));
+  const evidenceMatches = Array.from(evidenceTerms).filter((term) => postTerms.has(term));
+
+  const titleAnchorCount = distinctiveTitleTerms.length;
+  const supportingAnchorCount = new Set([...summaryMatches, ...evidenceMatches]).size;
+
+  // A short headline may only have one distinctive term, but the post must
+  // still contain concrete supporting language from the verified story.
+  const titlePass = titleTerms.length <= 2
+    ? titleAnchorCount >= 1
+    : titleAnchorCount >= 2;
+  const supportPass = supportingAnchorCount >= 3;
+
+  // Guard against a generic angle becoming detached from the actual article.
+  const angleTerms = new Set(normalize(angle));
+  const angleMatches = Array.from(angleTerms).filter((term) => postTerms.has(term)).length;
+
+  return titlePass && supportPass && angleMatches >= Math.min(2, angleTerms.size);
+}
+
 function postHasGenericFiller(post: string) {
   return [
     "it's crucial to recognize",
@@ -525,16 +572,18 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   }
 
   const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
+  const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
   const hasGenericFiller = postHasGenericFiller(post);
 
   console.info("[PostCraft] post_validation", {
     wordCount: post.split(/\s+/).filter(Boolean).length,
     hasConcreteAnchor,
+    hasSourceGrounding,
     hasGenericFiller,
   });
 
-  if (!hasConcreteAnchor || hasGenericFiller) {
-    throw new Error("PostCraft generated a draft that was too generic. Try another angle or regenerate.");
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller) {
+    throw new Error("PostCraft rejected the generated draft because it was not sufficiently grounded in the selected source. The article will be skipped and another source will be tried.");
   }
 
   return post;
