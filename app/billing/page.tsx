@@ -117,16 +117,50 @@ export default function BillingPage() {
 
       if (!window.Razorpay) {
         await new Promise<void>((resolve, reject) => {
-          const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+          const scriptSrc = "https://checkout.razorpay.com/v1/checkout.js";
+          const existing = document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`);
+
           if (existing) {
-            existing.addEventListener("load", () => resolve(), { once: true });
-            existing.addEventListener("error", () => reject(new Error("Razorpay Checkout failed to load")), { once: true });
+            if (window.Razorpay) {
+              resolve();
+              return;
+            }
+
+            const timeout = window.setTimeout(() => {
+              if (window.Razorpay) {
+                resolve();
+              } else {
+                reject(new Error("Razorpay Checkout failed to load"));
+              }
+            }, 10000);
+
+            existing.addEventListener(
+              "load",
+              () => {
+                window.clearTimeout(timeout);
+                if (window.Razorpay) resolve();
+                else reject(new Error("Razorpay Checkout loaded without initializing"));
+              },
+              { once: true },
+            );
+            existing.addEventListener(
+              "error",
+              () => {
+                window.clearTimeout(timeout);
+                reject(new Error("Razorpay Checkout failed to load"));
+              },
+              { once: true },
+            );
             return;
           }
+
           const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.src = scriptSrc;
           script.async = true;
-          script.onload = () => resolve();
+          script.onload = () => {
+            if (window.Razorpay) resolve();
+            else reject(new Error("Razorpay Checkout loaded without initializing"));
+          };
           script.onerror = () => reject(new Error("Razorpay Checkout failed to load"));
           document.body.appendChild(script);
         });
@@ -191,7 +225,7 @@ export default function BillingPage() {
             <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Current plan</div>
             <h2 className="mt-3 font-serif text-3xl tracking-[-0.025em]">PostCraft Pro</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600">Research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
-            <div className="mt-6 font-serif text-3xl">PostCraft Pro — monthly</div>
+            <div className="mt-6 font-serif text-3xl">PostCraft Pro — ₹499/month</div>
             <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
               Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
             </div>
