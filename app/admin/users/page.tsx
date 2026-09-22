@@ -11,6 +11,8 @@ export default async function AdminUsersPage() {
   if (!access.allowed) redirect("/");
 
   const admin = createAdminClient();
+  const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const emailByUser = new Map((authUsers?.users ?? []).map((user) => [user.id, user.email ?? ""]));
   const { data: profiles } = await admin
     .from("profiles")
     .select("user_id,display_name,role,created_at,updated_at")
@@ -42,7 +44,7 @@ export default async function AdminUsersPage() {
                 const subscription = byUser.get(profile.user_id);
                 return (
                   <tr key={profile.user_id} className="hover:bg-white/50">
-                    <td className="px-3 py-5"><div className="font-medium">{profile.display_name || "Unnamed user"}</div><div className="mt-1 font-mono text-[10px] text-neutral-500">{profile.user_id}</div></td>
+                    <td className="px-3 py-5"><div className="font-medium">{profile.display_name || "Unnamed user"}</div><div className="mt-1 text-xs text-neutral-500">{emailByUser.get(profile.user_id) || "No email"}</div><div className="mt-1 font-mono text-[10px] text-neutral-400">{profile.user_id}</div></td>
                     <td className="px-3 py-5 text-xs">{profile.role}</td>
                     <td className="px-3 py-5 text-xs">{subscription?.status ?? "not started"}</td>
                     <td className="px-3 py-5 text-xs">{subscription?.trial_ends_at ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(subscription.trial_ends_at)) : "—"}</td>
