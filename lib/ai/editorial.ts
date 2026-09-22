@@ -321,7 +321,7 @@ Use exactly this structure:
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 500,
+      numPredict: 350,
     })
   );
 
@@ -545,7 +545,7 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
   ), {
     temperature: 0.3,
-    numPredict: 260,
+    numPredict: 220,
   });
 
   const parsedResult = parseJson(rawResult);
