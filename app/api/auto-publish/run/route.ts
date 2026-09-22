@@ -81,8 +81,11 @@ function getLocalScheduleParts(timezone: string) {
 }
 
 async function buildDraft() {
-  const maxAttempts = 2;
-  const maxCandidatesPerAttempt = 5;
+  // Keep interactive regeneration comfortably inside the request budget.
+  // Each candidate can require source verification plus two AI generations,
+  // so processing ten candidates serially can easily exceed Vercel limits.
+  const maxAttempts = 1;
+  const maxCandidatesPerAttempt = 3;
   const errors: string[] = [];
   const attemptedUrls = new Set<string>();
 
@@ -166,7 +169,6 @@ async function buildDraft() {
       errors.push(`Attempt ${attempt}: ${message}`);
       console.error(`[PostCraft] auto_discovery_failed attempt=${attempt} reason=${message}`);
     }
-    if (attempt < maxAttempts) await pause(700 * attempt);
   }
 
   return { ok: false as const, error: `Automatic discovery could not find and prepare a usable article after ${maxAttempts} attempts.`, attempts: maxAttempts, details: errors.slice(-8) };
