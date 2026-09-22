@@ -136,6 +136,8 @@ export default function PostCardPage() {
   const [background, setBackground] = useState<BackgroundId>("paper");
   const [downloading, setDownloading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
   const [saved, setSaved] = useState(false);
   const [savedCardId, setSavedCardId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -161,64 +163,108 @@ export default function PostCardPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    async function applyLocalProfile() {
+      try {
+        const savedProfile = window.localStorage.getItem("postcraft-postcard-profile");
+        if (!savedProfile) return false;
+        const localProfile = JSON.parse(savedProfile) as { name?: string; handle?: string; photo?: string | null };
+        if (!localProfile.name || !localProfile.handle || cancelled) return false;
+        setName(localProfile.name);
+        setHandle(localProfile.handle);
+        setPhoto(localProfile.photo || null);
+        setProfileLocked(true);
+        setEditingProfile(false);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     async function loadAccountProfile() {
+      const localLoaded = await applyLocalProfile();
+
       try {
         const response = await fetch("/api/postcard/profile", { cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json();
         if (cancelled) return;
+
         if (data?.profile) {
           setName(data.profile.name || "");
           setHandle(data.profile.handle || "");
           setPhoto(data.profile.photo || null);
           setProfileLocked(Boolean(data.profile.name && data.profile.handle));
           setEditingProfile(false);
-          return;
+          window.localStorage.setItem(
+            "postcraft-postcard-profile",
+            JSON.stringify({
+              name: data.profile.name || "",
+              handle: data.profile.handle || "",
+              photo: data.profile.photo || null,
+            }),
+          );
+        } else if (!localLoaded) {
+          setProfileLocked(false);
         }
-        const savedProfile = window.localStorage.getItem("postcraft-postcard-profile");
-        if (savedProfile) {
-          try {
-            const localProfile = JSON.parse(savedProfile) as { name?: string; handle?: string; photo?: string | null };
-            if (localProfile.name && localProfile.handle) {
-              const saveResponse = await fetch("/api/postcard/profile", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: localProfile.name, handle: localProfile.handle, photo: localProfile.photo || null }),
-              });
-              if (saveResponse.ok && !cancelled) {
-                setName(localProfile.name);
-                setHandle(localProfile.handle);
-                setPhoto(localProfile.photo || null);
-                setProfileLocked(true);
-                setEditingProfile(false);
-                window.localStorage.removeItem("postcraft-postcard-profile");
-              }
-            }
-          } catch {}
-        }
-      } catch {}
+      } catch {
+        // Local profile remains available when account storage is unavailable.
+      }
     }
+
     loadAccountProfile();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function saveProfile() {
     if (!name.trim() || !handle.trim()) return;
+
+    const profile = {
+      name: name.trim(),
+      handle: handle.trim(),
+      photo: photo || null,
+    };
+
+    setProfileSaving(true);
+    setProfileMessage("");
+
+    // Save locally first so the profile is immediately remembered on this browser.
+    window.localStorage.setItem("postcraft-postcard-profile", JSON.stringify(profile));
+    setName(profile.name);
+    setHandle(profile.handle);
+    setPhoto(profile.photo);
+    setProfileLocked(true);
+    setEditingProfile(false);
+
     try {
       const response = await fetch("/api/postcard/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), handle: handle.trim(), photo }),
+        body: JSON.stringify(profile),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Could not save profile.");
-      setName(data.profile.name);
-      setHandle(data.profile.handle);
-      setPhoto(data.profile.photo || null);
-      setProfileLocked(true);
-      setEditingProfile(false);
-    } catch (error) {
-      setGenerateMessage(error instanceof Error ? error.message : "Could not save profile.");
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setProfileMessage("Saved on this device. Sign in to sync this profile to your account.");
+        return;
+      }
+
+      const saved = {
+        name: data.profile.name,
+        handle: data.profile.handle,
+        photo: data.profile.photo || null,
+      };
+      window.localStorage.setItem("postcraft-postcard-profile", JSON.stringify(saved));
+      setName(saved.name);
+      setHandle(saved.handle);
+      setPhoto(saved.photo);
+      setProfileMessage("Profile saved to your account.");
+    } catch {
+      setProfileMessage("Saved on this device. Account sync will retry when available.");
+    } finally {
+      setProfileSaving(false);
     }
   }
 
@@ -605,12 +651,13 @@ export default function PostCardPage() {
                       disabled={!name.trim() || !handle.trim()}
                       className="rounded-full border border-neutral-900 px-4 py-2 text-xs font-semibold hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {saving ? "Saving..." : "Save brand profile"}
+                      {profileSaving ? "Saving..." : "Save brand profile"}
                     </button>
                     <span className="text-[11px] text-neutral-400">Used on your PostCards and remembered for future cards.</span>
                   </div>
                 </>
               )}
+              {profileMessage && <div className="mt-3 text-[11px] text-neutral-500">{profileMessage}</div>}
             </div>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
