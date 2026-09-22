@@ -55,6 +55,12 @@ function fitLines(text: string, maxChars: number, maxLines: number) {
   const lines = wrapText(text, maxChars);
   if (lines.length <= maxLines) return lines;
 
+  // Prefer showing the complete thought by widening the wrapping before truncating.
+  for (let width = maxChars + 2; width <= Math.max(maxChars + 2, Math.ceil(text.trim().length / maxLines) + 2); width += 2) {
+    const widened = wrapText(text, width);
+    if (widened.length <= maxLines) return widened;
+  }
+
   const fitted = lines.slice(0, maxLines);
   const last = fitted[maxLines - 1].replace(/[.!,;:?]+$/, "");
   fitted[maxLines - 1] = last.length > 3 ? last + "…" : "…";
@@ -191,9 +197,9 @@ export default function PostCardPage() {
     const safeStatLabel = escapeXml(statLabel);
     const safeSource = escapeXml(source);
     const headlineLines = fitLines(headline, template === "stat" ? 24 : template === "editorial" ? 25 : 27, template === "stat" ? 2 : 4);
-    const bodyLines = fitLines(body, 42, 6);
-    const closingLines = fitLines(closing, 32, 3);
-    const statLabelLines = fitLines(statLabel, 31, 4);
+    const bodyLines = fitLines(body, 42, 8);
+    const closingLines = fitLines(closing, 32, 4);
+    const statLabelLines = fitLines(statLabel, 31, 5);
     const sourceLine = fitSingleLine(source, 78);
     const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
     const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
@@ -214,24 +220,26 @@ export default function PostCardPage() {
       const statLabelY = statY + statSize + 55;
       const statLabelGap = 42;
       const closingY = statLabelY + statLabelLines.length * statLabelGap + 55;
+      const statClosingSize = closingLines.length >= 4 ? 25 : 29;
+      const statClosingGap = closingLines.length >= 4 ? 33 : 38;
       content = `
         <text x="68" y="${statY}" font-family="Arial,sans-serif" font-size="${statSize}" font-weight="700" fill="${textColor}">${safeStat}</text>
-        ${textLines(statLabelLines, 68, statLabelY, 32, 400, statLabelGap)}
-        ${textLines(closingLines, 68, closingY, 29, 600, 38)}
+        ${textLines(statLabelLines, 68, statLabelY, statLabelLines.length >= 5 ? 29 : 32, 400, statLabelLines.length >= 5 ? 38 : statLabelGap)}
+        ${textLines(closingLines, 68, closingY, statClosingSize, 600, statClosingGap)}
       `;
     } else {
       const contentX = 68;
-      const headlineSize = headlineLines.length >= 4 ? 54 : headlineLines.length === 3 ? 60 : 64;
-      const headlineGap = headlineSize * 1.1;
+      const headlineSize = headlineLines.length >= 4 ? 50 : headlineLines.length === 3 ? 58 : 64;
+      const headlineGap = headlineSize * 1.08;
       const headlineY = template === "editorial" ? 300 : 250;
-      const bodySize = bodyLines.length >= 6 ? 27 : 29;
-      const bodyGap = 39;
+      const bodySize = bodyLines.length >= 8 ? 24 : bodyLines.length >= 6 ? 27 : 29;
+      const bodyGap = bodyLines.length >= 8 ? 34 : 39;
       const bodyY = headlineY + (headlineLines.length - 1) * headlineGap + headlineSize + 46;
       const bodyEndY = bodyY + Math.max(1, bodyLines.length - 1) * bodyGap + bodySize;
-      const dividerY = Math.min(805, Math.max(700, bodyEndY + 42));
-      const closingSize = closingLines.length >= 3 ? 27 : 29;
-      const closingGap = 37;
-      const closingY = template === "editorial" ? dividerY + 62 : bodyEndY + 72;
+      const dividerY = template === "editorial" ? bodyEndY + 36 : bodyEndY + 24;
+      const closingSize = closingLines.length >= 4 ? 24 : closingLines.length >= 3 ? 27 : 29;
+      const closingGap = closingLines.length >= 4 ? 33 : 37;
+      const closingY = template === "editorial" ? dividerY + 58 : bodyEndY + 58;
       content = `
         ${textLines(headlineLines, contentX, headlineY, headlineSize, 500, headlineGap)}
         ${textLines(bodyLines, contentX, bodyY, bodySize, 400, bodyGap)}
@@ -423,6 +431,7 @@ export default function PostCardPage() {
       setLinkedinLoading(false);
     }
   }
+
   async function downloadPng(backgroundId = background) {
     setDownloading(true);
     try {
@@ -561,12 +570,7 @@ export default function PostCardPage() {
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
                   <Field label="Supporting thought" value={body} onChange={setBody} textarea />
                   <Field label="Closing line" value={closing} onChange={setClosing} textarea />
-                  <Field
-                    label="LinkedIn caption"
-                    value={linkedinCaption}
-                    onChange={setLinkedinCaption}
-                    textarea
-                  />
+                  <Field label="LinkedIn caption" value={linkedinCaption} onChange={setLinkedinCaption} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     This caption is published above the visual. It is separate from the text on the card, so it should add context rather than repeat it.
                   </p>
