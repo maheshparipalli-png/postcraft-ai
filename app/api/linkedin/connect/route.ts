@@ -1,9 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getLinkedInConfig } from "@/lib/linkedin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { clientId, redirectUri } = getLinkedInConfig();
+    const { clientId, redirectUri: configuredRedirectUri } = getLinkedInConfig();
+    const redirectUri =
+      process.env.LINKEDIN_REDIRECT_URI?.trim() ||
+      configuredRedirectUri ||
+      `${request.nextUrl.origin}/api/linkedin/callback`;
+
     const state = crypto.randomUUID();
     const scopes = ["openid", "profile", "w_member_social"].join(" ");
     const url = new URL("https://www.linkedin.com/oauth/v2/authorization");
@@ -12,6 +17,7 @@ export async function GET() {
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("state", state);
     url.searchParams.set("scope", scopes);
+
     const response = NextResponse.redirect(url);
     response.cookies.set("postcraft_linkedin_state", state, {
       httpOnly: true,
@@ -22,6 +28,9 @@ export async function GET() {
     });
     return response;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not start LinkedIn authorization." }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not start LinkedIn authorization." },
+      { status: 500 },
+    );
   }
 }
