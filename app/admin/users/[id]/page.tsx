@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Data = {
@@ -27,7 +27,7 @@ export default function AdminUserPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function loadUser(userId: string) {
+  const loadUser = useCallback(async (userId: string) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/users/${userId}`, { cache: "no-store" });
