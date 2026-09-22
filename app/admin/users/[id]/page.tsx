@@ -27,10 +27,10 @@ export default function AdminUserPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function load() {
+  async function loadUser(userId: string) {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/users/${params.id}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/users/${userId}`, { cache: "no-store" });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Could not load user.");
       setData(json);
@@ -41,7 +41,9 @@ export default function AdminUserPage() {
     }
   }
 
-  useEffect(() => { void load(); }, [params.id]);
+  useEffect(() => {
+    void loadUser(params.id);
+  }, [params.id]);
 
   async function resetTrial() {
     setSaving(true);
@@ -56,7 +58,7 @@ export default function AdminUserPage() {
       if (!response.ok) throw new Error(json.error || "Could not reset trial.");
       setReason("");
       setMessage(`Trial reset to ${days} days.`);
-      await load();
+      await loadUser(params.id);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not reset trial.");
     } finally {
