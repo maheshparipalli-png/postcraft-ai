@@ -556,6 +556,41 @@ export default function PostCardPage() {
             </p>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">0 / Your brand <span className="font-normal tracking-normal">(optional)</span></div>
+              <div className="mt-4 grid gap-5 sm:grid-cols-[120px_1fr_1fr] sm:items-end">
+                <div>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-900 text-center text-xs font-semibold text-white transition hover:opacity-90"
+                    aria-label={photo ? "Change profile photo" : "Upload profile photo"}
+                  >
+                    {photo ? (
+                      <img src={photo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="px-3">◉<br />Upload photo</span>
+                    )}
+                  </button>
+                </div>
+                <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Mahesh Paripalli" />
+                <Field label="Handle (e.g. @yourhandle)" value={handle} onChange={setHandle} placeholder="e.g. @maheshparipalli" />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  disabled={!name.trim() || !handle.trim()}
+                  className="rounded-full border border-neutral-900 px-4 py-2 text-xs font-semibold hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Save brand profile
+                </button>
+                {profileLocked && <span className="text-xs text-neutral-500">✓ Profile saved</span>}
+                <span className="text-[11px] text-neutral-400">Used on your PostCards and remembered for future cards.</span>
+              </div>
+            </div>
+
+            <div className="mt-10 border-t border-neutral-900 pt-7">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">1 / Choose a format</div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 {templates.map((item) => (
@@ -570,6 +605,18 @@ export default function PostCardPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={generateCardCopy}
+                disabled={generating}
+                className="flex w-full items-center justify-center rounded-md bg-[#1677e8] px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f67cf] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generating ? "✦ Generating PostCard..." : "✦ Generate PostCard"}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-neutral-400">AI creates a fresh thought, supporting insight, and closing line for your selected format.</p>
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
@@ -596,54 +643,6 @@ export default function PostCardPage() {
                 </div>
               ) : (
                 <div className="mt-5 space-y-5">
-                  {template === "editorial" && (
-                    <>
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Name" value={name} onChange={setName} disabled={profileLocked && !editingProfile} />
-                        <Field label="Handle" value={handle} onChange={setHandle} disabled={profileLocked && !editingProfile} />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => loadPhoto(e.target.files?.[0])} />
-                        {(!profileLocked || editingProfile) && (
-                          <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold underline underline-offset-4">
-                            {photo ? "Change profile photo" : "Add profile photo"}
-                          </button>
-                        )}
-                        {profileLocked && <span className="text-xs font-medium text-neutral-500">✓ Profile saved</span>}
-                      </div>
-                      {profileLocked && !editingProfile && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingProfile(true)}
-                          className="text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
-                        >
-                          Edit profile
-                        </button>
-                      )}
-                      {editingProfile && (
-                        <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={saveProfile}
-                            disabled={!name.trim() || !handle.trim()}
-                            className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-                          >
-                            Save profile
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProfile(false);
-                              setProfileLocked(true);
-                            }}
-                            className="text-xs font-semibold text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
                   <Field label="Supporting thought" value={body} onChange={setBody} textarea />
                   <Field label="Closing line" value={closing} onChange={setClosing} textarea />
@@ -654,20 +653,7 @@ export default function PostCardPage() {
                 </div>
               )}
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={generateCardCopy}
-                  disabled={generating}
-                  className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-60"
-                >
-                  {generating ? "Writing..." : "Generate with AI →"}
-                </button>
-                <span className="text-xs text-neutral-500">
-                  {template === "stat" ? "Fresh interpretation · human takeaway · no invented facts" : "Fresh idea · clear language · human touch"}
-                </span>
-                {generateMessage && <span className="w-full text-xs text-neutral-600">{generateMessage}</span>}
-              </div>
+              {generateMessage && <div className="mt-5 text-xs text-neutral-600">{generateMessage}</div>}
 
               <div className="mt-5">
                 <Field label="Source / footer" value={source} onChange={setSource} />
