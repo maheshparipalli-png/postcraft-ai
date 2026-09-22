@@ -24,14 +24,33 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }).format(date);
 }
 
+function trimToCompleteSentences(value: string, maxLength: number) {
+  const text = value.replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [];
+  let result = "";
+  for (const sentence of sentences) {
+    const candidate = (result ? result + " " : "") + sentence.trim();
+    if (candidate.length > maxLength) break;
+    result = candidate;
+  }
+
+  if (result.length >= 60) return result;
+  return text.slice(0, maxLength).replace(/\s+\S*$/, "").trim() + "…";
+}
+
 function createVisualCopy(generated: string, angle: string) {
   const cleaned = generated.replace(/^\s*(this post|based on|read the original)[^\n]*\n?/i, "").trim();
   const paragraphs = cleaned.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
   const body = (paragraphs[0] || cleaned).replace(/\s+/g, " ").trim();
   const sentence = body.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || body;
-  const headline = sentence.length >= 35 && sentence.length <= 115 ? sentence : angle.trim() || "AI safety cannot begin after the harm is done.";
+  const headline = sentence.length >= 35 && sentence.length <= 115 ? sentence : angle.trim() || "A considered point of view on AI and technology.";
   const supportingBody = body === headline ? (paragraphs[1] || body) : body;
-  return { headline: headline.replace(/[.!?]+$/, ""), body: supportingBody.length > 260 ? `${supportingBody.slice(0, 257).trim()}…` : supportingBody };
+  return {
+    headline: headline.replace(/[.!?]+$/, ""),
+    body: trimToCompleteSentences(supportingBody, 260),
+  };
 }
 
 async function pause(milliseconds: number) {
