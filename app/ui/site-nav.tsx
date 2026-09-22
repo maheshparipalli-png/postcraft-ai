@@ -128,6 +128,7 @@ export default function SiteNav() {
 
         {mobileOpen && (
           <div id="postcraft-mobile-navigation" className="border-t border-neutral-200 py-3 lg:hidden">
+            {!authReady || signedIn ? (
             <nav className="grid gap-1" aria-label="Mobile navigation">
               {primaryLinks.map((link) => {
                 const active = isActive(pathname, link);
@@ -149,6 +150,12 @@ export default function SiteNav() {
                 <Link href="/help/contact" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Contact Support</Link>
               </div>
             </nav>
+            ) : (
+              <div className="grid gap-2">
+                <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Sign in</Link>
+                <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg bg-neutral-900 px-3 py-2.5 text-center text-sm font-medium text-white">Start free trial</Link>
+              </div>
+            )}
           </div>
         )}
       </div>
