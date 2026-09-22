@@ -34,26 +34,40 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
+function estimateTextWidth(text: string, fontSize: number, fontWeight = 400) {
+  const weightFactor = fontWeight >= 600 ? 0.56 : fontWeight >= 500 ? 0.54 : 0.52;
+  return text.length * fontSize * weightFactor;
+}
+
 function wrapText(text: string, maxWidth: number, fontSize: number, fontWeight = 400) {
   const value = text.trim();
   if (!value) return [];
-  if (typeof document === "undefined") return value.split(/\s+/);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return [value];
-  ctx.font = `${fontWeight} ${fontSize}px Arial`;
+
   const words = value.split(/\s+/);
+  const canvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+  const ctx = canvas?.getContext("2d");
+
+  if (ctx) {
+    ctx.font = `${fontWeight} ${fontSize}px Arial`;
+  }
+
+  const measure = (candidate: string) =>
+    ctx ? ctx.measureText(candidate).width : estimateTextWidth(candidate, fontSize, fontWeight);
+
   const lines: string[] = [];
   let line = "";
+
   for (const word of words) {
-    const next = line ? line + " " + word : word;
-    if (ctx.measureText(next).width > maxWidth && line) {
+    const next = line ? `${line} ${word}` : word;
+
+    if (measure(next) > maxWidth && line) {
       lines.push(line);
       line = word;
     } else {
       line = next;
     }
   }
+
   if (line) lines.push(line);
   return lines;
 }
@@ -80,14 +94,21 @@ function fitText(text: string, options: {
 function fitSingleLine(text: string, maxWidth: number, startSize: number, minSize: number, weight = 400) {
   const value = text.trim();
   if (!value) return { text: "", size: startSize };
-  if (typeof document === "undefined") return { text: value, size: minSize };
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return { text: value, size: minSize };
-  for (let size = startSize; size >= minSize; size -= 2) {
-    ctx.font = `${weight} ${size}px Arial`;
-    if (ctx.measureText(value).width <= maxWidth) return { text: value, size };
+
+  const canvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+  const ctx = canvas?.getContext("2d");
+
+  if (ctx) {
+    for (let size = startSize; size >= minSize; size -= 2) {
+      ctx.font = `${weight} ${size}px Arial`;
+      if (ctx.measureText(value).width <= maxWidth) return { text: value, size };
+    }
+  } else {
+    for (let size = startSize; size >= minSize; size -= 2) {
+      if (estimateTextWidth(value, size, weight) <= maxWidth) return { text: value, size };
+    }
   }
+
   return { text: value, size: minSize };
 }
 
@@ -535,7 +556,7 @@ export default function PostCardPage() {
             </p>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">1 / Choose a format</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">1 / Choose a format</div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 {templates.map((item) => (
                   <button
@@ -552,7 +573,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Write the card</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">2 / Write the card</div>
 
               {template === "stat" ? (
                 <div className="mt-5 space-y-5">
@@ -654,7 +675,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Choose a background</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Choose a background</div>
               <div className="mt-4 grid grid-cols-4 gap-3">
                 {backgrounds.map((item) => (
                   <button key={item.id} type="button" onClick={() => setBackground(item.id)} className="group text-left">
