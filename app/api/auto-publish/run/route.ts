@@ -81,7 +81,7 @@ async function buildDraft() {
   // Each candidate can require source verification plus two AI generations,
   // so processing ten candidates serially can easily exceed Vercel limits.
   const maxAttempts = 1;
-  const maxCandidatesPerAttempt = 3;
+  const maxCandidatesPerAttempt = 2;
   const errors: string[] = [];
   const attemptedUrls = new Set<string>();
 
