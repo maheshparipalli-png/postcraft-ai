@@ -88,7 +88,12 @@ export async function createRazorpaySubscription(input: {
   });
 }
 
-export function verifySubscriptionSignature(
+
+export async function getRazorpaySubscription(subscriptionId: string) {
+  if (!subscriptionId.trim()) throw new Error("Razorpay subscription ID is required.");
+  return razorpayRequest<RazorpaySubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
+}
+\nexport function verifySubscriptionSignature(
   paymentId: string,
   subscriptionId: string,
   signature: string,
