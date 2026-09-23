@@ -114,6 +114,13 @@ export default function BillingPage() {
         return;
       }
 
+      // Razorpay can provide a hosted subscription URL. Use it as a reliable
+      // fallback if the embedded Checkout.js modal cannot open in the browser.
+      if (data.shortUrl) {
+        window.location.assign(data.shortUrl);
+        return;
+      }
+
       if (!window.Razorpay) {
         await new Promise<void>((resolve, reject) => {
           const scriptSrc = "https://checkout.razorpay.com/v1/checkout.js";
