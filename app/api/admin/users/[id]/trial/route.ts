@@ -31,6 +31,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (existing) {
+    if (existing.razorpay_subscription_id) {
+      return NextResponse.json(
+        { error: "Cannot reset a trial while a Razorpay subscription is linked to this account." },
+        { status: 409 },
+      );
+    }
+
     const { data, error } = await admin
       .from("billing_subscriptions")
       .update({
