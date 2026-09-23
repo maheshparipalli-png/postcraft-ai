@@ -26,14 +26,20 @@ export default function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
   const [status, setStatus] = useState("all");
   const [role, setRole] = useState("all");
   const [accountStatus, setAccountStatus] = useState("all");
+  const [attention, setAttention] = useState("all");
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return users.filter((user) => {
       const matchesQuery = !needle || user.email.toLowerCase().includes(needle) || (user.display_name ?? "").toLowerCase().includes(needle) || user.user_id.toLowerCase().includes(needle);
-      return matchesQuery && (status === "all" || user.status === status) && (role === "all" || user.role === role) && (accountStatus === "all" || user.account_status === accountStatus);
+      const matchesAttention =
+        attention === "all" ||
+        (attention === "billing" && ["past_due", "suspended"].includes(user.status)) ||
+        (attention === "access" && user.account_status === "suspended") ||
+        (attention === "trial" && ["trialing", "grace"].includes(user.status));
+      return matchesQuery && (status === "all" || user.status === status) && (role === "all" || user.role === role) && (accountStatus === "all" || user.account_status === accountStatus) && matchesAttention;
     });
-  }, [users, query, status, role, accountStatus]);
+  }, [users, query, status, role, accountStatus, attention]);
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
@@ -50,10 +56,12 @@ export default function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
             <div className="border border-neutral-300 bg-white/60 px-4 py-3"><div className="text-lg font-medium">{users.filter((u) => ["past_due", "suspended"].includes(u.status)).length}</div><div className="text-neutral-500">Attention</div></div>
           </div>
         </div>
-        <div className="mt-7 grid gap-3 sm:grid-cols-[1fr_180px_160px_160px]">
+        <div className="mt-7 grid gap-3 sm:grid-cols-[1fr_180px_160px_160px_180px]">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email or user ID…" className="border border-neutral-300 bg-white/70 px-4 py-3 text-sm outline-none focus:border-neutral-700" />
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-neutral-300 bg-white/70 px-3 py-3 text-sm"><option value="all">All statuses</option><option value="not_started">Not started</option><option value="trialing">Trialing</option><option value="grace">Grace</option><option value="active">Active</option><option value="past_due">Past due</option><option value="suspended">Suspended</option><option value="cancelled">Cancelled</option><option value="expired">Expired</option></select>
           <select value={role} onChange={(e) => setRole(e.target.value)} className="border border-neutral-300 bg-white/70 px-3 py-3 text-sm"><option value="all">All roles</option><option value="user">User</option><option value="admin">Admin</option><option value="super_admin">Super admin</option></select>
+          <select value={accountStatus} onChange={(e) => setAccountStatus(e.target.value)} className="border border-neutral-300 bg-white/70 px-3 py-3 text-sm"><option value="all">All access</option><option value="active">Access active</option><option value="suspended">Access suspended</option></select>
+          <select value={attention} onChange={(e) => setAttention(e.target.value)} className="border border-neutral-300 bg-white/70 px-3 py-3 text-sm"><option value="all">All attention</option><option value="billing">Billing attention</option><option value="access">Access attention</option><option value="trial">Trial / grace</option></select>
         </div>
         <div className="mt-7 overflow-x-auto border-y border-neutral-300">
           <table className="w-full min-w-[1000px] text-left text-sm">
