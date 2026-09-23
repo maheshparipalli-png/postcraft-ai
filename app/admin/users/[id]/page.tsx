@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import AdminNav from "../../admin-nav";
 
 type Data = {
   profile: { user_id: string; display_name: string | null; role: string; account_status: "active" | "suspended"; created_at: string; updated_at: string } | null;
@@ -115,6 +116,7 @@ export default function AdminUserPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
+      <AdminNav />
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
         <Link href="/admin/users" className="text-xs text-neutral-500 underline underline-offset-4">← Users</Link>
         <div className="mt-5 flex flex-col gap-3 border-b border-neutral-300 pb-7 sm:flex-row sm:items-end sm:justify-between">
