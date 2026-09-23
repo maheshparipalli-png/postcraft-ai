@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminAccess } from "@/lib/admin/access";
 import AdminUsersTable, { type AdminUserRow } from "./users-table";
+import AdminNav from "../admin-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -42,5 +43,5 @@ export default async function AdminUsersPage() {
     };
   });
 
-  return <AdminUsersTable users={users} />;
+  return <><AdminNav /><AdminUsersTable users={users} /></>;
 }
