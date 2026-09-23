@@ -4,6 +4,10 @@ import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEdit
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
+// AI generation can legitimately take longer than a normal API request because
+// the self-hosted Ollama model may need to load before producing tokens.
+export const maxDuration = 300;
+
 function isPostCraftAnglePrompt(prompt: string) {
   return prompt.includes("You are PostCraft AI, an editorial thinking partner.") &&
     prompt.includes("Analyze this exact news story") &&
