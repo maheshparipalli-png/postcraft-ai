@@ -21,7 +21,7 @@ async function fetchImageDataUrl(imageUrl: string | null, sourceUrl: string | nu
 
       await assertPublicUrl(resolvedImageUrl);
 
-      if (!/^https?:\\/\\//i.test(candidate) || /\\.(html?|php)(?:[?#].*)?$/i.test(candidate)) {
+      if (!/^https?:\/\//i.test(candidate) || /\.(html?|php)(?:[?#].*)?$/i.test(candidate)) {
         const pageResponse = await fetchPublicUrl(candidate, {
           headers: { "User-Agent": "PostCraft AI/1.0", Accept: "text/html,application/xhtml+xml" },
           signal: AbortSignal.timeout(8000),
