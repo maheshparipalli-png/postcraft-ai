@@ -136,7 +136,7 @@ export default async function AdminDashboardPage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["Users", "/admin/users", "Accounts and billing"],
-              ["Billing", "/admin/users", "Subscriptions and trials"],
+              ["Billing", "/admin/users?status=active", "Subscriptions and trials"],
               ["Automation", "/admin/users", "Schedules and content"],
               ["Audit log", "/admin/audit", "Administrative actions"],
             ].map(([label, href, description]) => (
