@@ -69,11 +69,26 @@ export async function POST() {
     }
   }
 
-  const subscription = await createRazorpaySubscription({
-    userId: user.id,
-    email: user.email,
-    name: user.user_metadata?.full_name ?? user.user_metadata?.name,
-  });
+  let subscription;
+  try {
+    subscription = await createRazorpaySubscription({
+      userId: user.id,
+      email: user.email,
+      name: user.user_metadata?.full_name ?? user.user_metadata?.name,
+    });
+
+    // Fetch the newly created subscription once more so the hosted authorisation
+    // URL is available even if the create response omits it.
+    if (!subscription.short_url) {
+      subscription = await getRazorpaySubscription(subscription.id);
+    }
+  } catch (error) {
+    console.error("Razorpay subscription creation failed:", error);
+    return NextResponse.json(
+      { error: "Unable to create Razorpay checkout. Please try again." },
+      { status: 502 },
+    );
+  }
 
   const { error: updateError } = await admin
     .from("billing_subscriptions")
