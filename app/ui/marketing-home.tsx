@@ -48,7 +48,7 @@ export default function MarketingHome({ authenticated = false, notice = "" }: Pr
                 </Link>
               )}
             </div>
-            <div className="mt-5 text-xs text-neutral-500">15 days free · 3-day grace period · no pricing decision required today</div>
+            <div className="mt-5 text-xs text-neutral-500">15 days free · 3-day grace period · ₹499/month after trial</div>
           </div>
         </section>
 
@@ -66,6 +66,20 @@ export default function MarketingHome({ authenticated = false, notice = "" }: Pr
                   <p className="mt-3 text-sm leading-6 text-neutral-600">{description}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-b border-neutral-300/80 py-16 sm:py-24">
+          <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-end">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">PostCraft Pro</div>
+              <h2 className="mt-4 font-serif text-4xl tracking-[-0.035em] sm:text-5xl">One workspace for your LinkedIn workflow.</h2>
+            </div>
+            <div className="border border-neutral-300 bg-white/50 p-7">
+              <div className="font-serif text-4xl">₹499 <span className="font-sans text-base text-neutral-500">/ month</span></div>
+              <p className="mt-3 text-sm leading-6 text-neutral-600">Start with a 15-day free trial. No payment details are required to begin.</p>
+              <Link href="/pricing" className="mt-5 inline-block text-sm font-medium underline underline-offset-4">View pricing →</Link>
             </div>
           </div>
         </section>
@@ -98,8 +112,17 @@ export default function MarketingHome({ authenticated = false, notice = "" }: Pr
         </section>
 
         <footer className="flex flex-col gap-3 border-t border-neutral-300/80 py-8 text-[10px] uppercase tracking-[0.16em] text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
-          <span>PostCraft AI</span>
-          <span>LinkedIn content studio</span>
+          <div className="flex flex-col gap-2">
+            <span>PostCraft AI · Ninety6 AI Solutions</span>
+            <span>615 Symphony Park Homes, Beeramguda, Hyderabad, Telangana, India · mpari@outlook.com</span>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <Link href="/pricing" className="hover:text-neutral-900">Pricing</Link>
+            <Link href="/contact" className="hover:text-neutral-900">Contact</Link>
+            <Link href="/privacy" className="hover:text-neutral-900">Privacy</Link>
+            <Link href="/terms" className="hover:text-neutral-900">Terms</Link>
+            <Link href="/refunds" className="hover:text-neutral-900">Refunds</Link>
+          </div>
         </footer>
       </div>
     </main>
