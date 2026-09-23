@@ -185,8 +185,19 @@ export default function BillingPage() {
             setMessage(verifyData.error ?? "Payment verification failed. Please contact support.");
             return;
           }
-          setMessage("Payment verified. Your PostCraft Pro subscription is being activated.");
+          setMessage(
+            verifyResponse.status === 202
+              ? "Payment verified. Waiting for Razorpay to activate your subscription…"
+              : "Payment verified. Your PostCraft Pro subscription is being activated.",
+          );
           await loadBilling();
+
+          // Webhook delivery is authoritative, so briefly refresh while activation propagates.
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 2000));
+            await loadBilling();
+            if (billing?.status === "active") break;
+          }
         },
         modal: { ondismiss: () => setMessage("Checkout was closed. No payment was made.") },
       });
