@@ -8,6 +8,8 @@ type Subscription = {
   trial_ends_at: string | null;
   trial_started_at: string | null;
   grace_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
 };
 
 type BillingResponse = {
@@ -250,6 +252,16 @@ export default function BillingPage() {
             <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
               Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
             </div>
+            {billing?.subscription?.current_period_start && billing?.subscription?.current_period_end && (
+              <div className="mt-4 text-sm text-neutral-600">
+                <div>Current billing period</div>
+                <div className="mt-1 font-medium text-neutral-900">
+                  {new Date(billing.subscription.current_period_start).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  {" – "}
+                  {new Date(billing.subscription.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border border-neutral-300 bg-white/50 p-6 sm:p-8">
