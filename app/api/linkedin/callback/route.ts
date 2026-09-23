@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { encryptLinkedInSession, getLinkedInConfig, linkedinCookieName } from "@/lib/linkedin";\nimport { createClient } from "@/lib/supabase/server";
+import { encryptLinkedInSession, getLinkedInConfig, linkedinCookieName } from "@/lib/linkedin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -14,6 +15,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
+
     const { clientId, clientSecret } = getLinkedInConfig();
     const redirectUri = process.env.LINKEDIN_REDIRECT_URI?.trim() || `${request.nextUrl.origin}/api/linkedin/callback`;
     const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
@@ -31,6 +36,7 @@ export async function GET(request: NextRequest) {
     if (!profileResponse.ok || !profile.sub) throw new Error("Could not retrieve the LinkedIn member profile.");
 
     const session = encryptLinkedInSession({
+      userId: user.id,
       accessToken: tokenData.access_token,
       expiresAt: Date.now() + Number(tokenData.expires_in || 5184000) * 1000,
       personUrn: `urn:li:person:${profile.sub}`,
