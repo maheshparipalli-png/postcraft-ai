@@ -17,7 +17,7 @@ export default async function AdminDashboardPage() {
 
   const admin = createAdminClient();
   const [
-    usersResult, trialResult, paidResult, expiredResult, pastDueResult,
+    usersResult, trialResult, paidResult, expiredResult, pastDueResult, suspendedAccountsResult,
     schedulesResult, publicationsResult, draftsResult, commentsResult,
     recentUsersResult, recentAuditResult,
   ] = await Promise.all([
@@ -26,6 +26,7 @@ export default async function AdminDashboardPage() {
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).eq("status", "active"),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).eq("status", "expired"),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).in("status", ["past_due", "suspended"]),
+    admin.from("profiles").select("*", { count: "exact", head: true }).eq("account_status", "suspended"),
     admin.from("postcraft_schedules").select("*", { count: "exact", head: true }).eq("enabled", true),
     admin.from("postcraft_publications").select("*", { count: "exact", head: true }),
     admin.from("postcraft_daily_drafts").select("*", { count: "exact", head: true }),
@@ -38,7 +39,8 @@ export default async function AdminDashboardPage() {
     ["Total users", usersResult.count ?? 0],
     ["Trial / grace", trialResult.count ?? 0],
     ["Paid users", paidResult.count ?? 0],
-    ["Past due / suspended", pastDueResult.count ?? 0],
+    ["Past due / billing suspended", pastDueResult.count ?? 0],
+    ["Account suspended", suspendedAccountsResult.count ?? 0],
   ];
 
   const activityCards = [
@@ -63,7 +65,7 @@ export default async function AdminDashboardPage() {
           </div>
         </header>
 
-        <section className="mt-8 grid gap-px border border-neutral-300 bg-neutral-300 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mt-8 grid gap-px border border-neutral-300 bg-neutral-300 sm:grid-cols-2 lg:grid-cols-5">
           {metricCards.map(([label, value]) => (
             <div key={String(label)} className="bg-[#f7f6f2] p-6">
               <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">{label}</div>
