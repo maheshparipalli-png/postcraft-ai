@@ -33,7 +33,7 @@ export default function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
       const matchesQuery = !needle || user.email.toLowerCase().includes(needle) || (user.display_name ?? "").toLowerCase().includes(needle) || user.user_id.toLowerCase().includes(needle);
       return matchesQuery && (status === "all" || user.status === status) && (role === "all" || user.role === role) && (accountStatus === "all" || user.account_status === accountStatus);
     });
-  }, [users, query, status, role]);
+  }, [users, query, status, role, accountStatus]);
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
