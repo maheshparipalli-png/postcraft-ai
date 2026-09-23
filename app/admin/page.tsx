@@ -61,7 +61,7 @@ export default async function AdminDashboardPage() {
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:py-10">
         <header className="flex flex-col gap-6 border-b border-neutral-300 pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">PostCraft AI · administration</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">PostCraft AI · administration · v2</div>
             <h1 className="mt-3 font-serif text-5xl tracking-[-0.04em] sm:text-6xl">Control room</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">Operational view of users, subscriptions, automation and content activity.</p>
           </div>
