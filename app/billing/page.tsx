@@ -114,9 +114,13 @@ export default function BillingPage() {
         return;
       }
 
+      if (!data.subscriptionId || !data.keyId) {
+        throw new Error("Razorpay did not return a valid subscription.");
+      }
+
       // Razorpay can provide a hosted subscription URL. Use it as a reliable
       // fallback if the embedded Checkout.js modal cannot open in the browser.
-      if (data.shortUrl) {
+      if (typeof data.shortUrl === "string" && data.shortUrl.startsWith("https://rzp.io/")) {
         window.location.assign(data.shortUrl);
         return;
       }
@@ -208,7 +212,8 @@ export default function BillingPage() {
       checkout.open();
     } catch (error) {
       console.error("Razorpay checkout error:", error);
-      setMessage("Unable to open secure checkout. Please try again.");
+      const detail = error instanceof Error ? error.message : "Unknown checkout error";
+      setMessage(`Unable to open secure checkout: ${detail}`);
     } finally {
       setSubscribing(false);
     }
