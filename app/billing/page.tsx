@@ -103,6 +103,7 @@ export default function BillingPage() {
 
   const status = billing?.status ?? "loading";
   const trialActive = status === "trialing" && remaining !== null && remaining > 0;
+  const canSubscribe = status === "trialing" || status === "grace" || status === "expired" || status === "past_due";
 
   async function subscribe() {
     setSubscribing(true);
@@ -241,8 +242,9 @@ export default function BillingPage() {
               <div className="mt-5 space-y-5">
                 <div>
                   <div className="font-medium text-emerald-700">Your trial is active</div>
-                  <p className="mt-2 text-sm leading-6 text-neutral-600">You have full access during your 15-day trial.</p>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">You have full access during your 15-day trial. You can subscribe now if you want to continue as a paid customer without waiting for the trial to end.</p>
                 </div>
+                <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe now →"}</button>
                 <div className="border border-emerald-200 bg-emerald-50 p-5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-800">Time remaining</div>
                   <div className="mt-2 font-mono text-2xl text-emerald-900">{formatRemaining(remaining)}</div>
@@ -254,7 +256,9 @@ export default function BillingPage() {
                   <div className="font-medium">Start your 15-day free trial</div>
                   <p className="mt-2 text-sm leading-6 text-neutral-600">No payment details are required. Your trial can only be used once.</p>
                 </div>
-                <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
+                <div className="flex flex-wrap items-center gap-5">
+                  <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
+                </div>
               </div>
              ) : status === "grace" ? (
               <div className="mt-5 space-y-4">
