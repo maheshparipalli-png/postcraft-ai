@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createRazorpaySubscription, getRazorpayPublicKey } from "@/lib/billing/razorpay";
+import { createRazorpaySubscription, getRazorpayPublicKey, getRazorpaySubscription } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -19,25 +19,53 @@ export async function POST() {
 
   if (lookupError) return NextResponse.json({ error: "Unable to load billing status" }, { status: 500 });
 
+  const admin = createAdminClient();
+
   if (!existing) {
-    return NextResponse.json({ error: "Start your free trial before subscribing." }, { status: 409 });
+    const { error: insertError } = await admin
+      .from("billing_subscriptions")
+      .insert({
+        user_id: user.id,
+        plan_key: "pro_monthly",
+        status: "not_started",
+      });
+
+    if (insertError && insertError.code !== "23505") {
+      console.error("Failed to initialize billing subscription:", insertError);
+      return NextResponse.json({ error: "Unable to prepare your subscription. Please try again." }, { status: 500 });
+    }
   }
 
-  if (existing.status === "active") {
-    return NextResponse.json({ error: "Your subscription is already active.", subscription: existing }, { status: 409 });
+  const { data: billing, error: billingError } = await admin
+    .from("billing_subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (billingError || !billing) {
+    return NextResponse.json({ error: "Unable to prepare your subscription. Please try again." }, { status: 500 });
+  }
+
+  const current = billing;
+  if (current.status === "active") {
+    return NextResponse.json({ error: "Your subscription is already active.", subscription: current }, { status: 409 });
   }
 
   // Reuse an existing Razorpay subscription while checkout is still in progress.
   // Local billing statuses do not mirror Razorpay's "created"/"authenticated" states,
   // so grace/past_due are the states in which an existing checkout can be resumed.
-  if (
-    existing.razorpay_subscription_id &&
-    (existing.status === "grace" || existing.status === "past_due")
-  ) {
-    return NextResponse.json({
-      keyId: getRazorpayPublicKey(),
-      subscriptionId: existing.razorpay_subscription_id,
-    });
+  if (current.razorpay_subscription_id) {
+    try {
+      const razorpaySubscription = await getRazorpaySubscription(current.razorpay_subscription_id);
+      if (["created", "authenticated", "active"].includes(razorpaySubscription.status)) {
+        return NextResponse.json({
+          keyId: getRazorpayPublicKey(),
+          subscriptionId: razorpaySubscription.id,
+        });
+      }
+    } catch (error) {
+      console.warn("Existing Razorpay subscription could not be resumed:", error);
+    }
   }
 
   const subscription = await createRazorpaySubscription({
@@ -46,7 +74,6 @@ export async function POST() {
     name: user.user_metadata?.full_name ?? user.user_metadata?.name,
   });
 
-  const admin = createAdminClient();
   const { error: updateError } = await admin
     .from("billing_subscriptions")
     .update({
