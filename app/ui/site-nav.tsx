@@ -107,6 +107,9 @@ export default function SiteNav() {
       if (helpOpen && helpRef.current && !helpRef.current.contains(target)) {
         setHelpOpen(false);
       }
+      if (adminOpen && adminRef.current && !adminRef.current.contains(target)) {
+        setAdminOpen(false);
+      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -114,6 +117,7 @@ export default function SiteNav() {
         setAccountOpen(false);
         setPublishOpen(false);
         setHelpOpen(false);
+        setAdminOpen(false);
       }
     }
 
