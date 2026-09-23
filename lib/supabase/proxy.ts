@@ -63,11 +63,13 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isApiRoute = pathname.startsWith("/api/");
   const isBillingApi = pathname.startsWith("/api/billing/");
+  const isPublicApi = pathname === "/api/billing/webhook";
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin/");
   const isCronRequest = isAuthorizedCron(request, pathname);
 
   if (!isApiRoute && isPublic(pathname)) return response;
+  if (isPublicApi) return response;
 
   if (!userId && isCronRequest) return response;
 
