@@ -115,6 +115,19 @@ export async function POST(request: Request) {
   }
 
   if (!localSubscription) {
+    const { error: eventError } = await admin
+      .from("razorpay_webhook_events")
+      .insert({
+        event_id: eventId,
+        event_type: event || "unknown",
+        payload,
+      });
+
+    if (eventError && eventError.code !== "23505") {
+      console.error("Razorpay webhook ignored-event persistence failed:", eventError);
+      return NextResponse.json({ error: "Unable to record webhook event" }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: true, ignored: true });
   }
 
