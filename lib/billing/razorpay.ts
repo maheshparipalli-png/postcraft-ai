@@ -94,6 +94,13 @@ export async function getRazorpaySubscription(subscriptionId: string) {
   return razorpayRequest<RazorpaySubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
+export function getSafeRazorpayError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message.replace(/\b(sk|rzp|key|secret)_[A-Za-z0-9_-]+\b/gi, "[redacted]");
+  }
+  return "Razorpay request failed.";
+}
+
 export function verifySubscriptionSignature(
   paymentId: string,
   subscriptionId: string,
