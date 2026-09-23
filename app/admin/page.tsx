@@ -48,7 +48,7 @@ export default async function AdminDashboardPage() {
     ["Account suspended", suspendedAccountsResult.count ?? 0],
   ];
 
-  const systemChecks = [
+  const systemChecks: Array<[string, boolean, string]> = [
     ["Supabase", true, "Database & authentication"],
     ["Ollama AI", Boolean(process.env.OLLAMA_BASE_URL), "AI generation endpoint configured"],
     ["Razorpay", Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_PLAN_ID), "Billing configuration"],
