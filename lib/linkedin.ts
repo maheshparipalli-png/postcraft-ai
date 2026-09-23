@@ -30,8 +30,8 @@ export function decryptLinkedInSession(value: string) {
       decipher.update(Buffer.from(encryptedValue, "base64url")),
       decipher.final(),
     ]).toString("utf8");
-    const session = JSON.parse(decrypted) as { accessToken: string; expiresAt: number; personUrn: string };
-    if (!session.accessToken || !session.personUrn || session.expiresAt <= Date.now()) return null;
+    const session = JSON.parse(decrypted) as { userId: string; accessToken: string; expiresAt: number; personUrn: string };
+    if (!session.userId || !session.accessToken || !session.personUrn || session.expiresAt <= Date.now()) return null;
     return session;
   } catch {
     return null;
