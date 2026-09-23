@@ -32,17 +32,8 @@ export async function GET(request: Request) {
       });
 
   if (error) {
-    console.error("Supabase auth callback failed:", {
-      code: error.code,
-      message: error.message,
-      status: error.status,
-    });
-
-    const errorUrl = new URL("/login", requestUrl.origin);
-    errorUrl.searchParams.set("error", "auth_callback_failed");
-    if (error.code) errorUrl.searchParams.set("error_code", error.code);
-    if (error.message) errorUrl.searchParams.set("error_message", error.message.slice(0, 180));
-    return NextResponse.redirect(errorUrl);
+    console.error("Supabase auth callback failed:", error);
+    return NextResponse.redirect(new URL("/login?error=auth_callback_failed", requestUrl.origin));
   }
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));
