@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLinkedInConfig } from "@/lib/linkedin";
+import { getLinkedInConfig } from "@/lib/linkedin";\nimport { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   try {
