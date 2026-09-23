@@ -27,16 +27,6 @@ export async function POST() {
     return NextResponse.json({ error: "Your subscription is already active.", subscription: existing }, { status: 409 });
   }
 
-  if (existing.status === "trialing") {
-    const trialEnds = existing.trial_ends_at ? new Date(existing.trial_ends_at).getTime() : NaN;
-    if (Number.isFinite(trialEnds) && trialEnds > Date.now()) {
-      return NextResponse.json(
-        { error: "Your free trial is still active. You can subscribe after the trial ends." },
-        { status: 409 },
-      );
-    }
-  }
-
   // Reuse an existing Razorpay subscription while checkout is still in progress.
   // Local billing statuses do not mirror Razorpay's "created"/"authenticated" states,
   // so grace/past_due are the states in which an existing checkout can be resumed.
