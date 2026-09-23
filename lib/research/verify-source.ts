@@ -204,7 +204,7 @@ function isPrivateOrReservedIp(address: string) {
   return true;
 }
 
-async function assertPublicUrl(value: string) {
+export async function assertPublicUrl(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("Only HTTP and HTTPS source URLs are supported.");
