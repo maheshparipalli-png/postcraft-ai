@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySubscriptionSignature } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
@@ -38,13 +39,23 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const { data: updated, error } = await supabase
+  const admin = createAdminClient();
+  const { data: razorpaySubscription } = await import("@/lib/billing/razorpay").then(({ getRazorpaySubscription }) => getRazorpaySubscription(subscriptionId));
+
+  if (!razorpaySubscription || !["authenticated", "active"].includes(razorpaySubscription.status)) {
+    return NextResponse.json({ error: "Payment was verified, but Razorpay has not activated the subscription yet. We will update your account automatically when the subscription becomes active.", paymentVerified: true, status: subscription.status }, { status: 202 });
+  }
+
+  const { data: updated, error } = await admin
     .from("billing_subscriptions")
     .update({
       razorpay_payment_id: paymentId,
       razorpay_signature_verified_at: now,
       payment_verified_at: now,
-      current_period_start: subscription.current_period_start ?? now,
+      status: "active",
+      razorpay_customer_id: razorpaySubscription.customer_id ?? subscription.razorpay_customer_id ?? null,
+      current_period_start: razorpaySubscription.current_start ? new Date(razorpaySubscription.current_start * 1000).toISOString() : subscription.current_period_start ?? now,
+      current_period_end: razorpaySubscription.current_end ? new Date(razorpaySubscription.current_end * 1000).toISOString() : subscription.current_period_end ?? null,
       updated_at: now,
     })
     .eq("user_id", user.id)
