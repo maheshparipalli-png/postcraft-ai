@@ -51,6 +51,32 @@ export async function POST() {
     return NextResponse.json({ error: "Your subscription is already active.", subscription: current }, { status: 409 });
   }
 
+  const lockUntil = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+  const { data: lockAcquired, error: lockError } = await admin.rpc(
+    "claim_billing_checkout_lock",
+    { p_user_id: user.id, p_lock_until: lockUntil },
+  );
+
+  if (lockError) {
+    console.error("Failed to acquire billing checkout lock:", lockError);
+    return NextResponse.json(
+      { error: "Unable to start checkout right now. Please try again." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  if (!lockAcquired) {
+    return NextResponse.json(
+      { error: "A Razorpay checkout is already being prepared for this account. Please wait a moment and try again." },
+      { status: 409, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const releaseCheckoutLock = async () => {
+    const { error } = await admin.rpc("release_billing_checkout_lock", { p_user_id: user.id });
+    if (error) console.error("Failed to release billing checkout lock:", error);
+  };
+
   // Reuse an existing Razorpay subscription while checkout is still in progress.
   // Local billing statuses do not mirror Razorpay's "created"/"authenticated" states,
   // so grace/past_due are the states in which an existing checkout can be resumed.
@@ -58,6 +84,7 @@ export async function POST() {
     try {
       const razorpaySubscription = await getRazorpaySubscription(current.razorpay_subscription_id);
       if (["created", "authenticated", "active"].includes(razorpaySubscription.status)) {
+        await releaseCheckoutLock();
         return NextResponse.json({
           keyId: getRazorpayPublicKey(),
           subscriptionId: razorpaySubscription.id,
@@ -85,6 +112,7 @@ export async function POST() {
   } catch (error) {
     const detail = getSafeRazorpayError(error);
     console.error("Razorpay subscription creation failed:", detail);
+    await releaseCheckoutLock();
     return NextResponse.json(
       { error: `Razorpay checkout could not be created: ${detail}` },
       { status: 502, headers: { "Cache-Control": "no-store" } },
@@ -107,8 +135,11 @@ export async function POST() {
 
   if (updateError) {
     console.error("Failed to persist Razorpay subscription:", updateError);
+    await releaseCheckoutLock();
     return NextResponse.json({ error: "Unable to prepare your subscription. Please try again." }, { status: 500 });
   }
+
+  await releaseCheckoutLock();
 
   return NextResponse.json({
     checkoutVersion: "2026-09-23-billing-v3",
