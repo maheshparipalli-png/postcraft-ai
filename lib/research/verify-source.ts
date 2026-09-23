@@ -1,3 +1,6 @@
+import dns from "node:dns/promises";
+import net from "node:net";
+
 export type VerifiedSource = {
   verified: true;
   url: string;
@@ -132,6 +135,103 @@ const aggregatorHosts = new Set([
   "www.yahoo.com",
 ]);
 
+function ipv4ToNumber(address: string) {
+  const parts = address.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return (((parts[0] * 256 + parts[1]) * 256 + parts[2]) * 256 + parts[3]) >>> 0;
+}
+
+function isPrivateOrReservedIp(address: string) {
+  const family = net.isIP(address);
+  if (family === 4) {
+    const value = ipv4ToNumber(address);
+    if (value === null) return true;
+    const inRange = (start: number, end: number) => value >= start && value <= end;
+    return (
+      inRange(0x00000000, 0x00ffffff) || // 0.0.0.0/8
+      inRange(0x0a000000, 0x0affffff) || // 10.0.0.0/8
+      inRange(0x64400000, 0x647fffff) || // 100.64.0.0/10
+      inRange(0x7f000000, 0x7fffffff) || // 127.0.0.0/8
+      inRange(0xa9fe0000, 0xa9feffff) || // 169.254.0.0/16
+      inRange(0xac100000, 0xac1fffff) || // 172.16.0.0/12
+      inRange(0xc0000000, 0xc00000ff) || // 192.0.0.0/24
+      inRange(0xc0a80000, 0xc0a8ffff) || // 192.168.0.0/16
+      inRange(0xc6120000, 0xc613ffff) || // 198.18.0.0/15
+      inRange(0xc6336400, 0xc63364ff) || // 198.51.100.0/24
+      inRange(0xcb007100, 0xcb0071ff) || // 203.0.113.0/24
+      inRange(0xe0000000, 0xffffffff)    // multicast/reserved
+    );
+  }
+
+  if (family === 6) {
+    const normalized = address.toLowerCase();
+    const firstHextet = Number.parseInt(normalized.split(":")[0] || "0", 16);
+    return (
+      normalized === "::" ||
+      normalized === "::1" ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb") ||
+      normalized.startsWith("2001:db8") ||
+      normalized.startsWith("::ffff:10.") ||
+      normalized.startsWith("::ffff:127.") ||
+      normalized.startsWith("::ffff:169.254.") ||
+      normalized.startsWith("::ffff:192.168.") ||
+      normalized.startsWith("::ffff:172.16.") ||
+      normalized.startsWith("::ffff:172.17.") ||
+      normalized.startsWith("::ffff:172.18.") ||
+      normalized.startsWith("::ffff:172.19.") ||
+      normalized.startsWith("::ffff:172.20.") ||
+      normalized.startsWith("::ffff:172.21.") ||
+      normalized.startsWith("::ffff:172.22.") ||
+      normalized.startsWith("::ffff:172.23.") ||
+      normalized.startsWith("::ffff:172.24.") ||
+      normalized.startsWith("::ffff:172.25.") ||
+      normalized.startsWith("::ffff:172.26.") ||
+      normalized.startsWith("::ffff:172.27.") ||
+      normalized.startsWith("::ffff:172.28.") ||
+      normalized.startsWith("::ffff:172.29.") ||
+      normalized.startsWith("::ffff:172.30.") ||
+      normalized.startsWith("::ffff:172.31.") ||
+      firstHextet < 0x2000 ||
+      firstHextet > 0x3fff
+    );
+  }
+
+  return true;
+}
+
+async function assertPublicUrl(value: string) {
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Only HTTP and HTTPS source URLs are supported.");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("Source URLs with embedded credentials are not supported.");
+  }
+  if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
+    throw new Error("Only standard HTTP and HTTPS ports are supported.");
+  }
+
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "metadata.google.internal") {
+    throw new Error("The source URL must point to a public website.");
+  }
+
+  if (net.isIP(hostname)) {
+    if (isPrivateOrReservedIp(hostname)) throw new Error("The source URL must point to a public website.");
+    return;
+  }
+
+  const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some(({ address }) => isPrivateOrReservedIp(address))) {
+    throw new Error("The source URL resolves to a private or reserved network address.");
+  }
+}
+
 function hostnameOf(url: string) {
   try {
     return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
@@ -173,9 +273,7 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     throw new Error("The original source URL is invalid.");
   }
 
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("Only HTTP and HTTPS source URLs are supported.");
-  }
+  await assertPublicUrl(parsedUrl.toString());
 
   if (isAggregatorUrl(parsedUrl.toString())) {
     throw new Error(
@@ -183,23 +281,42 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     );
   }
 
-  const response = await fetch(parsedUrl.toString(), {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; PostCraftSourceVerifier/1.0)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    redirect: "follow",
-    cache: "no-store",
-    // Some publisher pages never finish responding. Never let source
-    // verification consume the entire Auto-publish request.
-    signal: AbortSignal.timeout(8000),
-  });
+  let currentUrl = parsedUrl.toString();
+  let response: Response | null = null;
+
+  for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
+    await assertPublicUrl(currentUrl);
+
+    response = await fetch(currentUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; PostCraftSourceVerifier/1.0)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (response.status < 300 || response.status >= 400) break;
+
+    const location = response.headers.get("location");
+    if (!location) throw new Error("The original source returned an invalid redirect.");
+    currentUrl = new URL(location, currentUrl).toString();
+
+    if (redirectCount === 5) {
+      throw new Error("The original source redirected too many times.");
+    }
+  }
+
+  if (!response) {
+    throw new Error("The original source could not be opened.");
+  }
 
   if (!response.ok) {
     throw new Error(`The original source could not be opened. The site returned HTTP ${response.status}.`);
   }
 
-  const finalUrl = response.url || parsedUrl.toString();
+  const finalUrl = response.url || currentUrl;
   const html = await response.text();
   if (!html || html.length < 200) {
     throw new Error("The original source returned insufficient content.");
