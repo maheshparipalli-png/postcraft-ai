@@ -68,7 +68,7 @@ export const ollamaProvider: AIProvider = {
           },
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(180_000),
       });
     } catch (error) {
       const elapsedMs = Date.now() - startedAt;
