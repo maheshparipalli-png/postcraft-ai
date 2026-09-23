@@ -17,12 +17,16 @@ export async function getAdminAccess() {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from("profiles")
-    .select("role")
+    .select("role,account_status")
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (error) {
     console.error("Admin role lookup error:", error);
+    return { authenticated: true, allowed: false, role: null as AdminRole | null, user };
+  }
+
+  if (profile?.account_status === "suspended") {
     return { authenticated: true, allowed: false, role: null as AdminRole | null, user };
   }
 
