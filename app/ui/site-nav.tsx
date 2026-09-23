@@ -33,9 +33,11 @@ export default function SiteNav() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const publishRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
+  const adminRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -92,7 +94,7 @@ export default function SiteNav() {
   }, []);
 
   useEffect(() => {
-    if (!accountOpen && !publishOpen && !helpOpen) return;
+    if (!accountOpen && !publishOpen && !helpOpen && !adminOpen) return;
 
     function handlePointerDown(event: MouseEvent) {
       const target = event.target as Node;
@@ -121,13 +123,13 @@ export default function SiteNav() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [accountOpen, publishOpen, helpOpen]);
+  }, [accountOpen, publishOpen, helpOpen, adminOpen]);
 
   if (pathname === "/login") return null;
 
   const publishActive = pathname === "/auto-post" || pathname === "/auto-publish";
   const helpActive = pathname === "/help" || pathname.startsWith("/help/");
-  const accountActive = pathname === "/billing" || pathname.startsWith("/admin");
+  const accountActive = pathname === "/billing";
 
   async function signOut() {
     setSigningOut(true);
@@ -286,11 +288,27 @@ export default function SiteNav() {
                 </div>
 
                 {isAdmin && (
-                  <Link href="/admin" className={pathname.startsWith("/admin")
-                    ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
-                    : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
-                    Admin
-                  </Link>
+                  <div ref={adminRef} className="relative">
+                    <button type="button" aria-expanded={adminOpen} aria-haspopup="menu"
+                      onClick={() => {
+                        setAdminOpen((open) => !open);
+                        setPublishOpen(false);
+                        setHelpOpen(false);
+                        setAccountOpen(false);
+                      }}
+                      className={pathname.startsWith("/admin") || adminOpen
+                        ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
+                        : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}>
+                      Admin <span className="ml-1 text-[10px]">{adminOpen ? "⌃" : "⌄"}</span>
+                    </button>
+                    {adminOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" role="menu">
+                        <Link href="/admin" onClick={() => setAdminOpen(false)} className={pathname === "/admin" ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Control room<span className="mt-0.5 block text-[10px] font-normal text-neutral-500">System overview</span></Link>
+                        <Link href="/admin/users" onClick={() => setAdminOpen(false)} className={pathname.startsWith("/admin/users") ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Users<span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Accounts &amp; billing</span></Link>
+                        <Link href="/admin/audit" onClick={() => setAdminOpen(false)} className={pathname.startsWith("/admin/audit") ? "block rounded-lg bg-neutral-100 px-3 py-2.5 text-xs font-semibold" : "block rounded-lg px-3 py-2.5 text-xs hover:bg-neutral-50"}>Audit log<span className="mt-0.5 block text-[10px] font-normal text-neutral-500">Privileged actions</span></Link>
+                      </div>
+                    )}
+                  </div>
                 )}
               </nav>
             </div>
@@ -346,7 +364,14 @@ export default function SiteNav() {
                     </Link>
                   )}
 
-                  {isAdmin && <Link href="/admin" onClick={() => setMobileOpen(false)} className={pathname.startsWith("/admin") ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Admin</Link>}
+                  {isAdmin && (
+                    <div className="mt-2 border-t border-neutral-200 pt-2">
+                      <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Admin</div>
+                      <Link href="/admin" onClick={() => setMobileOpen(false)} className={pathname === "/admin" ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Control room</Link>
+                      <Link href="/admin/users" onClick={() => setMobileOpen(false)} className={pathname.startsWith("/admin/users") ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Users</Link>
+                      <Link href="/admin/audit" onClick={() => setMobileOpen(false)} className={pathname.startsWith("/admin/audit") ? "block rounded-lg bg-neutral-900 px-3 py-2.5 text-sm text-white" : "block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100"}>Audit log</Link>
+                    </div>
+                  )}
                   <Link href="/help" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Help Center</Link>
                   <Link href="/help/contact" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Contact Support</Link>
 
