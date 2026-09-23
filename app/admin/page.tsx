@@ -20,6 +20,7 @@ export default async function AdminDashboardPage() {
     usersResult, trialResult, paidResult, expiredResult, pastDueResult, suspendedAccountsResult,
     schedulesResult, publicationsResult, draftsResult, commentsResult,
     recentUsersResult, recentAuditResult,
+    pastDueUsersResult, suspendedUsersResult, failedDraftsResult,
   ] = await Promise.all([
     admin.from("profiles").select("*", { count: "exact", head: true }),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).in("status", ["trialing", "grace"]),
@@ -33,6 +34,9 @@ export default async function AdminDashboardPage() {
     admin.from("commentcraft_comments").select("*", { count: "exact", head: true }),
     admin.from("profiles").select("user_id,display_name,role,created_at").order("created_at", { ascending: false }).limit(8),
     admin.from("admin_audit_logs").select("id,action,target_user_id,reason,created_at").order("created_at", { ascending: false }).limit(8),
+    admin.from("billing_subscriptions").select("user_id,status,trial_ends_at,current_period_end,updated_at").in("status", ["past_due", "suspended"]).order("updated_at", { ascending: false }).limit(6),
+    admin.from("profiles").select("user_id,display_name,account_status,created_at").eq("account_status", "suspended").order("created_at", { ascending: false }).limit(6),
+    admin.from("postcraft_daily_drafts").select("id,user_id,status,created_at,source_title").in("status", ["failed", "error"]).order("created_at", { ascending: false }).limit(6),
   ]);
 
   const metricCards = [
@@ -88,6 +92,30 @@ export default async function AdminDashboardPage() {
                 <div className="mt-5 text-xs underline underline-offset-4 opacity-0 transition group-hover:opacity-100">Inspect →</div>
               </Link>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="mb-5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Attention</div>
+            <h2 className="mt-2 font-serif text-2xl">Items that may need action</h2>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+              <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Billing attention</div><div className="font-serif text-3xl">{pastDueUsersResult.data?.length ?? 0}</div></div>
+              <div className="mt-3 text-sm">Past-due or billing-suspended accounts</div>
+              <div className="mt-4 text-xs underline underline-offset-4">Open user console →</div>
+            </Link>
+            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+              <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Access attention</div><div className="font-serif text-3xl">{suspendedUsersResult.data?.length ?? 0}</div></div>
+              <div className="mt-3 text-sm">Accounts currently suspended by an administrator</div>
+              <div className="mt-4 text-xs underline underline-offset-4">Review accounts →</div>
+            </Link>
+            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+              <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Content attention</div><div className="font-serif text-3xl">{failedDraftsResult.data?.length ?? 0}</div></div>
+              <div className="mt-3 text-sm">Recent failed or errored daily drafts</div>
+              <div className="mt-4 text-xs underline underline-offset-4">Inspect users →</div>
+            </Link>
           </div>
         </section>
 
