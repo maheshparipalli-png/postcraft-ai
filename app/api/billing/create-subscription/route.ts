@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createRazorpaySubscription, getRazorpayPublicKey, getRazorpaySubscription } from "@/lib/billing/razorpay";
+import { createRazorpaySubscription, getRazorpayPublicKey, getRazorpaySubscription, getSafeRazorpayError } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -83,10 +83,11 @@ export async function POST() {
       subscription = await getRazorpaySubscription(subscription.id);
     }
   } catch (error) {
-    console.error("Razorpay subscription creation failed:", error);
+    const detail = getSafeRazorpayError(error);
+    console.error("Razorpay subscription creation failed:", detail);
     return NextResponse.json(
-      { error: "Unable to create Razorpay checkout. Please try again." },
-      { status: 502 },
+      { error: `Razorpay checkout could not be created: ${detail}` },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -110,6 +111,7 @@ export async function POST() {
   }
 
   return NextResponse.json({
+    checkoutVersion: "2026-09-23-billing-v3",
     keyId: getRazorpayPublicKey(),
     subscriptionId: subscription.id,
     shortUrl: subscription.short_url ?? null,
