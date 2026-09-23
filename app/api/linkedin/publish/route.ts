@@ -3,6 +3,7 @@ import { decryptLinkedInSession, linkedinCookieName } from "@/lib/linkedin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { createClient } from "@/lib/supabase/server";
 import { createHash } from "node:crypto";
+import { assertPublicUrl } from "@/lib/research/verify-source";
 
 const linkedinHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
@@ -13,33 +14,44 @@ const linkedinHeaders = (accessToken: string) => ({
 
 async function fetchImageDataUrl(imageUrl: string | null, sourceUrl: string | null) {
   const candidates = [imageUrl, sourceUrl].filter(Boolean) as string[];
+
   for (const candidate of candidates) {
     try {
       let resolvedImageUrl = candidate;
 
-      if (!/^https?:\/\//i.test(candidate) || /\.(html?|php)(?:[?#].*)?$/i.test(candidate)) {
-        const pageResponse = await fetch(candidate, {
-          redirect: "follow",
-          headers: { "User-Agent": "PostCraft AI/1.0" },
+      await assertPublicUrl(resolvedImageUrl);
+
+      if (!/^https?:\\/\\//i.test(candidate) || /\\.(html?|php)(?:[?#].*)?$/i.test(candidate)) {
+        const pageResponse = await fetchPublicUrl(candidate, {
+          headers: { "User-Agent": "PostCraft AI/1.0", Accept: "text/html,application/xhtml+xml" },
           signal: AbortSignal.timeout(8000),
         });
         if (!pageResponse.ok) continue;
+
+        const contentLength = Number(pageResponse.headers.get("content-length") ?? "0");
+        if (contentLength > 2 * 1024 * 1024) continue;
+
         const html = await pageResponse.text();
+        if (html.length > 2 * 1024 * 1024) continue;
+
         const match =
           html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
           html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/i) ||
           html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
           html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["'][^>]*>/i);
+
         if (!match?.[1]) continue;
         resolvedImageUrl = new URL(match[1], pageResponse.url || candidate).toString();
       }
 
-      const imageResponse = await fetch(resolvedImageUrl, {
-        redirect: "follow",
-        headers: { "User-Agent": "PostCraft AI/1.0" },
+      const imageResponse = await fetchPublicUrl(resolvedImageUrl, {
+        headers: { "User-Agent": "PostCraft AI/1.0", Accept: "image/png,image/jpeg,image/jpg" },
         signal: AbortSignal.timeout(10000),
       });
       if (!imageResponse.ok) continue;
+
+      const contentLength = Number(imageResponse.headers.get("content-length") ?? "0");
+      if (contentLength > 10 * 1024 * 1024) continue;
 
       const contentType = (imageResponse.headers.get("content-type") || "").split(";")[0].toLowerCase();
       if (contentType !== "image/png" && contentType !== "image/jpeg" && contentType !== "image/jpg") continue;
@@ -53,9 +65,42 @@ async function fetchImageDataUrl(imageUrl: string | null, sourceUrl: string | nu
       // Try the next candidate; publishing should still work as text if no image is accessible.
     }
   }
+
   return null;
 }
 
+async function fetchPublicUrl(
+  initialUrl: string,
+  init: RequestInit = {},
+  maxRedirects = 5,
+) {
+  let currentUrl = initialUrl;
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    await assertPublicUrl(currentUrl);
+
+    const response = await fetch(currentUrl, {
+      ...init,
+      redirect: "manual",
+      cache: "no-store",
+    });
+
+    if (response.status < 300 || response.status >= 400) {
+      return response;
+    }
+
+    const location = response.headers.get("location");
+    if (!location) throw new Error("The remote image returned an invalid redirect.");
+
+    currentUrl = new URL(location, currentUrl).toString();
+
+    if (redirectCount === maxRedirects) {
+      throw new Error("The remote image redirected too many times.");
+    }
+  }
+
+  throw new Error("The remote image could not be fetched.");
+}
 async function publishImage(accessToken: string, owner: string, imageDataUrl: string, _altText: string) {
   const match = imageDataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,(.+)$/);
   if (!match) throw new Error("The visual post image is invalid. Please generate it again.");
