@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,9 @@ export async function POST() {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  const { data: existing, error: lookupError } = await supabase
+  const admin = createAdminClient();
+
+  const { data: existing, error: lookupError } = await admin
     .from("billing_subscriptions")
     .select("*")
     .eq("user_id", user.id)
@@ -47,7 +50,7 @@ export async function POST() {
   const endsAt = new Date(startedAt.getTime() + TRIAL_DAYS * 86400000);
   const graceEndsAt = new Date(endsAt.getTime() + GRACE_DAYS * 86400000);
 
-  const { data: subscription, error: insertError } = await supabase
+  const { data: subscription, error: insertError } = await admin
     .from("billing_subscriptions")
     .insert({
       user_id: user.id,
