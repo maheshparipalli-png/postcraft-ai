@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const admin = createAdminClient();
-  const { data: razorpaySubscription } = await import("@/lib/billing/razorpay").then(({ getRazorpaySubscription }) => getRazorpaySubscription(subscriptionId));
+  const razorpaySubscription = await getRazorpaySubscription(subscriptionId);
 
   if (!razorpaySubscription || !["authenticated", "active"].includes(razorpaySubscription.status)) {
     return NextResponse.json({ error: "Payment was verified, but Razorpay has not activated the subscription yet. We will update your account automatically when the subscription becomes active.", paymentVerified: true, status: subscription.status }, { status: 202 });
