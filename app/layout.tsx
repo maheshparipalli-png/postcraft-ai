@@ -15,8 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PostCraft AI",
-  description: "AI editorial studio for thoughtful LinkedIn content.",
+  title: "PostCraft AI | LinkedIn Content Studio",
+  description: "PostCraft is an AI editorial studio for discovering, writing and publishing thoughtful LinkedIn content. Powered by Ninety6 AI Solutions.",
+  applicationName: "PostCraft AI",
+  metadataBase: new URL("https://www.ninety6ai.online"),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
