@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { verifySubscriptionSignature } from "@/lib/billing/razorpay";
+import { getRazorpaySubscription, verifySubscriptionSignature } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
