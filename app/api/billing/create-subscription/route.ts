@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createRazorpaySubscription, getRazorpayPublicKey } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,8 @@ export async function POST() {
     name: user.user_metadata?.full_name ?? user.user_metadata?.name,
   });
 
-  const { error: updateError } = await supabase
+  const admin = createAdminClient();
+  const { error: updateError } = await admin
     .from("billing_subscriptions")
     .update({
       razorpay_subscription_id: subscription.id,
