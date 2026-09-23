@@ -138,7 +138,7 @@ export default async function AdminDashboardPage() {
               ["Users", "/admin/users", "Accounts and billing"],
               ["Billing", "/admin/users", "Subscriptions and trials"],
               ["Automation", "/admin/users", "Schedules and content"],
-              ["Audit log", "/admin", "Administrative actions"],
+              ["Audit log", "/admin/audit", "Administrative actions"],
             ].map(([label, href, description]) => (
               <Link key={label} href={href} className="border border-neutral-300 p-4 transition hover:bg-white">
                 <div className="font-medium">{label} →</div>
