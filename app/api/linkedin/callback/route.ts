@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { encryptLinkedInSession, getLinkedInConfig, linkedinCookieName } from "@/lib/linkedin";
+import { encryptLinkedInSession, getLinkedInConfig, linkedinCookieName } from "@/lib/linkedin";\nimport { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
