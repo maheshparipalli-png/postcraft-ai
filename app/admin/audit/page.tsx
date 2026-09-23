@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import AdminNav from "../admin-nav";
 
 type Log = {
   id: string; admin_user_id: string; target_user_id: string | null; action: string; reason: string | null;
@@ -45,6 +46,7 @@ export default function AdminAuditPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
+      <AdminNav />
       <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
         <Link href="/admin" className="text-xs text-neutral-500 underline underline-offset-4">← Admin dashboard</Link>
         <div className="mt-5 border-b border-neutral-300 pb-7">
