@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminAccess } from "@/lib/admin/access";
+import AdminNav from "./admin-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
+      <AdminNav />
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:py-10">
         <header className="flex flex-col gap-6 border-b border-neutral-300 pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
