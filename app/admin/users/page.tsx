@@ -16,7 +16,7 @@ export default async function AdminUsersPage() {
 
   const { data: profiles } = await admin
     .from("profiles")
-    .select("user_id,display_name,role,created_at")
+    .select("user_id,display_name,role,account_status,created_at")
     .order("created_at", { ascending: false });
 
   const userIds = (profiles ?? []).map((profile) => profile.user_id);
@@ -32,6 +32,7 @@ export default async function AdminUsersPage() {
       user_id: profile.user_id,
       display_name: profile.display_name,
       role: profile.role,
+      account_status: profile.account_status,
       created_at: profile.created_at,
       email: emailByUser.get(profile.user_id) ?? "",
       status: subscription?.status ?? "not_started",
