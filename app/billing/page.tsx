@@ -103,8 +103,6 @@ export default function BillingPage() {
 
   const status = billing?.status ?? "loading";
   const trialActive = status === "trialing" && remaining !== null && remaining > 0;
-  const canSubscribe = status === "trialing" || status === "grace" || status === "expired" || status === "past_due";
-
   async function subscribe() {
     setSubscribing(true);
     setMessage("");
@@ -196,7 +194,6 @@ export default function BillingPage() {
           for (let attempt = 0; attempt < 6; attempt += 1) {
             await new Promise((resolve) => window.setTimeout(resolve, 2000));
             await loadBilling();
-            if (billing?.status === "active") break;
           }
         },
         modal: { ondismiss: () => setMessage("Checkout was closed. No payment was made.") },
@@ -268,7 +265,8 @@ export default function BillingPage() {
                   <p className="mt-2 text-sm leading-6 text-neutral-600">No payment details are required. Your trial can only be used once.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-5">
-                  <button type="button" onClick={startTrial} disabled={starting} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
+                  <button type="button" onClick={startTrial} disabled={starting || subscribing} className="border-b border-neutral-900 pb-1 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50">{starting ? "Starting…" : "Start free trial →"}</button>
+                  <button type="button" onClick={subscribe} disabled={subscribing || starting} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe now →"}</button>
                 </div>
               </div>
              ) : status === "grace" ? (
