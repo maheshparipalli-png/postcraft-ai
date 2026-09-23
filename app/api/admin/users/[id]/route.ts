@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const admin = createAdminClient();
 
   const [profileResult, subscriptionResult, scheduleResult, publicationsResult, draftsResult, commentPostsResult, auditResult] = await Promise.all([
-    admin.from("profiles").select("user_id,display_name,role,created_at,updated_at").eq("user_id", id).maybeSingle(),
+    admin.from("profiles").select("user_id,display_name,role,account_status,created_at,updated_at").eq("user_id", id).maybeSingle(),
     admin.from("billing_subscriptions").select("status,plan_key,trial_started_at,trial_ends_at,grace_ends_at,current_period_start,current_period_end,razorpay_customer_id,razorpay_subscription_id,razorpay_payment_id,payment_verified_at,trial_reset_count,last_trial_reset_at,last_trial_reset_reason,updated_at").eq("user_id", id).maybeSingle(),
     admin.from("postcraft_schedules").select("enabled,publish_time,timezone,mode,created_at,updated_at").eq("user_id", id).maybeSingle(),
     admin.from("postcraft_publications").select("id,linkedin_post_id,source_title,source_url,published_at").eq("user_id", id).order("published_at", { ascending: false }).limit(20),
