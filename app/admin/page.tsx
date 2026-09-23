@@ -160,17 +160,24 @@ export default async function AdminDashboardPage() {
         </section>
 
         <section className="mt-10 border border-neutral-300 bg-white/40 p-6">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Operations</div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Admin workspace</div>
+          <h2 className="mt-2 font-serif text-2xl">Administration</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">All administration areas are collected here so you do not need to use the top navigation to move between admin screens.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              ["Users", "/admin/users", "Accounts and billing"],
-              ["Billing", "/admin/users?status=active", "Subscriptions and trials"],
-              ["Automation", "/admin/users", "Schedules and content"],
-              ["Audit log", "/admin/audit", "Administrative actions"],
+              ["Control room", "/admin", "Users, billing, activity and attention items"],
+              ["Users", "/admin/users", "Search, filters, access and billing"],
+              ["Audit log", "/admin/audit", "Review privileged administrative actions"],
+              ["Billing attention", "/admin/users?status=past_due", "Past-due and billing-suspended accounts"],
+              ["Access suspended", "/admin/users?accountStatus=suspended", "Accounts currently blocked"],
+              ["Trial / grace", "/admin/users?attention=trial", "Trial and grace accounts"],
             ].map(([label, href, description]) => (
-              <Link key={label} href={href} className="border border-neutral-300 p-4 transition hover:bg-white">
-                <div className="font-medium">{label} →</div>
-                <div className="mt-1 text-xs text-neutral-500">{description}</div>
+              <Link key={label} href={href} className="group border border-neutral-300 bg-white/70 p-5 transition hover:bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{label}</div>
+                  <span className="text-xs opacity-50 transition group-hover:opacity-100">→</span>
+                </div>
+                <div className="mt-2 text-xs leading-5 text-neutral-500">{description}</div>
               </Link>
             ))}
           </div>
