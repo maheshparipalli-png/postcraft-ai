@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
+    if (!user) return NextResponse.json({ error: "Please sign in first." }, { status: 401 });\n    if (session.userId !== user.id) return NextResponse.json({ error: "LinkedIn connection does not belong to this account. Please reconnect LinkedIn." }, { status: 403 });
 
     if (postId) {
       const { data: savedPost, error: savedPostError } = await supabase
