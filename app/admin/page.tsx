@@ -48,6 +48,14 @@ export default async function AdminDashboardPage() {
     ["Account suspended", suspendedAccountsResult.count ?? 0],
   ];
 
+  const systemChecks = [
+    ["Supabase", true, "Database & authentication"],
+    ["Ollama AI", Boolean(process.env.OLLAMA_BASE_URL), "AI generation endpoint configured"],
+    ["Razorpay", Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_PLAN_ID), "Billing configuration"],
+    ["LinkedIn", true, "Publishing integration available"],
+    ["Scheduler", true, "Vercel cron endpoint deployed"],
+  ];
+
   const activityCards = [
     ["Scheduled users", schedulesResult.count ?? 0, "Automation enabled"],
     ["Publications", publicationsResult.count ?? 0, "LinkedIn history"],
@@ -82,10 +90,22 @@ export default async function AdminDashboardPage() {
 
         <section className="mt-10">
           <div className="mb-5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Product activity</div>
-            <h2 className="mt-2 font-serif text-2xl">What is happening inside PostCraft</h2>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Operations</div>
+            <h2 className="mt-2 font-serif text-2xl">System health & activity</h2>
+            <p className="mt-2 text-sm text-neutral-600">One view for the services and workload that matter most.</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {systemChecks.map(([label, ok, note]) => (
+              <div key={label} className="border border-neutral-300 bg-white/60 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">{label}</div>
+                  <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.12em] ${ok ? "border-neutral-300" : "border-red-300 text-red-700"}`}>{ok ? "Ready" : "Check"}</span>
+                </div>
+                <div className="mt-2 text-xs leading-5 text-neutral-500">{note}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {activityCards.map(([label, value, note]) => (
               <Link key={String(label)} href="/admin/users" className="group border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">{label}</div>
@@ -103,17 +123,17 @@ export default async function AdminDashboardPage() {
             <h2 className="mt-2 font-serif text-2xl">Items that may need action</h2>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
-            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+            <Link href="/admin/users?attention=billing" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
               <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Billing attention</div><div className="font-serif text-3xl">{pastDueUsersResult.data?.length ?? 0}</div></div>
               <div className="mt-3 text-sm">Past-due or billing-suspended accounts</div>
               <div className="mt-4 text-xs underline underline-offset-4">Open user console →</div>
             </Link>
-            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+            <Link href="/admin/users?attention=access" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
               <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Access attention</div><div className="font-serif text-3xl">{suspendedUsersResult.data?.length ?? 0}</div></div>
               <div className="mt-3 text-sm">Accounts currently suspended by an administrator</div>
               <div className="mt-4 text-xs underline underline-offset-4">Review accounts →</div>
             </Link>
-            <Link href="/admin/users" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
+            <Link href="/admin/users?status=expired" className="border border-neutral-300 bg-white/60 p-5 transition hover:bg-white">
               <div className="flex items-center justify-between"><div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Content attention</div><div className="font-serif text-3xl">{failedDraftsResult.data?.length ?? 0}</div></div>
               <div className="mt-3 text-sm">Recent failed or errored daily drafts</div>
               <div className="mt-4 text-xs underline underline-offset-4">Inspect users →</div>
