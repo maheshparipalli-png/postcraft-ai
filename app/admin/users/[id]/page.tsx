@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Data = {
-  profile: { user_id: string; display_name: string | null; role: string; created_at: string; updated_at: string } | null;
+  profile: { user_id: string; display_name: string | null; role: string; account_status: "active" | "suspended"; created_at: string; updated_at: string } | null;
   email: string;
   emailConfirmedAt: string | null;
   lastSignInAt: string | null;
@@ -38,6 +38,8 @@ export default function AdminUserPage() {
   const [role, setRole] = useState("");
   const [roleReason, setRoleReason] = useState("");
   const [roleSaving, setRoleSaving] = useState(false);
+  const [accountReason, setAccountReason] = useState("");
+  const [accountSaving, setAccountSaving] = useState(false);
 
   const loadUser = useCallback(async (userId: string) => {
     setLoading(true);
@@ -54,6 +56,24 @@ export default function AdminUserPage() {
   }, []);
 
   useEffect(() => { void loadUser(params.id); }, [loadUser, params.id]);
+
+  async function changeAccountStatus(status: "active" | "suspended") {
+    if (!accountReason.trim()) return;
+    setAccountSaving(true); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/users/${params.id}/account`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason: accountReason }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Could not update account status.");
+      setAccountReason("");
+      setMessage(status === "suspended" ? "Account suspended." : "Account reactivated.");
+      await loadUser(params.id);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update account status.");
+    } finally { setAccountSaving(false); }
+  }
 
   async function changeRole() {
     if (!role || !roleReason.trim()) return;
@@ -108,6 +128,16 @@ export default function AdminUserPage() {
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Account</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Email</dt><dd>{data.email || "—"}</dd></div><div><dt className="text-neutral-500">Email confirmed</dt><dd>{date(data.emailConfirmedAt, true)}</dd></div><div><dt className="text-neutral-500">Last sign-in</dt><dd>{date(data.lastSignInAt, true)}</dd></div><div><dt className="text-neutral-500">Created</dt><dd>{date(data.profile.created_at)}</dd></div></dl></div>
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Billing</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Status</dt><dd className="font-medium">{s?.status ?? "not started"}</dd></div><div><dt className="text-neutral-500">Plan</dt><dd>{s?.plan_key ?? "—"}</dd></div><div><dt className="text-neutral-500">Trial ends</dt><dd>{date(s?.trial_ends_at)}</dd></div><div><dt className="text-neutral-500">Paid period</dt><dd>{date(s?.current_period_start)} → {date(s?.current_period_end)}</dd></div></dl></div>
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Automation</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Schedule</dt><dd>{data.schedule?.enabled ? "Enabled" : "Disabled"}</dd></div><div><dt className="text-neutral-500">Publish time</dt><dd>{data.schedule ? `${data.schedule.publish_time} · ${data.schedule.timezone}` : "—"}</dd></div><div><dt className="text-neutral-500">Mode</dt><dd>{data.schedule?.mode ?? "—"}</dd></div><div><dt className="text-neutral-500">Publications</dt><dd>{data.publications.length}</dd></div></dl></div>
+        </section>
+
+        <section className="mt-8 border border-neutral-300 bg-white/60 p-6">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Account access</div>
+          <h2 className="mt-2 font-serif text-2xl">Account status</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">Suspension blocks application and API access while preserving billing records and customer data.</p>
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end">
+            <label className="flex-1 text-sm">Reason<input value={accountReason} onChange={(e) => setAccountReason(e.target.value)} placeholder="e.g. Abuse investigation" className="mt-2 w-full border border-neutral-300 bg-transparent px-3 py-2" /></label>
+            {data.profile.account_status === "active" ? <button type="button" onClick={() => changeAccountStatus("suspended")} disabled={accountSaving || !accountReason.trim()} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{accountSaving ? "Saving…" : "Suspend account"}</button> : <button type="button" onClick={() => changeAccountStatus("active")} disabled={accountSaving || !accountReason.trim()} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{accountSaving ? "Saving…" : "Reactivate account"}</button>}
+          </div>
         </section>
 
         <section className="mt-8 border border-neutral-300 bg-white/60 p-6">
