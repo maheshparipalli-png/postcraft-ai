@@ -40,9 +40,19 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const admin = createAdminClient();
-  const razorpaySubscription = await getRazorpaySubscription(subscriptionId);
 
-  if (!razorpaySubscription || !["authenticated", "active"].includes(razorpaySubscription.status)) {
+  let razorpaySubscription;
+  try {
+    razorpaySubscription = await getRazorpaySubscription(subscriptionId);
+  } catch (error) {
+    console.error("Failed to fetch Razorpay subscription during verification:", error);
+    return NextResponse.json(
+      { error: "Payment was verified, but we could not confirm the Razorpay subscription yet. Please try again shortly.", paymentVerified: true },
+      { status: 202 },
+    );
+  }
+
+  if (!["authenticated", "active"].includes(razorpaySubscription.status)) {
     return NextResponse.json({ error: "Payment was verified, but Razorpay has not activated the subscription yet. We will update your account automatically when the subscription becomes active.", paymentVerified: true, status: subscription.status }, { status: 202 });
   }
 
