@@ -12,7 +12,7 @@ export function linkedinCookieName() {
   return COOKIE_NAME;
 }
 
-export function encryptLinkedInSession(value: { accessToken: string; expiresAt: number; personUrn: string }) {
+export function encryptLinkedInSession(value: { userId: string; accessToken: string; expiresAt: number; personUrn: string }) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", getKey(), iv);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]);
