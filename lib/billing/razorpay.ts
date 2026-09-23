@@ -11,6 +11,10 @@ function getConfig() {
     throw new Error("Razorpay is not configured. Set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_PLAN_ID.");
   }
 
+  if (!/^plan_[A-Za-z0-9_-]{14}$/.test(planId)) {
+    throw new Error("RAZORPAY_PLAN_ID is invalid. Expected a Razorpay plan ID.");
+  }
+
   return { keyId, keySecret, planId };
 }
 
