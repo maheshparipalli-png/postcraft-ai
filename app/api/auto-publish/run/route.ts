@@ -73,7 +73,25 @@ function getLocalScheduleParts(timezone: string) {
   }).formatToParts(new Date());
 
   const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
-  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+  const hour = Number(get("hour"));
+  const minute = Number(get("minute"));
+
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:${get("minute")}`,
+    minutesSinceMidnight: hour * 60 + minute,
+  };
+}
+
+function isScheduleDue(localMinutes: number, publishTime: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(publishTime);
+  if (!match) return false;
+
+  const scheduledMinutes = Number(match[1]) * 60 + Number(match[2]);
+  // The cron runs every 15 minutes. A small tolerance allows a delayed
+  // invocation to execute without requiring an exact minute match.
+  const elapsed = (localMinutes - scheduledMinutes + 24 * 60) % (24 * 60);
+  return elapsed < 15;
 }
 
 async function buildDraft() {
@@ -184,6 +202,18 @@ async function reserveCronDraft(admin: ReturnType<typeof createAdminClient>, use
 async function processScheduledUser(userId: string, mode: string, timezone: string, publishTime: string) {
   const admin = createAdminClient();
   const local = getLocalScheduleParts(timezone);
+
+  if (!isScheduleDue(local.minutesSinceMidnight, publishTime)) {
+    return {
+      userId,
+      status: "not_due",
+      date: local.date,
+      localTime: local.time,
+      preferredTime: publishTime,
+      timezone,
+    };
+  }
+
   const { data: billing } = await admin.from("billing_subscriptions").select("status,trial_ends_at,grace_ends_at").eq("user_id", userId).maybeSingle();
   const now = Date.now();
   const allowed = billing?.status === "active" ||
