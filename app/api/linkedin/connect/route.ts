@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLinkedInConfig } from "@/lib/linkedin";\nimport { createClient } from "@/lib/supabase/server";
+import { getLinkedInConfig } from "@/lib/linkedin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
+
     const { clientId } = getLinkedInConfig();
     const redirectUri =
       process.env.LINKEDIN_REDIRECT_URI?.trim() ||
