@@ -61,6 +61,7 @@ export async function POST() {
         return NextResponse.json({
           keyId: getRazorpayPublicKey(),
           subscriptionId: razorpaySubscription.id,
+          shortUrl: razorpaySubscription.short_url ?? null,
         });
       }
     } catch (error) {
@@ -96,5 +97,6 @@ export async function POST() {
   return NextResponse.json({
     keyId: getRazorpayPublicKey(),
     subscriptionId: subscription.id,
+    shortUrl: subscription.short_url ?? null,
   });
 }
