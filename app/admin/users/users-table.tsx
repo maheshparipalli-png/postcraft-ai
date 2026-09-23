@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type AdminUserRow = {
   user_id: string;
@@ -27,6 +27,24 @@ export default function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
   const [role, setRole] = useState("all");
   const [accountStatus, setAccountStatus] = useState("all");
   const [attention, setAttention] = useState("all");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const allowedStatus = new Set(["all", "not_started", "trialing", "grace", "active", "past_due", "suspended", "cancelled", "expired"]);
+    const allowedRole = new Set(["all", "user", "admin", "super_admin"]);
+    const allowedAccountStatus = new Set(["all", "active", "suspended"]);
+    const allowedAttention = new Set(["all", "billing", "access", "trial"]);
+
+    const nextStatus = params.get("status") ?? "all";
+    const nextRole = params.get("role") ?? "all";
+    const nextAccountStatus = params.get("accountStatus") ?? "all";
+    const nextAttention = params.get("attention") ?? "all";
+
+    if (allowedStatus.has(nextStatus)) setStatus(nextStatus);
+    if (allowedRole.has(nextRole)) setRole(nextRole);
+    if (allowedAccountStatus.has(nextAccountStatus)) setAccountStatus(nextAccountStatus);
+    if (allowedAttention.has(nextAttention)) setAttention(nextAttention);
+  }, []);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
