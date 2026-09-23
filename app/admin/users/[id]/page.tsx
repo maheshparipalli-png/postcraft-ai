@@ -35,6 +35,9 @@ export default function AdminUserPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [role, setRole] = useState("");
+  const [roleReason, setRoleReason] = useState("");
+  const [roleSaving, setRoleSaving] = useState(false);
 
   const loadUser = useCallback(async (userId: string) => {
     setLoading(true);
@@ -51,6 +54,25 @@ export default function AdminUserPage() {
   }, []);
 
   useEffect(() => { void loadUser(params.id); }, [loadUser, params.id]);
+
+  async function changeRole() {
+    if (!role || !roleReason.trim()) return;
+    setRoleSaving(true); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/users/${params.id}/role`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, reason: roleReason }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Could not change role.");
+      setRole(""); setRoleReason("");
+      setMessage(`Role changed from ${json.previousRole} to ${json.role}.`);
+      await loadUser(params.id);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not change role.");
+    } finally { setRoleSaving(false); }
+  }
 
   async function resetTrial() {
     setSaving(true); setMessage("");
@@ -86,6 +108,17 @@ export default function AdminUserPage() {
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Account</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Email</dt><dd>{data.email || "—"}</dd></div><div><dt className="text-neutral-500">Email confirmed</dt><dd>{date(data.emailConfirmedAt, true)}</dd></div><div><dt className="text-neutral-500">Last sign-in</dt><dd>{date(data.lastSignInAt, true)}</dd></div><div><dt className="text-neutral-500">Created</dt><dd>{date(data.profile.created_at)}</dd></div></dl></div>
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Billing</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Status</dt><dd className="font-medium">{s?.status ?? "not started"}</dd></div><div><dt className="text-neutral-500">Plan</dt><dd>{s?.plan_key ?? "—"}</dd></div><div><dt className="text-neutral-500">Trial ends</dt><dd>{date(s?.trial_ends_at)}</dd></div><div><dt className="text-neutral-500">Paid period</dt><dd>{date(s?.current_period_start)} → {date(s?.current_period_end)}</dd></div></dl></div>
           <div className="border border-neutral-300 bg-white/60 p-6"><div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Automation</div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-neutral-500">Schedule</dt><dd>{data.schedule?.enabled ? "Enabled" : "Disabled"}</dd></div><div><dt className="text-neutral-500">Publish time</dt><dd>{data.schedule ? `${data.schedule.publish_time} · ${data.schedule.timezone}` : "—"}</dd></div><div><dt className="text-neutral-500">Mode</dt><dd>{data.schedule?.mode ?? "—"}</dd></div><div><dt className="text-neutral-500">Publications</dt><dd>{data.publications.length}</dd></div></dl></div>
+        </section>
+
+        <section className="mt-8 border border-neutral-300 bg-white/60 p-6">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Super admin action</div>
+          <h2 className="mt-2 font-serif text-2xl">Change role</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">Role changes require super admin authorization and are recorded in the audit trail.</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-[180px_1fr_auto]">
+            <label className="text-sm">New role<select value={role} onChange={(e) => setRole(e.target.value)} className="mt-2 w-full border border-neutral-300 bg-white px-3 py-2"><option value="">Select…</option><option value="user">User</option><option value="admin">Admin</option><option value="super_admin">Super admin</option></select></label>
+            <label className="text-sm">Reason<input value={roleReason} onChange={(e) => setRoleReason(e.target.value)} placeholder="e.g. Promote support operator" className="mt-2 w-full border border-neutral-300 bg-transparent px-3 py-2" /></label>
+            <button type="button" onClick={changeRole} disabled={roleSaving || !role || !roleReason.trim()} className="self-end border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{roleSaving ? "Saving…" : "Change role"}</button>
+          </div>
         </section>
 
         <section className="mt-8 border border-neutral-300 bg-white/60 p-6">
