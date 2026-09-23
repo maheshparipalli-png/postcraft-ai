@@ -4,6 +4,15 @@ import { verifyWebhookSignature, unixToIso } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    service: "PostCraft Razorpay webhook",
+    endpoint: "/api/billing/webhook",
+    accepts: "POST",
+  });
+}
+
 type RazorpayEntity = {
   id?: string;
   status?: string;
