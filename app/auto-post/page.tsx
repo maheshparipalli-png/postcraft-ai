@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type VisualCopy = { headline: string; body: string; attribution: string };
+type VisualCopy = { headline: string; body: string; attribution: string; points?: string[]; takeaway?: string };
 type Preview = {
   article: { title: string; source: string; publishedAt?: string; url: string };
   angle?: { angle: string; why?: string };
@@ -17,19 +17,37 @@ type AutoRunFailure = { error?: string; attempts?: number; details?: string[] };
 const STORAGE_KEY = "postcraft-active-daily-draft";
 
 function fallbackVisual(preview: Preview): VisualCopy {
-  const text = preview.post.replace(/^This post is based on[^\n]*\n*/i, "").trim();
-  const headline = text.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || "A considered point of view on AI and technology.";
+  const text = preview.post
+    .replace(/^This post is based on[^\n]*\n*/i, "")
+    .replace(/\n+Read the original article:[\s\S]*$/i, "")
+    .trim();
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
+  const first = sentences[0] || text;
+  const headline =
+    first.length >= 35 && first.length <= 115
+      ? first
+      : preview.angle?.angle?.trim() || "The useful point is what this change means in practice.";
+
+  const remaining = sentences.filter((item) => item !== first);
+  const points = remaining.slice(0, 3).map((item) => item.replace(/[.!?]+$/, ""));
+  const takeaway = sentences.length > 3
+    ? sentences[sentences.length - 1].replace(/[.!?]+$/, "")
+    : (remaining[remaining.length - 1] || "").replace(/[.!?]+$/, "");
+
   return {
     headline: headline.replace(/[.!?]+$/, ""),
-    body: text === headline ? "" : text.replace(headline, "").trim().slice(0, 280),
+    body: preview.angle?.angle?.trim() || "",
+    points,
+    takeaway,
     attribution: `Based on a ${preview.article.source} article`,
   };
 }
 
 async function renderVisual(visual: VisualCopy) {
   const width = 1080;
-  const height = 720;
-  const margin = 72;
+  const height = 1350;
+  const margin = 76;
   const maxTextWidth = width - margin * 2;
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -46,115 +64,105 @@ async function renderVisual(visual: VisualCopy) {
     const words = text.trim().split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let line = "";
-
     for (const word of words) {
       const candidate = line ? line + " " + word : word;
-      if (!line || ctx.measureText(candidate).width <= maxWidth) {
-        line = candidate;
-      } else {
-        lines.push(line);
-        line = word;
-      }
+      if (!line || ctx.measureText(candidate).width <= maxWidth) line = candidate;
+      else { lines.push(line); line = word; }
     }
-
     if (line) lines.push(line);
     return lines;
   }
 
-  function fitWrappedText(
-    text: string,
-    startSize: number,
-    minSize: number,
-    maxLines: number,
-    maxWidth: number,
-    family: string,
-    weight = "400",
-  ) {
+  function fit(text: string, startSize: number, minSize: number, maxLines: number, family: string, weight = "400") {
     for (let size = startSize; size >= minSize; size -= 1) {
-      ctx.font = weight + " " + size + "px " + family;
-      const lines = wrapText(text, maxWidth);
-      if (
-        lines.length <= maxLines &&
-        lines.every((line) => ctx.measureText(line).width <= maxWidth)
-      ) {
-        return { size, lines };
-      }
+      ctx.font = `${weight} ${size}px ${family}`;
+      const lines = wrapText(text, maxTextWidth);
+      if (lines.length <= maxLines) return { size, lines };
     }
-
-    ctx.font = weight + " " + minSize + "px " + family;
-    const lines = wrapText(text, maxWidth);
-    return { size: minSize, lines: lines.slice(0, maxLines) };
+    ctx.font = `${weight} ${minSize}px ${family}`;
+    return { size: minSize, lines: wrapText(text, maxTextWidth).slice(0, maxLines) };
   }
 
   ctx.fillStyle = "#a3a3a3";
   ctx.font = "16px Arial";
-  ctx.fillText("POSTCRAFT · LINKEDIN VISUAL", margin, 82);
+  ctx.fillText("POSTCRAFT · LINKEDIN INFOCARD", margin, 74);
 
-  const headlineFit = fitWrappedText(
-    visual.headline,
-    42,
-    30,
-    4,
-    maxTextWidth,
-    "Georgia",
-    "700",
-  );
+  const headlineFit = fit(visual.headline, 48, 32, 4, "Georgia", "700");
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 " + headlineFit.size + "px Georgia";
-  const headlineLineHeight = Math.round(headlineFit.size * 1.28);
-  const headlineY = 190;
-  headlineFit.lines.forEach((line, index) =>
-    ctx.fillText(line, margin, headlineY + index * headlineLineHeight),
-  );
+  ctx.font = `700 ${headlineFit.size}px Georgia`;
+  const headlineLineHeight = Math.round(headlineFit.size * 1.22);
+  let y = 155;
+  headlineFit.lines.forEach((line) => {
+    ctx.fillText(line, margin, y);
+    y += headlineLineHeight;
+  });
 
-  const bodyFit = fitWrappedText(
-    visual.body,
-    31,
-    22,
-    7,
-    maxTextWidth,
-    "Georgia",
-  );
-  ctx.fillStyle = "#e7e5e4";
-  ctx.font = bodyFit.size + "px Georgia";
-  const bodyLineHeight = Math.round(bodyFit.size * 1.38);
-  const bodyY =
-    headlineY + headlineFit.lines.length * headlineLineHeight + 62;
-  bodyFit.lines.forEach((line, index) =>
-    ctx.fillText(line, margin, bodyY + index * bodyLineHeight),
-  );
+  if (visual.body?.trim()) {
+    y += 24;
+    const bodyFit = fit(visual.body, 25, 19, 3, "Georgia");
+    ctx.fillStyle = "#d6d3d1";
+    ctx.font = `${bodyFit.size}px Georgia`;
+    bodyFit.lines.forEach((line) => {
+      ctx.fillText(line, margin, y);
+      y += Math.round(bodyFit.size * 1.35);
+    });
+  }
 
-  const divider = Math.min(
-    bodyY + bodyFit.lines.length * bodyLineHeight + 20,
-    height - 104,
-  );
+  y += 38;
   ctx.strokeStyle = "#3f3f46";
   ctx.beginPath();
-  ctx.moveTo(margin, divider);
-  ctx.lineTo(width - margin, divider);
+  ctx.moveTo(margin, y);
+  ctx.lineTo(width - margin, y);
   ctx.stroke();
 
-  const attributionFit = fitWrappedText(
-    visual.attribution.trim(),
-    18,
-    14,
-    2,
-    maxTextWidth,
-    "Arial",
-  );
+  const points = (visual.points || []).filter(Boolean).slice(0, 3);
+  points.forEach((point, index) => {
+    y += 46;
+    ctx.fillStyle = "#a3a3a3";
+    ctx.font = "700 18px Arial";
+    ctx.fillText(String(index + 1).padStart(2, "0"), margin, y);
+
+    const pointFit = fit(point, 25, 18, 4, "Arial", "400");
+    ctx.fillStyle = "#f5f5f5";
+    ctx.font = `${pointFit.size}px Arial`;
+    let pointY = y;
+    pointFit.lines.forEach((line) => {
+      ctx.fillText(line, margin + 54, pointY);
+      pointY += Math.round(pointFit.size * 1.35);
+    });
+    y = pointY;
+  });
+
+  if (visual.takeaway?.trim()) {
+    y += 36;
+    ctx.fillStyle = "#737373";
+    ctx.font = "700 15px Arial";
+    ctx.fillText("THE TAKEAWAY", margin, y);
+    y += 30;
+    const takeawayFit = fit(visual.takeaway, 27, 19, 4, "Georgia", "700");
+    ctx.fillStyle = "#f5f5f5";
+    ctx.font = `700 ${takeawayFit.size}px Georgia`;
+    takeawayFit.lines.forEach((line) => {
+      ctx.fillText(line, margin, y);
+      y += Math.round(takeawayFit.size * 1.3);
+    });
+  }
+
+  const attributionY = height - 86;
+  ctx.strokeStyle = "#3f3f46";
+  ctx.beginPath();
+  ctx.moveTo(margin, attributionY - 20);
+  ctx.lineTo(width - margin, attributionY - 20);
+  ctx.stroke();
+
+  const attributionFit = fit(visual.attribution.trim(), 16, 13, 2, "Arial");
   ctx.fillStyle = "#a3a3a3";
-  ctx.font = attributionFit.size + "px Arial";
-  attributionFit.lines.forEach((line, index) =>
-    ctx.fillText(line, margin, divider + 34 + index * 22),
-  );
+  ctx.font = `${attributionFit.size}px Arial`;
+  attributionFit.lines.forEach((line, index) => ctx.fillText(line, margin, attributionY + index * 20));
 
   ctx.fillStyle = "#737373";
-  ctx.font = "16px Arial";
-  ctx.fillText(
-    "A considered point of view, prepared with PostCraft AI",
-    margin,
-    height - 30,
-  );
+  ctx.font = "14px Arial";
+  ctx.fillText("Prepared with PostCraft AI · Review before publishing", margin, height - 24);
 
   return canvas.toDataURL("image/png");
 }
