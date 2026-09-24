@@ -23,6 +23,11 @@ export async function POST(request: Request) {
     const quoteText = typeof body?.quoteText === "string" ? body.quoteText.trim() : "";
     const quoteAuthor = typeof body?.quoteAuthor === "string" ? body.quoteAuthor.trim() : "";
     const quoteCategory = typeof body?.quoteCategory === "string" ? body.quoteCategory.trim() : "";
+    const storyHash = typeof body?.storyHash === "string" ? body.storyHash.trim() : "";
+    const storySourceName = typeof body?.storySourceName === "string" ? body.storySourceName.trim() : "";
+    const storySourceTitle = typeof body?.storySourceTitle === "string" ? body.storySourceTitle.trim() : "";
+    const storySourceUrl = typeof body?.storySourceUrl === "string" ? body.storySourceUrl.trim() : "";
+    const storyCategory = typeof body?.storyCategory === "string" ? body.storyCategory.trim() : "";
 
     if (!headline && !stat) {
       return NextResponse.json({ error: "There is no card content to save yet." }, { status: 400 });
@@ -51,11 +56,27 @@ export async function POST(request: Request) {
         quote_author: quoteAuthor || null,
         quote_source: quoteHash ? "ZenQuotes" : null,
         quote_category: quoteCategory || null,
+        story_hash: storyHash || null,
+        story_source_name: storySourceName || null,
+        story_source_title: storySourceTitle || null,
+        story_source_url: storySourceUrl || null,
+        story_category: storyCategory || null,
       })
       .select("id, created_at")
       .single();
 
     if (error) throw error;
+
+    if (storyHash) {
+      const { error: usageError } = await supabase.from("postcard_story_usage").upsert({
+        user_id: user.id,
+        story_hash: storyHash,
+        used_at: new Date().toISOString(),
+        cooldown_until: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        action: "saved",
+      }, { onConflict: "user_id,story_hash" });
+      if (usageError) console.error("Could not record PostCard story cooldown:", usageError);
+    }
 
     if (quoteHash) {
       const { error: usageError } = await supabase.from("postcard_quote_usage").upsert({
