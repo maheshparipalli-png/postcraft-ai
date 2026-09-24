@@ -5,11 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
-type Template = "editorial" | "insight" | "stat";
+type Template = "quote" | "editorial" | "insight" | "stat";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
-const templates: { id: Template; name: string; description: string }[] = [
-  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
+const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;\n\nconst templates: { id: Template; name: string; description: string }[] = [
+  { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },\n  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
   { id: "insight", name: "Insight", description: "One idea, big and clear" },
   { id: "stat", name: "Statistic", description: "Lead with a number" },
 ];
@@ -129,7 +129,7 @@ export default function PostCardPage() {
     "Work earns a seat, but people-centered impact builds a legacy."
   );
   const [stat, setStat] = useState("");
-  const [statLabel, setStatLabel] = useState("");
+  const [statLabel, setStatLabel] = useState("");\n  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");\n  const [quoteHash, setQuoteHash] = useState<string | null>(null);\n  const [quoteAuthor, setQuoteAuthor] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("gradient");
@@ -427,6 +427,28 @@ export default function PostCardPage() {
     setGenerating(true);
     setGenerateMessage("");
     const nextCount = generationCount + 1;
+
+    if (template === "quote") {
+      try {
+        const response = await fetch(`/api/postcard/quote?field=${encodeURIComponent(quoteField)}`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || !data?.quote) throw new Error(data?.error || "Could not retrieve a motivational quote.");
+        setHeadline(data.quote.text || "");
+        setBody(data.quote.author ? `— ${data.quote.author}` : "");
+        setClosing("");
+        setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
+        setQuoteHash(data.quote.hash || null);
+        setQuoteAuthor(data.quote.author || "");
+        setGenerationCount(nextCount);
+        setGenerateMessage(`Fresh ${data.quote.category || quoteField} quote selected.`);
+      } catch (error) {
+        setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational quote.");
+      } finally {
+        setGenerating(false);
+      }
+      return;
+    }
+
     const directions = [
       "sports comeback or breakthrough",
       "business decision or company turnaround",
@@ -503,6 +525,10 @@ export default function PostCardPage() {
           stat: normalizedStat.stat,
           statLabel: normalizedStat.statLabel,
           source,
+          quoteHash,
+          quoteText: template === "quote" ? headline : "",
+          quoteAuthor: template === "quote" ? quoteAuthor : "",
+          quoteCategory: template === "quote" ? quoteField : "",
         }),
       });
       const data = await response.json().catch(() => null);
@@ -696,13 +722,25 @@ export default function PostCardPage() {
               >
                 {generating ? "✦ Generating PostCard..." : "✦ Generate PostCard"}
               </button>
-              <p className="mt-2 text-center text-[11px] text-neutral-400">AI creates a fresh thought, supporting insight, and closing line for your selected format.</p>
+              <p className="mt-2 text-center text-[11px] text-neutral-400">Motivational Quote uses sourced quotations; other formats use AI-generated copy.</p>
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">2 / Write the card</div>
 
-              {template === "stat" ? (
+              {template === "quote" ? (
+                <div className="mt-5 space-y-5">
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Motivational field</span>
+                    <select value={quoteField} onChange={(e) => setQuoteField(e.target.value as (typeof quoteFields)[number])} className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900">
+                      {quoteFields.map((field) => <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>)}
+                    </select>
+                  </label>
+                  <Field label="Quote" value={headline} onChange={setHeadline} textarea />
+                  <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); }} />
+                  <p className="text-[11px] leading-5 text-neutral-500">Quotes come from an external feed. Once you save or publish one, it is excluded from your future selections for 90 days.</p>
+                </div>
+              ) : template === "stat" ? (
                 <div className="mt-5 space-y-5">
                   <Field
                     label="Statistic"
