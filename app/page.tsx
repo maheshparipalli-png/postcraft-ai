@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 import MarketingHome from "./ui/marketing-home";
 
-type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string };
+type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string; interest?: string };
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
@@ -938,7 +938,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
           <div className="grid gap-10 lg:grid-cols-[190px_1fr]">
             <div>
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">02 / Choose</div>
-              <h2 className="mt-2 font-serif text-2xl">The four strongest recent stories.</h2>
+              <h2 className="mt-2 font-serif text-2xl">The strongest stories across your interests.</h2>
               <div className="mt-3 text-xs text-neutral-500">{ideas.length} stories ranked by editorial value</div>
             </div>
             <div className="divide-y divide-neutral-300/80 border-y border-neutral-300/80">
@@ -961,7 +961,7 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                   <div className="flex gap-5">
                     <div className="hidden pt-1 font-serif text-sm text-neutral-400 sm:block">0{index + 1}</div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] uppercase tracking-[0.12em] text-neutral-500">{idea.source}{idea.publishedAt ? ` - Published ${formatPublishedAtIST(idea.publishedAt)}` : ""}</div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.12em] text-neutral-500"><span>{idea.interest || "Selected interest"}</span><span className="text-neutral-300">·</span><span>{idea.source}{idea.publishedAt ? ` - Published ${formatPublishedAtIST(idea.publishedAt)}` : ""}</span></div>
                       <h3 className="mt-2 max-w-3xl font-serif text-2xl leading-tight tracking-[-0.02em] sm:text-3xl">{idea.title}</h3>
                       {idea.description && <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">{idea.description}</p>}
                       {idea.whyItMatters && <div className="mt-5 max-w-2xl border-l border-neutral-400 pl-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">Why this is interesting</div><p className="mt-1.5 text-sm leading-6 text-neutral-800">{idea.whyItMatters}</p></div>}
