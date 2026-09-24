@@ -42,15 +42,28 @@ function trimToCompleteSentences(value: string, maxLength: number) {
 }
 
 function createVisualCopy(generated: string, angle: string) {
-  const cleaned = generated.replace(/^\s*(this post|based on|read the original)[^\n]*\n?/i, "").trim();
+  const cleaned = generated
+    .replace(/^\s*(this post|based on|read the original)[^\n]*\n?/i, "")
+    .replace(/\n+Read the original article:[\s\S]*$/i, "")
+    .trim();
   const paragraphs = cleaned.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
   const body = (paragraphs[0] || cleaned).replace(/\s+/g, " ").trim();
-  const sentence = body.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || body;
-  const headline = sentence.length >= 35 && sentence.length <= 115 ? sentence : angle.trim() || "A considered point of view on AI and technology.";
-  const supportingBody = body === headline ? (paragraphs[1] || body) : body;
+  const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
+  const sentence = sentences[0] || body;
+  const headline = sentence.length >= 35 && sentence.length <= 115
+    ? sentence
+    : angle.trim() || "A considered point of view on the latest development.";
+  const remaining = sentences.filter((item) => item !== sentence);
+  const points = remaining.slice(0, 3).map((item) => trimToCompleteSentences(item, 150).replace(/[.!?]+$/, ""));
+  const takeaway = (sentences[sentences.length - 1] || remaining[remaining.length - 1] || "")
+    .replace(/[.!?]+$/, "")
+    .trim();
+  const supportingBody = body === sentence ? (paragraphs[1] || "") : body;
   return {
     headline: headline.replace(/[.!?]+$/, ""),
-    body: trimToCompleteSentences(supportingBody, 260),
+    body: trimToCompleteSentences(supportingBody, 220),
+    points,
+    takeaway,
   };
 }
 
