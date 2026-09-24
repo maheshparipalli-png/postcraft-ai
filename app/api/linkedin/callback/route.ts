@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.redirect(new URL("/login", request.url));
 
-    const { clientId, clientSecret } = getLinkedInConfig();
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI?.trim() || `${request.nextUrl.origin}/api/linkedin/callback`;
+    const { clientId, clientSecret, redirectUri } = getLinkedInConfig(request.nextUrl.origin);
     const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
