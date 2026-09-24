@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import dns from "node:dns/promises";
 import net from "node:net";
 
@@ -10,21 +11,8 @@ export type VerifiedSource = {
   summary: string;
 };
 
-function decodeHtml(value: string) {
-  return value
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#x2F;/gi, "/")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&#(\\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
-}
-
 function cleanText(value: string) {
-  return decodeHtml(value)
+  return decodeHtmlEntities(value)
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
