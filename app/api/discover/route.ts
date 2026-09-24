@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { searchNews } from "@/lib/research/news";
-import { searchCustomTopic } from "@/lib/research/custom-topic";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeInterests } from "@/lib/content-interests";
