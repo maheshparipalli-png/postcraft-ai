@@ -604,6 +604,24 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
   return titleMatches >= 1 && supportMatches >= 2;
 }
 
+function getMetaEditorialPhrases(post: string) {
+  const phrases = [
+    "### linkedin post",
+    "the strongest supported tension",
+    "another strong implication",
+    "this angle",
+    "this perspective",
+    "the strongest angle",
+    "the key takeaway",
+    "this suggests that the future",
+    "a new paradigm",
+    "the need for a new approach",
+  ];
+
+  const lower = post.toLowerCase();
+  return phrases.filter((phrase) => lower.includes(phrase));
+}
+
 function getGenericFillerPhrases(post: string) {
   const phrases = [
     "it's crucial to recognize",
@@ -612,6 +630,16 @@ function getGenericFillerPhrases(post: string) {
     "raises a crucial question",
     "strike a balance",
     "in today's rapidly changing world",
+    "in today's rapidly evolving business landscape",
+    "in today's evolving business landscape",
+    "in the modern business landscape",
+    "in the rapidly evolving business landscape",
+    "driving the business forward",
+    "drives the business forward",
+    "highlights the importance",
+    "future of leadership",
+    "effective leadership fosters",
+    "discover how",
     "the future of work",
     "what do you think",
     "agree or disagree",
@@ -652,6 +680,7 @@ export async function generateEditorialPost(
     hasSourceGrounding: boolean;
     hasGenericFiller: boolean;
     genericFillerPhrases: string[];
+    metaEditorialPhrases: string[];
     hasNoSourceLeak: boolean;
     evidenceDensity: {
       ok: boolean;
@@ -728,6 +757,7 @@ export async function generateEditorialPost(
     );
     const genericFillerPhrases = getGenericFillerPhrases(post);
     const hasGenericFiller = genericFillerPhrases.length > 0;
+    const metaEditorialPhrases = getMetaEditorialPhrases(post);
     const evidenceDensity = postHasConcreteEvidenceDensity(
       post,
       story,
@@ -753,6 +783,9 @@ export async function generateEditorialPost(
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
+    }
+    if (metaEditorialPhrases.length) {
+      reasons.push("The draft contains editorial-generation or section-label language instead of a finished LinkedIn post.");
     }
     if (!evidenceDensity.ok) {
       reasons.push(
@@ -840,7 +873,7 @@ Do not add outside facts, statistics, examples, quotes, motives, causation, or c
 Preserve the exact headline as the first standalone line.
 Preserve the central editorial angle.
 Fix EVERY validation failure listed below.
-The exact generic filler phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
+The exact generic filler and meta-editorial phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
 At least three concrete story-specific details must appear in the repaired post.
