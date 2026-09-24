@@ -22,7 +22,7 @@ function decodeHtmlEntities(value: string) {
 function canUseDiscoveryFallback(error: unknown, summary: string) {
   const message = error instanceof Error ? error.message : String(error ?? "");
   return (
-    summary.length >= 80 &&
+    summary.length >= 40 &&
     /could not be opened|returned HTTP (401|403|408|429|5\d\d)|timed out|timeout|fetch failed|network/i.test(
       message,
     )
