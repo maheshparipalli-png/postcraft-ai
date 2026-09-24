@@ -68,11 +68,12 @@ function parseFeed(xml: string, sourceName: string): FeedItem[] {
       const link = decodeXml(hrefTag?.[1] || linkTag?.[1] || "");
       const summary = firstTag(block, "description") || firstTag(block, "summary") || firstTag(block, "content:encoded") || "";
       const published = firstTag(block, "pubDate") || firstTag(block, "published") || firstTag(block, "updated");
+      const publishedDate = published ? new Date(published) : null;
       return {
         title: title.slice(0, 240),
         link,
         summary: summary.slice(0, 3500),
-        publishedAt: published ? new Date(published).toISOString() : null,
+        publishedAt: publishedDate && !Number.isNaN(publishedDate.getTime()) ? publishedDate.toISOString() : null,
         sourceName,
       };
     })
