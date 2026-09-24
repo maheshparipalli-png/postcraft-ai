@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const postId = typeof body?.postId === "string" ? body.postId.trim() : null;
     const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : null;
-    const sourceTitle = typeof body?.sourceTitle === "string" ? body.sourceTitle.trim() : null;
+    const sourceTitle = typeof body?.sourceTitle === "string" ? body.sourceTitle.trim() : null;\n    const quoteHash = typeof body?.quoteHash === "string" ? body.quoteHash.trim() : null;
     const commentary = typeof body?.commentary === "string" ? body.commentary.trim() : "";
     const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl.trim() : null;
     const includeSourceImage = body?.includeSourceImage === true;
@@ -232,6 +232,17 @@ export async function POST(request: NextRequest) {
       published_at: new Date().toISOString(),
     });
     if (historyError) console.error("Could not save publication history:", historyError);
+
+    if (quoteHash) {
+      const { error: quoteUsageError } = await supabase.from("postcard_quote_usage").upsert({
+        user_id: user.id,
+        quote_hash: quoteHash,
+        used_at: new Date().toISOString(),
+        cooldown_until: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        action: "published",
+      }, { onConflict: "user_id,quote_hash" });
+      if (quoteUsageError) console.error("Could not record published PostCard quote cooldown:", quoteUsageError);
+    }
 
     let warning: string | null = null;
     if (postId) {
