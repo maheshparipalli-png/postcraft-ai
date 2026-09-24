@@ -605,17 +605,22 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
 }
 
 function getMetaEditorialPhrases(post: string) {
+  // Only flag unmistakable generation/section labels. Phrases such as
+  // "this angle" or "this perspective" can be perfectly natural in a human
+  // LinkedIn post and must not cause a false rejection.
   const phrases = [
     "### linkedin post",
-    "the strongest supported tension",
-    "another strong implication",
-    "this angle",
-    "this perspective",
-    "the strongest angle",
-    "the key takeaway",
-    "this suggests that the future",
-    "a new paradigm",
-    "the need for a new approach",
+    "## linkedin post",
+    "linkedin post:",
+    "the strongest supported tension in this angle",
+    "another strong implication in this angle",
+    "the strongest angle is",
+    "the key takeaway is",
+    "here is the repaired post",
+    "here's the repaired post",
+    "validation failure",
+    "evidence ledger",
+    "editorial repair",
   ];
 
   const lower = post.toLowerCase();
