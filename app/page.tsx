@@ -505,7 +505,11 @@ function resetFromStory() {
       }
 
       if (!data?.post || !data?.selectedAngle?.angle) {
-        throw new Error("PostCraft could not create a strong editorial draft for this story. Try another story.");
+        const diagnostic = data?.error?.trim();
+        throw new Error(
+          diagnostic ||
+          "PostCraft could not create a strong editorial draft for this story. The editorial service returned an incomplete draft."
+        );
       }
 
       if (requestId !== angleRequestRef.current) return;
