@@ -176,6 +176,10 @@ export const ollamaProvider: AIProvider = {
       outputLength: text.length,
     });
 
+    if (!text.trim()) {
+      throw new Error("Ollama returned an empty response");
+    }
 
+    return text.trim();
   },
 };
