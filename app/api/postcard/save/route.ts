@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const closing = typeof body?.closing === "string" ? body.closing.trim() : "";
     const stat = typeof body?.stat === "string" ? body.stat.trim() : "";
     const statLabel = typeof body?.statLabel === "string" ? body.statLabel.trim() : "";
-    const source = typeof body?.source === "string" ? body.source.trim() : "";
+    const source = typeof body?.source === "string" ? body.source.trim() : "";\n    const quoteHash = typeof body?.quoteHash === "string" ? body.quoteHash.trim() : "";\n    const quoteText = typeof body?.quoteText === "string" ? body.quoteText.trim() : "";\n    const quoteAuthor = typeof body?.quoteAuthor === "string" ? body.quoteAuthor.trim() : "";\n    const quoteCategory = typeof body?.quoteCategory === "string" ? body.quoteCategory.trim() : "";
 
     if (!headline && !stat) {
       return NextResponse.json({ error: "There is no card content to save yet." }, { status: 400 });
