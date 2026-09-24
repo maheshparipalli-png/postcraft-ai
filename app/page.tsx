@@ -127,10 +127,12 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
   ctx.strokeStyle = "#3f3f46";
   ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(width - margin, y); ctx.stroke();
 
-  const cleaned = post
-    .replace(/^.*?\n\s*\n/, "")
-    .replace(/\bhttps?:\/\/\S+/gi, "")
-    .trim();
+  const cleaned = decodeHtmlEntities(
+    post
+      .replace(/^.*?\n\s*\n/, "")
+      .replace(/\bhttps?:\/\/\S+/gi, "")
+      .trim(),
+  );
   const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
   const points = sentences.slice(0, 3);
   points.forEach((point, index) => {
