@@ -146,7 +146,7 @@ export default function PostCardPage() {
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinCaption, setLinkedinCaption] = useState("");
-  const linkedinCommentary = linkedinCaption.trim() || body.trim() || headline.trim();
+  const linkedinCommentary = linkedinCaption.trim() || (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const [linkedinNotice, setLinkedinNotice] = useState("");
