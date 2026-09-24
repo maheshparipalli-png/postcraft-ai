@@ -415,7 +415,16 @@ export async function generateEditorialAngles(story: Story) {
   };
 }
 
-export function sanitizeLinkedInPost(value: string) {
+export function decodeEditorialEntities(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function sanitizeLinkedInPost(value: string) {
   return value
     .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
@@ -640,10 +649,12 @@ export async function generateEditorialPost(
         ? parsedResult.post.trim()
         : rawResult.trim();
 
-    const decodedPost = rawPost
-      .replace(/\\r\\n/g, "\n")
-      .replace(/\\n/g, "\n")
-      .replace(/\\r/g, "\n");
+    const decodedPost = decodeEditorialEntities(
+      rawPost
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\n"),
+    );
 
     const normalizedPost = sanitizeLinkedInPost(decodedPost);
     const headline = story.headline.trim();
