@@ -185,7 +185,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ count: usableResearch.length, ideas, interests, selectedBy: "personalized editorial value ranking" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Discovery failed";
+    console.error("Discover API error:", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : error && typeof error === "object"
+            ? JSON.stringify(error)
+            : "Discovery failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
