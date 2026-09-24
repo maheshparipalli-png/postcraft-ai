@@ -361,8 +361,31 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
         body: JSON.stringify({ action: "editorial", prompt }),
         signal: controller.signal,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "PostCraft could not create the post.");
+      const raw = await response.text();
+      let data: {
+        error?: string;
+        post?: string;
+        selectedAngle?: { angle?: string };
+        angles?: unknown[];
+        evidence?: unknown[];
+      } | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+          (raw && raw.trim() ? raw.trim().slice(0, 300) : "") ||
+          `PostCraft could not create the post (HTTP ${response.status}).`
+        );
+      }
+
+      if (!data) {
+        throw new Error("PostCraft returned an empty or invalid response. Please try again.");
+      }
 
       if (requestId !== angleRequestRef.current) return;
 
@@ -394,7 +417,16 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
       setSuggestedAngles(generatedAngles);
       setAngle(selectedText);
       setVerifiedSummary(idea.description || "");
-      setPost(generatedPost + `\n\nSource: ${decodeHtmlEntities(idea.source).trim()} — ${idea.url}`);
+      const storyTitle = decodeHtmlEntities(idea.title).trim();
+      const titleNormalized = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const postNormalized = generatedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const postWithTitle = postNormalized.startsWith(titleNormalized)
+        ? generatedPost
+        : `${storyTitle}\n\n${generatedPost}`;
+
+      // Keep the source URL as internal metadata only. It should never be
+      // appended to the LinkedIn commentary shown to the user.
+      setPost(postWithTitle);
       setOriginalityStatus("idle");
       setOriginalityMessage("");
     } catch (err) {
