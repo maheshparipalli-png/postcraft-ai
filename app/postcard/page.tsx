@@ -342,6 +342,20 @@ export default function PostCardPage() {
         <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
         ${textLines(closingFit.lines, 68, closingY, closingFit.size, 600, closingFit.gap)}
       `;
+    } else if (template === "quote") {
+      const quoteFit = fitText(headline || "Your motivational quote goes here.", {
+        maxWidth: 900, maxLines: 6, startSize: 64, minSize: 42, weight: 500, lineHeight: 66,
+      });
+      const authorFit = fitSingleLine(body || (quoteAuthor ? `— ${quoteAuthor}` : ""), 820, 30, 22, 400);
+      const quoteY = 300;
+      const quoteEnd = quoteY + Math.max(1, quoteFit.lines.length - 1) * quoteFit.gap + quoteFit.size;
+      const authorY = quoteEnd + 72;
+
+      content = `
+        <text x="68" y="255" font-family="Georgia,serif" font-size="96" font-weight="700" fill="${textColor}" opacity=".18">“</text>
+        ${textLines(quoteFit.lines, 68, quoteY, quoteFit.size, 500, quoteFit.gap)}
+        ${body ? `<text x="68" y="${authorY}" font-family="Arial,sans-serif" font-size="${authorFit.size}" font-weight="400" fill="${mutedColor}">${escapeXml(authorFit.text)}</text>` : ""}
+      `;
     } else {
       const headlineFit = fitText(headline || "Your main thought goes here.", {
         maxWidth: 900, maxLines: 5, startSize: 68, minSize: 46, weight: 500, lineHeight: 68,
