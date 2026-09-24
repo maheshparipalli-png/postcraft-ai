@@ -8,7 +8,9 @@ import { normalizeStatisticContent } from "@/lib/postcard/content";
 type Template = "quote" | "editorial" | "insight" | "stat";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
-const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;\n\nconst templates: { id: Template; name: string; description: string }[] = [
+const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
+
+const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },\n  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
   { id: "insight", name: "Insight", description: "One idea, big and clear" },
   { id: "stat", name: "Statistic", description: "Lead with a number" },
