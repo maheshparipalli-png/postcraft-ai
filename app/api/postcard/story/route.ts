@@ -86,9 +86,14 @@ function hashStory(item: FeedItem) {
     .digest("hex");
 }
 
-function score(item: FeedItem, category: string) {
+function score(
+  item: Pick<FeedItem, "title" | "summary"> | { source_title: string; source_summary: string },
+  category: string,
+) {
   const terms = CATEGORY_TERMS[category] ?? CATEGORY_TERMS[DEFAULT_CATEGORY];
-  const text = (item.title + " " + item.summary).toLowerCase();
+  const title = "title" in item ? item.title : item.source_title;
+  const summary = "summary" in item ? item.summary : item.source_summary;
+  const text = (title + " " + summary).toLowerCase();
   return terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
 }
 
