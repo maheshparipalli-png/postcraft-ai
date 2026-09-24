@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import { NextResponse } from "next/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { generateEditorialDraft } from "@/lib/ai/editorial";
@@ -6,18 +7,6 @@ import { verifySourceUrl, type VerifiedSource } from "@/lib/research/verify-sour
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&rsquo;|&#8217;|&#x2019;/gi, "’")
-    .replace(/&lsquo;|&#8216;|&#x2018;/gi, "‘")
-    .replace(/&rdquo;|&#8221;|&#x201D;/gi, "”")
-    .replace(/&ldquo;|&#8220;|&#x201C;/gi, "“")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&nbsp;/gi, " ");
-}
 
 function canUseDiscoveryFallback(error: unknown, summary: string) {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -84,8 +73,8 @@ export async function POST(request: Request) {
           ? verified.title
           : fallbackTitle,
       ),
-      source: verified?.source || fallbackSource || "the original publisher",
-      summary: verified?.summary || fallbackSummary,
+      source: decodeHtmlEntities(verified?.source || fallbackSource || "the original publisher"),
+      summary: decodeHtmlEntities(verified?.summary || fallbackSummary),
       url: verified?.url || url,
     };
 
