@@ -1,5 +1,6 @@
-import { decodeHtmlEntities } from "@/lib/text/decode-html";
 "use client";
+
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
