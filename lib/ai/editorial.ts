@@ -549,6 +549,7 @@ export async function generateEditorialPost(
     hasConcreteAnchor: boolean;
     hasSourceGrounding: boolean;
     hasGenericFiller: boolean;
+    genericFillerPhrases: string[];
     hasNoSourceLeak: boolean;
   };
 
