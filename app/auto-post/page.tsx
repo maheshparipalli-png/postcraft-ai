@@ -253,7 +253,7 @@ export default function AutoPostPage() {
       })
       .finally(() => { if (!cancelled) setRendering(false); });
     return () => { cancelled = true; };
-  }, [preview, visualUrl, rendering]);
+  }, [preview]);
 
   async function regenerateDraft() {
     if (running) return;
