@@ -11,7 +11,8 @@ type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "in
 const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
 
 const templates: { id: Template; name: string; description: string }[] = [
-  { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },\n  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
+  { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
+  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
   { id: "insight", name: "Insight", description: "One idea, big and clear" },
   { id: "stat", name: "Statistic", description: "Lead with a number" },
 ];
@@ -131,7 +132,8 @@ export default function PostCardPage() {
     "Work earns a seat, but people-centered impact builds a legacy."
   );
   const [stat, setStat] = useState("");
-  const [statLabel, setStatLabel] = useState("");\n  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");\n  const [quoteHash, setQuoteHash] = useState<string | null>(null);\n  const [quoteAuthor, setQuoteAuthor] = useState("");
+  const [statLabel, setStatLabel] = useState("");
+  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");\n  const [quoteHash, setQuoteHash] = useState<string | null>(null);\n  const [quoteAuthor, setQuoteAuthor] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("gradient");
