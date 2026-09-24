@@ -468,6 +468,80 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   return words.length >= 90 && words.length <= 210 && sharedTerms >= 2;
 }
 
+function getConcreteEvidenceTerms(
+  story: Story,
+  evidence: Evidence[],
+  angle: string,
+) {
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should", "article",
+    "source", "selected", "interesting", "important", "today", "people",
+    "company", "companies", "technology", "technologies", "business",
+    "development", "question", "future", "need", "could", "might",
+    "would", "thing", "things", "really", "simply", "specific",
+  ]);
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\\s+/)
+      .filter((word) => word.length >= 5 && !stopWords.has(word));
+
+  const sourceText = [
+    story.headline,
+    story.summary,
+    angle,
+    ...evidence.flatMap((item) => [item.claim, item.support]),
+  ].join(" ");
+
+  return Array.from(new Set(normalize(sourceText)));
+}
+
+function postHasConcreteEvidenceDensity(
+  post: string,
+  story: Story,
+  evidence: Evidence[],
+  angle: string,
+) {
+  const anchors = getConcreteEvidenceTerms(story, evidence, angle);
+  const lowerPost = post.toLowerCase();
+
+  const matchedAnchors = anchors.filter((term) =>
+    lowerPost.includes(term),
+  );
+
+  const paragraphs = post
+    .split(/\\n\\s*\\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .slice(1);
+
+  const substantiveParagraphs = paragraphs.filter(
+    (paragraph) => paragraph.split(/\\s+/).filter(Boolean).length >= 15,
+  );
+
+  const paragraphsWithEvidence = substantiveParagraphs.filter((paragraph) => {
+    const lowerParagraph = paragraph.toLowerCase();
+    return anchors.some((term) => lowerParagraph.includes(term));
+  });
+
+  return {
+    ok:
+      matchedAnchors.length >= 3 &&
+      substantiveParagraphs.length > 0 &&
+      paragraphsWithEvidence.length === substantiveParagraphs.length,
+    matchedAnchors: matchedAnchors.slice(0, 8),
+    substantiveParagraphs: substantiveParagraphs.length,
+    paragraphsWithEvidence: paragraphsWithEvidence.length,
+  };
+}
+
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
   const stopWords = new Set([
     "about", "after", "again", "also", "among", "been", "being", "could",
@@ -551,6 +625,12 @@ export async function generateEditorialPost(
     hasGenericFiller: boolean;
     genericFillerPhrases: string[];
     hasNoSourceLeak: boolean;
+    evidenceDensity: {
+      ok: boolean;
+      matchedAnchors: string[];
+      substantiveParagraphs: number;
+      paragraphsWithEvidence: number;
+    };
   };
 
   function normalizeGeneratedPost(rawResult: string) {
@@ -590,6 +670,12 @@ export async function generateEditorialPost(
     );
     const genericFillerPhrases = getGenericFillerPhrases(post);
     const hasGenericFiller = genericFillerPhrases.length > 0;
+    const evidenceDensity = postHasConcreteEvidenceDensity(
+      post,
+      story,
+      evidence,
+      angle,
+    );
     const hasNoSourceLeak =
       !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(
         post,
@@ -609,6 +695,11 @@ export async function generateEditorialPost(
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
+    }
+    if (!evidenceDensity.ok) {
+      reasons.push(
+        "The draft is too generic: use at least three concrete story-specific details and keep every substantive paragraph anchored to the supplied evidence.",
+      );
     }
     if (!hasNoSourceLeak) {
       reasons.push("The draft contains a source URL or source footer.");
@@ -630,6 +721,7 @@ export async function generateEditorialPost(
       hasGenericFiller,
       hasNoSourceLeak,
       genericFillerPhrases,
+      evidenceDensity,
     };
   }
 
@@ -693,6 +785,9 @@ Fix EVERY validation failure listed below.
 The exact generic filler phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
+At least three concrete story-specific details must appear in the repaired post.
+Every substantive paragraph after the headline must contain at least one concrete detail from the supplied evidence.
+Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
 Keep 90-210 words and 600-1600 characters.
 Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
@@ -716,6 +811,11 @@ ${validation.reasons.map((reason) => `- ${reason}`).join("\\n")}
 
 DETECTED GENERIC PHRASES
 ${validation.genericFillerPhrases.length ? validation.genericFillerPhrases.map((phrase) => `- ${phrase}`).join("\\n") : "- none"}
+
+EVIDENCE DENSITY
+Concrete anchors detected: ${validation.evidenceDensity.matchedAnchors.join(", ") || "none"}
+Substantive paragraphs: ${validation.evidenceDensity.substantiveParagraphs}
+Paragraphs containing evidence: ${validation.evidenceDensity.paragraphsWithEvidence}
 
 REJECTED DRAFT
 ${rejectedPost}`;
