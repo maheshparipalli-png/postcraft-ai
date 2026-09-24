@@ -395,6 +395,29 @@ async function discoverIdeas() {
     return () => { cancelled = true; };
   }, [authReady, authUser?.id, appAccessAllowed]);
 
+  useEffect(() => {
+    if (!post.trim() || !selectedIdea) {
+      setPostCardImage("");
+      return;
+    }
+    let cancelled = false;
+    setPostCardRendering(true);
+    try {
+      const image = renderPostCardImage(
+        decodeHtmlEntities(selectedIdea.title),
+        post,
+        angle,
+        decodeHtmlEntities(selectedIdea.source),
+      );
+      if (!cancelled) setPostCardImage(image);
+    } catch (err) {
+      if (!cancelled) setError(err instanceof Error ? err.message : "Could not create the PostCard infographic.");
+    } finally {
+      if (!cancelled) setPostCardRendering(false);
+    }
+    return () => { cancelled = true; };
+  }, [post, selectedIdea, angle]);
+
   if (!authReady) {
     return <MarketingHome />;
   }
@@ -600,29 +623,6 @@ function resetFromStory() {
       return false;
     }
   }
-
-  useEffect(() => {
-    if (!post.trim() || !selectedIdea) {
-      setPostCardImage("");
-      return;
-    }
-    let cancelled = false;
-    setPostCardRendering(true);
-    try {
-      const image = renderPostCardImage(
-        decodeHtmlEntities(selectedIdea.title),
-        post,
-        angle,
-        decodeHtmlEntities(selectedIdea.source),
-      );
-      if (!cancelled) setPostCardImage(image);
-    } catch (err) {
-      if (!cancelled) setError(err instanceof Error ? err.message : "Could not create the PostCard infographic.");
-    } finally {
-      if (!cancelled) setPostCardRendering(false);
-    }
-    return () => { cancelled = true; };
-  }, [post, selectedIdea, angle]);
 
   async function publishToLinkedIn() {
     const savedPostId = await savePost();
