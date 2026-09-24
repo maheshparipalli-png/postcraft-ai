@@ -421,7 +421,7 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
 
   // The prompt asks for 110-160 words. Keep a reasonable floor, but do not
   // reject a useful draft merely because the small local model came in short.
-  return words.length >= 55 && sharedTerms >= 2;
+  return words.length >= 100 && words.length <= 210 && sharedTerms >= 2;
 }
 
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
@@ -527,9 +527,9 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a natural LinkedIn post of roughly 110-160 words in 4-6 short paragraphs. Start with the specific insight from the selected angle. Do not start with a generic statement about AI, technology, business, or change.
+Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs, aiming for about 900-1,300 characters when practical. The first 1-2 lines must earn the "see more" click with a specific fact, tension, result, or surprising implication from the story. Do not start with a greeting or a generic statement about AI, technology, business, or change.
 
-Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language.
+Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language. Write like a thoughtful professional who has actually read the source: use natural contractions where they fit, vary sentence length, prefer concrete nouns and verbs, and allow a little personality without pretending to have personal experience. Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", or formulaic hook language. Use no hashtags unless one is genuinely useful; never add a block of generic hashtags.
 
 End with ONE specific discussion question only when the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
 
@@ -561,15 +561,17 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
   const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
   const hasGenericFiller = postHasGenericFiller(post);
+  const characterCount = post.length;
 
   console.info("[PostCraft] post_validation", {
     wordCount: post.split(/\s+/).filter(Boolean).length,
     hasConcreteAnchor,
     hasSourceGrounding,
     hasGenericFiller,
+    characterCount,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller) {
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || characterCount < 700 || characterCount > 1600) {
     throw new Error("PostCraft rejected the generated draft because it was not sufficiently grounded in the selected source. The article will be skipped and another source will be tried.");
   }
 
