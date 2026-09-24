@@ -321,7 +321,7 @@ Use exactly this structure:
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 350,
+      numPredict: 180,
     })
   );
 
