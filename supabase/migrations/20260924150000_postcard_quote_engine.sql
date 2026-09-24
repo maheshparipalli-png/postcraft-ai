@@ -33,6 +33,19 @@ on public.postcard_quote_usage for select
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "users can record own postcard quote usage" on public.postcard_quote_usage;
+create policy "users can record own postcard quote usage"
+on public.postcard_quote_usage for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "users can update own postcard quote usage" on public.postcard_quote_usage;
+create policy "users can update own postcard quote usage"
+on public.postcard_quote_usage for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
 grant select on public.postcard_quote_usage to authenticated;
 grant select on public.postcard_quote_pool to authenticated;
 
