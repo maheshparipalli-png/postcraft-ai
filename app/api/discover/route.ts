@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         interest: interests[index],
         error: result.reason instanceof Error ? result.reason.message : "Content source lookup failed",
       } : null)
-      .filter((item): item is { interest: string; error: string } => Boolean(item));
+      .filter((item) => item !== null);
     const researchSets = discoveryResults
       .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof searchNews>>> => result.status === "fulfilled")
       .map((result) => result.value);
