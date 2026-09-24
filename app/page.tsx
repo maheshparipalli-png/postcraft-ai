@@ -11,8 +11,7 @@ type Idea = { title: string; description: string; whyItMatters: string; sourceIn
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
-
-const topics = ["AI & Technology"];
+type PublishFormat = "combined" | "text" | "image";
 const perspectives: { id: Perspective; label: string; description: string }[] = [
   { id: "agree", label: "I agree", description: "Build on the argument." },
   { id: "disagree", label: "I disagree", description: "Challenge the argument." },
@@ -220,6 +219,7 @@ export default function Home() {
   const [post, setPost] = useState("");
   const [postCardImage, setPostCardImage] = useState("");
   const [postCardRendering, setPostCardRendering] = useState(false);
+  const [publishFormat, setPublishFormat] = useState<PublishFormat>("combined");
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -415,6 +415,8 @@ function resetFromStory() {
     setNewsSource("");
     setNewsDate("");
     setVerifiedSummary("");
+    setPublishFormat("combined");
+    setPostCardImage("");
       }
 
 
@@ -436,47 +438,35 @@ function resetFromStory() {
     setAngleLoading(true);
 
     try {
-      const selectedTopic = topic;
-      const prompt = `Analyze this news story internally and immediately create the strongest possible LinkedIn post.
-
-Do not ask the user to choose an angle. Generate multiple candidate editorial angles internally, evaluate them, rank them, select the strongest one, and write the final post.
-
-Evaluate angles for:
-- reader interest
-- discussion potential
-- relevance to a LinkedIn audience
-- clarity
-- specificity
-- LinkedIn fit
-- evidence strength
-
-Reject generic observations, unsupported implications, invented motives, and conclusions not established by the supplied story.
-
-Use only the supplied story. Do not search the internet or add outside facts.
-
-Topic: ${selectedTopic}
-News title: ${decodeHtmlEntities(idea.title)}
-News source: ${decodeHtmlEntities(idea.source)}
-News date: ${formatDateInput(idea.publishedAt) || "Unknown"}
-URL: ${idea.url}
-Summary: ${idea.description || "No reliable summary was supplied."}
-
-Return the strongest editorial result and finished LinkedIn post. The application will append the source attribution separately.`;
-
-      const response = await fetch("/api/ai", {
+      const response = await fetch("/api/discover/editorial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "editorial", prompt }),
+        body: JSON.stringify({
+          url: idea.url,
+          title: idea.title,
+          source: idea.source,
+          summary: idea.description,
+          interest: idea.interest || topic,
+        }),
         signal: controller.signal,
       });
+
       const raw = await response.text();
       let data: {
         error?: string;
+        article?: {
+          title?: string;
+          source?: string;
+          url?: string;
+          publishedAt?: string;
+          content?: string;
+        };
         post?: string;
-        selectedAngle?: { angle?: string };
+        selectedAngle?: { angle?: string; why?: string; evidence?: string };
         angles?: unknown[];
         evidence?: unknown[];
       } | null = null;
+
       try {
         data = raw ? JSON.parse(raw) : null;
       } catch {
@@ -487,25 +477,21 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
         throw new Error(
           data?.error ||
           (raw && raw.trim() ? raw.trim().slice(0, 300) : "") ||
-          `PostCraft could not create the post (HTTP ${response.status}).`
+          `PostCraft could not create the post (HTTP ${response.status}).`,
         );
       }
 
-      if (!data) {
-        throw new Error("PostCraft returned an empty or invalid response. Please try again.");
+      if (!data?.post || !data?.selectedAngle?.angle) {
+        throw new Error("PostCraft could not create a strong editorial draft for this story. Try another story.");
       }
 
       if (requestId !== angleRequestRef.current) return;
 
-      const selected = data?.selectedAngle;
-      const selectedText = typeof selected?.angle === "string" ? selected.angle.trim() : "";
-      const generatedPost = typeof data?.post === "string" ? cleanGeneratedPost(data.post) : "";
+      const selected = data.selectedAngle;
+      const selectedText = selected.angle.trim();
+      const generatedPost = cleanGeneratedPost(data.post);
 
-      if (!selectedText || !generatedPost) {
-        throw new Error("PostCraft could not create a strong post for this story. Try another story.");
-      }
-
-      const generatedAngles: AngleSuggestion[] = Array.isArray(data?.angles)
+      const generatedAngles: AngleSuggestion[] = Array.isArray(data.angles)
         ? data.angles
             .map((item: unknown): AngleSuggestion | null => {
               if (!item || typeof item !== "object") return null;
@@ -521,23 +507,37 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
             .filter((item: AngleSuggestion | null): item is AngleSuggestion => Boolean(item))
         : [];
 
-      setEvidence(Array.isArray(data?.evidence) ? data.evidence : []);
+      const verifiedArticle = data.article;
+      const verifiedTitle = decodeHtmlEntities(
+        verifiedArticle?.title?.trim() || idea.title,
+      );
+      const verifiedSource = decodeHtmlEntities(
+        verifiedArticle?.source?.trim() || idea.source,
+      );
+      const verifiedUrl = verifiedArticle?.url?.trim() || idea.url;
+      const verifiedDate = formatDateInput(verifiedArticle?.publishedAt || idea.publishedAt);
+      const verifiedContent = verifiedArticle?.content?.trim() || idea.description || "";
+
+      setNewsTitle(verifiedTitle);
+      setNewsSource(verifiedSource);
+      setNewsDate(verifiedDate);
+      setSourceUrl(verifiedUrl);
+      setVerifiedSummary(verifiedContent);
+      setEvidence(Array.isArray(data.evidence) ? data.evidence : []);
       setSuggestedAngles(generatedAngles);
       setAngle(selectedText);
-      setVerifiedSummary(idea.description || "");
-      const storyTitle = decodeHtmlEntities(idea.title).trim();
+
+      const storyTitle = verifiedTitle;
       const titleNormalized = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const postNormalized = generatedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const postWithTitle = postNormalized.startsWith(titleNormalized)
         ? generatedPost
         : `${storyTitle}\n\n${generatedPost}`;
 
-      // Keep the source URL as internal metadata only. It should never be
-      // appended to the LinkedIn commentary shown to the user.
       setPost(postWithTitle);
       setOriginalityStatus("idle");
       setOriginalityMessage("");
-    } catch (err) {
+    }    } catch (err) {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
         setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
@@ -643,8 +643,9 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
           commentary: post.trim(),
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
-          imageUrl: selectedIdea?.imageUrl || null,
-          includeSourceImage: true,
+          imageUrl: publishFormat === "text" ? null : (selectedIdea?.imageUrl || null),
+          imageDataUrl: publishFormat === "text" ? undefined : (postCardImage || undefined),
+          includeSourceImage: false,
         }),
       });
       const data = await response.json();
@@ -1030,6 +1031,43 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
               <p className="mt-3 text-xs leading-5 text-neutral-500">One clear idea, in your voice.</p>
             </div>
             <div className="min-w-0">
+                <div className="grid gap-6 border-b border-neutral-300/80 py-6 md:grid-cols-[1fr_auto]">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Selected source</div>
+                    <h3 className="mt-2 font-serif text-2xl leading-tight">{newsTitle || selectedIdea?.title}</h3>
+                    <p className="mt-2 text-sm text-neutral-500">{newsSource || selectedIdea?.source}</p>
+                    {verifiedSummary && <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">{verifiedSummary}</p>}
+                    {sourceUrl && (
+                      <a href={sourceUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-medium underline underline-offset-4">
+                        Read source article ↗
+                      </a>
+                    )}
+                  </div>
+                  <div className="self-start border-l border-neutral-300 pl-5">
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Recommended angle</div>
+                    <p className="mt-2 max-w-sm text-sm leading-6 text-neutral-800">{angle || "Editorial angle"}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-300/80 py-5">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Publishing format</div>
+                    <p className="mt-1 text-xs text-neutral-500">Choose what will be sent to LinkedIn.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {([["combined", "Text + visual"], ["text", "Text only"], ["image", "Visual only"]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setPublishFormat(value)}
+                        className={`rounded-full border px-3 py-2 text-xs font-medium ${publishFormat === value ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-600 hover:border-neutral-600"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="border-y border-neutral-300/80 py-6">
                   <label htmlFor="post-editor" className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
                     {editingPostId ? "Edit your saved post" : "Your editable post"}
@@ -1044,7 +1082,10 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                     aria-label="Post editor"
                   />
                 </div>
-                <div className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
+                {publishFormat !== "image" && <div className="mt-8">
+                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Draft commentary</div>
+                </div>}
+                <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
                   <div className="rounded-2xl border border-neutral-300/80 bg-[#171717] p-4">
                     <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
                       <span>PostCard · Infographic</span>
