@@ -1189,7 +1189,7 @@ function resetFromStory() {
                     onChange={(event) => setPost(event.target.value)}
                     rows={14}
                     spellCheck
-                    className="w-full resize-y bg-transparent px-0 py-2 font-serif text-xl leading-8 tracking-[-0.01em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-2xl sm:leading-9"
+                    className="w-full resize-y bg-transparent px-0 py-2 font-serif text-lg leading-7 tracking-[-0.005em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-xl sm:leading-8"
                     aria-label="Post editor"
                   />
                 </div>
