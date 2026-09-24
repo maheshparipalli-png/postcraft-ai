@@ -537,7 +537,7 @@ function resetFromStory() {
       setPost(postWithTitle);
       setOriginalityStatus("idle");
       setOriginalityMessage("");
-    }    } catch (err) {
+    } catch (err) {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
         setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
