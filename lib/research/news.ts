@@ -305,12 +305,35 @@ function isSponsoredStory(item: ResearchItem) {
 }
 
 function isLowValueStory(item: ResearchItem) {
-  const text = `${item.title} ${item.source}`.toLowerCase();
+  const text = `${item.title} ${item.source} ${item.snippet}`.toLowerCase();
   return [
     "showcase", "to showcase", "portfolio", "conference", "webinar", "summit",
     "investor presentation", "press release", "newsroom", "collaborates with",
     "announces", "announced", "launches", "product launch", "citi global",
+    "sponsored", "advertorial", "promoted", "paid content", "partner content",
+    "coupon", "discount", "giveaway", "best deals", "shopping guide",
   ].some((term) => text.includes(term));
+}
+
+function isHighValueStory(item: ResearchItem, mode: string) {
+  if (!hasUsableEvidence(item) || item.snippet.trim().length < 120) return false;
+  if (isSponsoredStory(item) || isLowValueStory(item)) return false;
+
+  const title = item.title.toLowerCase();
+  const text = `${title} ${item.snippet}`.toLowerCase();
+  const strongSignals = [
+    "why", "how", "risk", "impact", "shift", "change", "decision", "policy",
+    "jobs", "security", "cost", "benefit", "warning", "rethink", "breakthrough",
+    "research", "study", "data", "evidence", "investment", "regulation", "court",
+    "strategy", "competition", "market", "leadership", "productivity",
+  ];
+
+  const signalCount = strongSignals.filter((signal) => text.includes(signal)).length;
+  const score = item.score ?? scoreStory(item, mode);
+
+  // A story must contain both usable evidence and a concrete professional
+  // question, development, or implication. Freshness alone is not enough.
+  return score >= 30 && signalCount >= 1 && title.length >= 40;
 }
 
 function scoreStory(item: ResearchItem, mode: string) {
@@ -424,15 +447,11 @@ export async function searchNews(topic: string): Promise<ResearchItem[]> {
     .map((item) => ({ ...item, score: scoreStory(item, topic) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  if (topic === "PostCraft Recommended") {
-    const grounded = reranked.filter(hasUsableEvidence);
-    const fallback = reranked.filter((item) => !hasUsableEvidence(item));
-    // Never render an empty Recommended feed simply because an aggregator did not expose article text.
-    // Grounded stories always win; headline-only stories are a last-resort discovery fallback.
-    return [...grounded, ...fallback].slice(0, 12);
-  }
+  // Do not fill the feed with merely recent headlines. If nothing clears the
+  // quality bar, returning fewer stories is preferable to adding filler.
+  const highValue = reranked.filter((item) => isHighValueStory(item, topic));
 
-  return reranked.slice(0, 12);
+  return highValue.slice(0, 12);
 }
 
 function titleTokens(title: string) {
