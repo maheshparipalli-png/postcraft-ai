@@ -73,11 +73,10 @@ export async function GET(request: Request) {
     let { data: pool } = await admin
       .from("postcard_quote_pool")
       .select("quote_hash,quote_text,author,category,source")
-      .eq("category", field)
       .order("fetched_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
-    if (!pool?.length) {
+    if (!pool?.length || pool.length < 30) {
       const fetched = await fetchZenQuotes();
       const rows = fetched.map((quote) => {
         const scores = DEFAULT_FIELDS.map((name) => ({ name, score: scoreQuote(quote.quoteText, name) }))
@@ -101,9 +100,8 @@ export async function GET(request: Request) {
       const result = await admin
         .from("postcard_quote_pool")
         .select("quote_hash,quote_text,author,category,source")
-        .eq("category", field)
         .order("fetched_at", { ascending: false })
-        .limit(100);
+        .limit(200);
       pool = result.data ?? [];
     }
 
@@ -123,12 +121,18 @@ export async function GET(request: Request) {
         .map((item) => item.quote_hash),
     );
 
-    const candidates = (pool ?? []).filter((quote) => !blocked.has(quote.quote_hash));
-    const quote = candidates[Math.floor(Math.random() * candidates.length)];
+    const candidates = (pool ?? [])
+      .filter((quote) => !blocked.has(quote.quote_hash))
+      .map((quote) => ({ quote, score: scoreQuote(quote.quote_text, field) }))
+      .sort((a, b) => b.score - a.score);
+
+    const topCandidates = candidates.slice(0, Math.min(20, candidates.length));
+    const selected = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+    const quote = selected?.quote;
 
     if (!quote) {
       return NextResponse.json(
-        { error: "No fresh quotes are available in this field right now. Try another field." },
+        { error: "No fresh quotes are available right now. Try another field." },
         { status: 404 },
       );
     }
