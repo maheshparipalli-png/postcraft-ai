@@ -531,133 +531,223 @@ export async function generateEditorialPost(
   }
 
   const ledger = evidence
-    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
+    .map((e, i) => \`\${i}. \${e.claim} [\${e.type}] — \${e.support}\`)
     .join("\n");
 
-  const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+  type ValidationResult = {
+    ok: boolean;
+    reasons: string[];
+    wordCount: number;
+    characterCount: number;
+    hasConcreteAnchor: boolean;
+    hasSourceGrounding: boolean;
+    hasGenericFiller: boolean;
+    hasNoSourceLeak: boolean;
+  };
 
-Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
+  function normalizeGeneratedPost(rawResult: string) {
+    const parsedResult = parseJson(rawResult);
+    const rawPost =
+      typeof parsedResult?.post === "string"
+        ? parsedResult.post.trim()
+        : rawResult.trim();
 
-Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading.
-
-The post MUST add an editorial proposition, not merely rewrite the source. Think in this order:
-1. Identify the concrete fact or development in the story.
-2. Find the strongest tension, trade-off, contradiction, unanswered question, or second-order implication that is actually supported by the story and selected angle.
-3. State that insight clearly in your own words.
-4. Explain why the tension matters using only the supplied evidence.
-5. If appropriate, end with one specific question that follows naturally from that tension.
-
-A useful test: if the post could be created by copying the source summary and replacing a few words, it has failed. The reader should come away with a distinct idea about the story, not a recap of it.
-
-Prefer structures such as "The interesting part is not X. It is Y.", "That creates a less obvious problem: ...", or "The real tension here is ...", but use them naturally and do not force a template.
-
-For stories about AI monitoring, AI safety, AI agents, or AI systems supervising other AI systems, examine the concrete tension between capability and oversight, including who watches the monitoring system, without inventing facts that are not in the story.
-
-Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions.
-
-STORY
-Headline: ${story.headline}
-Source: ${story.source}
-Summary: ${story.summary}
-
-SELECTED ANGLE
-${angle}
-
-WHY THIS ANGLE WORKS
-${angleWhy}
-
-STORY EVIDENCE
-${ledger}
-
-USER'S TAKE
-${modeInstruction}
-
-Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs, aiming for about 900-1,500 characters when practical.
-
-IMPORTANT TITLE RULE:
-Start the post itself with the exact story headline as a standalone first line. Do not hide the headline in metadata or leave it only in the source card. After the title, continue with the editorial point of view in natural language.
-
-The first 1-2 lines after the title must earn the "see more" click with a specific fact, tension, result, or surprising implication from the story. Do not start with a greeting or a generic statement about AI, technology, business, or change.
-Do not include the source URL, "Read the original article", a source-link footer, or any other URL anywhere in the post.
-
-Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language. Write like a thoughtful professional who has actually read the source: use natural contractions where they fit, vary sentence length, prefer concrete nouns and verbs, and allow a little personality without pretending to have personal experience. Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", or formulaic hook language. Use no hashtags unless one is genuinely useful; never add a block of generic hashtags.
-
-End with ONE specific discussion question only when the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
-
-Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
-
-  // Keep the final post generation as plain text rather than JSON. The
-  // production model is intentionally small (qwen2.5:1.5b), and asking it to
-  // produce a 110-160 word post plus strict JSON structure can occasionally
-  // yield valid model output that is not parseable as JSON. The editorial pass
-  // still uses JSON because its structured evidence/angle output is needed.
-  const finalPrompt = prompt.replace(
-    `Return ONLY JSON: {"post":"the finished LinkedIn post"}`,
-    "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
-  );
-
-  const rawResult = onPostToken
-    ? await provider().generateTextStream(
-        finalPrompt,
-        { temperature: 0.3, numPredict: 180 },
-        onPostToken,
-      )
-    : await provider().generateText(finalPrompt, {
-        temperature: 0.3,
-        numPredict: 180,
-      });
-
-  const parsedResult = parseJson(rawResult);
-  const rawPost =
-    typeof parsedResult?.post === "string"
-      ? parsedResult.post.trim()
-      : rawResult.trim();
-
-  const stripSourceFooter = (value: string) =>
-    value
-      .replace(/\n+\s*(?:read the original article|source|original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
-      .replace(/\n+\s*https?:\/\/\S+\s*$/i, "")
-      .replace(/\bhttps?:\/\/\S+/gi, "")
-      .replace(/[ \t]+\n/g, "\n")
+    const normalizedPost = sanitizeLinkedInPost(rawPost);
+    const headline = story.headline.trim();
+    const normalizedHeadline = headline
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    const normalizedStart = normalizedPost
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
       .trim();
 
-  const normalizedPost = sanitizeLinkedInPost(rawPost);
-  const headline = story.headline.trim();
-  const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const normalizedStart = normalizedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const post = sanitizeLinkedInPost(normalizedStart.startsWith(normalizedHeadline)
-    ? normalizedPost
-    : `${headline}\n\n${normalizedPost}`);
-
-  if (!post) {
-    throw new Error("PostCraft could not produce a post from the selected angle.");
+    return sanitizeLinkedInPost(
+      normalizedStart.startsWith(normalizedHeadline)
+        ? normalizedPost
+        : \`\${headline}\\n\\n\${normalizedPost}\`,
+    );
   }
 
-  const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
-  const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
-  const hasGenericFiller = postHasGenericFiller(post);
-  const hasNoSourceLeak = !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(post);
-  const characterCount = post.length;
+  function validatePost(post: string): ValidationResult {
+    const wordCount = post.split(/\s+/).filter(Boolean).length;
+    const characterCount = post.length;
+    const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
+    const hasSourceGrounding = postHasSourceGrounding(
+      post,
+      story,
+      evidence,
+      angle,
+    );
+    const hasGenericFiller = postHasGenericFiller(post);
+    const hasNoSourceLeak =
+      !/https?:\\/\\/|(?:^|\\n)\\s*(?:source|original source|article source)\\s*:/im.test(
+        post,
+      );
 
-  console.info("[PostCraft] post_validation", {
-    wordCount: post.split(/\s+/).filter(Boolean).length,
-    hasConcreteAnchor,
-    hasSourceGrounding,
-    hasGenericFiller,
-    hasNoSourceLeak,
-    characterCount,
-  });
+    const reasons: string[] = [];
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 600 || characterCount > 1600) {
-    console.warn("[PostCraft] post_rejected", {
+    if (!hasConcreteAnchor) {
+      reasons.push(
+        "The draft is not sufficiently anchored to concrete story-specific terms or has an invalid word count.",
+      );
+    }
+    if (!hasSourceGrounding) {
+      reasons.push(
+        "The draft does not contain enough distinctive evidence from the selected story.",
+      );
+    }
+    if (hasGenericFiller) {
+      reasons.push("The draft contains generic LinkedIn or AI filler language.");
+    }
+    if (!hasNoSourceLeak) {
+      reasons.push("The draft contains a source URL or source footer.");
+    }
+    if (characterCount < 600) {
+      reasons.push(\`The draft is too short at \${characterCount} characters.\`);
+    }
+    if (characterCount > 1600) {
+      reasons.push(\`The draft is too long at \${characterCount} characters.\`);
+    }
+
+    return {
+      ok: reasons.length === 0,
+      reasons,
+      wordCount,
+      characterCount,
       hasConcreteAnchor,
       hasSourceGrounding,
       hasGenericFiller,
       hasNoSourceLeak,
-      characterCount,
-    });
-    throw new Error("PostCraft rejected the generated draft because it did not meet the editorial quality gate. The draft must remain grounded in the selected source and contain enough substance for LinkedIn.");
+    };
   }
 
-  return post;
+  const basePrompt = \`You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+
+Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
+
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English.
+
+The post MUST add an editorial proposition, not merely rewrite the source. Identify the concrete development, then explain the strongest supported tension, trade-off, contradiction, unanswered question, or second-order implication.
+
+Every factual claim must be supported by the supplied story evidence. Preserve uncertainty where the story is uncertain.
+
+Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, forced rhetorical questions, and generic phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note".
+
+STORY
+Headline: \${story.headline}
+Source: \${story.source}
+Summary: \${story.summary}
+
+SELECTED ANGLE
+\${angle}
+
+WHY THIS ANGLE WORKS
+\${angleWhy}
+
+STORY EVIDENCE
+\${ledger}
+
+USER'S TAKE
+\${modeInstruction}
+
+Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs.
+
+IMPORTANT TITLE RULE:
+Start the post with the exact story headline as a standalone first line.
+
+Do not include the source URL, source footer, or any other URL.
+Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", "What do you think?", "Agree or disagree?", or "Thoughts?".
+
+Return ONLY the finished LinkedIn post.\`;
+
+  async function generateRaw(prompt: string) {
+    return provider().generateText(prompt, {
+      temperature: 0.3,
+      numPredict: 220,
+    });
+  }
+
+  async function repairRaw(rejectedPost: string, validation: ValidationResult) {
+    const repairPrompt = \`You are PostCraft AI's senior editorial repair editor.
+
+Repair the rejected LinkedIn draft below. Do not replace the story with invented information.
+
+Work ONLY from the supplied story, selected angle, and evidence.
+Do not search the internet.
+Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
+Preserve the exact headline as the first standalone line.
+Preserve the central editorial angle.
+Fix EVERY validation failure listed below.
+Strengthen concrete story-specific grounding.
+Remove generic AI/LinkedIn filler.
+Keep 90-210 words and 600-1600 characters.
+Do not include URLs or source footers.
+Return ONLY the repaired LinkedIn post.
+
+STORY
+Headline: \${story.headline}
+Source: \${story.source}
+Summary: \${story.summary}
+
+SELECTED ANGLE
+\${angle}
+
+WHY THIS ANGLE WORKS
+\${angleWhy}
+
+STORY EVIDENCE
+\${ledger}
+
+VALIDATION FAILURES
+\${validation.reasons.map((reason) => \`- \${reason}\`).join("\\n")}
+
+REJECTED DRAFT
+\${rejectedPost}\`;
+
+    return generateRaw(repairPrompt);
+  }
+
+  const firstRaw = await generateRaw(basePrompt);
+  const firstPost = normalizeGeneratedPost(firstRaw);
+  const firstValidation = validatePost(firstPost);
+
+  console.info("[PostCraft] post_validation", {
+    attempt: "initial",
+    ...firstValidation,
+  });
+
+  if (firstValidation.ok) {
+    console.info("[PostCraft] editorial_quality_gate=first_pass");
+    if (onPostToken) onPostToken(firstPost);
+    return firstPost;
+  }
+
+  console.warn("[PostCraft] post_rejected_first_attempt", {
+    reasons: firstValidation.reasons,
+  });
+
+  const repairedRaw = await repairRaw(firstPost, firstValidation);
+  const repairedPost = normalizeGeneratedPost(repairedRaw);
+  const repairedValidation = validatePost(repairedPost);
+
+  console.info("[PostCraft] post_validation", {
+    attempt: "repair",
+    ...repairedValidation,
+  });
+
+  if (!repairedValidation.ok) {
+    console.error("[PostCraft] post_rejected_after_repair", {
+      reasons: repairedValidation.reasons,
+    });
+
+    throw new Error(
+      \`PostCraft could not produce a validated editorial draft after one repair attempt. \${repairedValidation.reasons.join(" ")}\`,
+    );
+  }
+
+  console.info("[PostCraft] editorial_quality_gate=repaired");
+  if (onPostToken) onPostToken(repairedPost);
+  return repairedPost;
 }
