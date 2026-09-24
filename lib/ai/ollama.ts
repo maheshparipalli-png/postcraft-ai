@@ -45,7 +45,7 @@ export const ollamaProvider: AIProvider = {
       promptLength: prompt.length,
       numPredict: options.numPredict ?? 400,
       format: options.format ?? "text",
-      stream: true,
+      stream: false,
     });
 
     let response: Response;
@@ -60,7 +60,7 @@ export const ollamaProvider: AIProvider = {
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: prompt }],
-          stream: true,
+          stream: false,
           ...(options.format ? { format: options.format } : {}),
           options: {
             temperature: options.temperature ?? 0.78,
@@ -128,83 +128,45 @@ export const ollamaProvider: AIProvider = {
       );
     }
 
-    if (!response.body) {
-      throw new Error("Ollama returned an empty response stream");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
     let text = "";
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
+      const responseText = await response.text();
+      let data: {
+        error?: string;
+        message?: { content?: string };
+        response?: string;
+      };
 
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          let chunk: {
-            error?: string;
-            done?: boolean;
-            message?: {
-              content?: string;
-            };
-          };
-
-          try {
-            chunk = JSON.parse(trimmed);
-          } catch {
-            console.warn("[Ollama] Ignoring malformed stream chunk");
-            continue;
-          }
-
-          if (chunk.error) {
-            throw new Error(chunk.error);
-          }
-
-          if (typeof chunk.message?.content === "string") {
-            text += chunk.message.content;
-          }
-        }
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error("Ollama returned an invalid response.");
       }
 
-      buffer += decoder.decode();
-
-      const trailing = buffer.trim();
-      if (trailing) {
-        try {
-          const chunk = JSON.parse(trailing) as {
-            error?: string;
-            message?: { content?: string };
-          };
-
-          if (chunk.error) {
-            throw new Error(chunk.error);
-          }
-
-          if (typeof chunk.message?.content === "string") {
-            text += chunk.message.content;
-          }
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message !== "Unexpected end of JSON input"
-          ) {
-            throw error;
-          }
-        }
+      if (data.error) {
+        throw new Error(data.error);
       }
-    } finally {
-      reader.releaseLock();
+
+      if (typeof data.message?.content === "string") {
+        text = data.message.content;
+      } else if (typeof data.response === "string") {
+        text = data.response;
+      }
+    } catch (error) {
+      console.error("[Ollama] Response read failed", {
+        elapsedMs: Date.now() - startedAt,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      });
+
+      if (error instanceof Error && /terminated|aborted|socket|connection|network/i.test(error.message)) {
+        throw new Error(
+          "The Ollama connection was terminated while generating the draft. Please try again; if it repeats, check the Ollama Cloudflare tunnel.",
+          { cause: error },
+        );
+      }
+
+      throw error;
     }
 
     const elapsedMs = Date.now() - startedAt;
@@ -214,10 +176,6 @@ export const ollamaProvider: AIProvider = {
       outputLength: text.length,
     });
 
-    if (!text.trim()) {
-      throw new Error("Ollama returned an empty response");
-    }
 
-    return text.trim();
   },
 };
