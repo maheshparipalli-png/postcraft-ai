@@ -42,5 +42,11 @@ export const geminiProvider: AIProvider = {
 
     return text.trim();
   },
+
+  async generateTextStream(prompt, options: AIGenerateOptions = {}, onToken) {
+    const text = await this.generateText(prompt, options);
+    onToken(text);
+    return text;
+  },
 };
 
