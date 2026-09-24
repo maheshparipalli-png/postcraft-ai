@@ -502,8 +502,8 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
   return titleMatches >= 1 && supportMatches >= 2;
 }
 
-function postHasGenericFiller(post: string) {
-  return [
+function getGenericFillerPhrases(post: string) {
+  const phrases = [
     "it's crucial to recognize",
     "not evenly distributed",
     "highlights the need",
@@ -513,7 +513,14 @@ function postHasGenericFiller(post: string) {
     "the future of work",
     "what do you think",
     "agree or disagree",
-  ].some((phrase) => post.toLowerCase().includes(phrase));
+  ];
+
+  const lower = post.toLowerCase();
+  return phrases.filter((phrase) => lower.includes(phrase));
+}
+
+function postHasGenericFiller(post: string) {
+  return getGenericFillerPhrases(post).length > 0;
 }
 
 export async function generateEditorialPost(
@@ -580,7 +587,8 @@ export async function generateEditorialPost(
       evidence,
       angle,
     );
-    const hasGenericFiller = postHasGenericFiller(post);
+    const genericFillerPhrases = getGenericFillerPhrases(post);
+    const hasGenericFiller = genericFillerPhrases.length > 0;
     const hasNoSourceLeak =
       !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(
         post,
@@ -620,6 +628,7 @@ export async function generateEditorialPost(
       hasSourceGrounding,
       hasGenericFiller,
       hasNoSourceLeak,
+      genericFillerPhrases,
     };
   }
 
@@ -680,6 +689,7 @@ Do not add outside facts, statistics, examples, quotes, motives, causation, or c
 Preserve the exact headline as the first standalone line.
 Preserve the central editorial angle.
 Fix EVERY validation failure listed below.
+The exact generic filler phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
 Keep 90-210 words and 600-1600 characters.
@@ -702,6 +712,9 @@ ${ledger}
 
 VALIDATION FAILURES
 ${validation.reasons.map((reason) => `- ${reason}`).join("\\n")}
+
+DETECTED GENERIC PHRASES
+${validation.genericFillerPhrases.length ? validation.genericFillerPhrases.map((phrase) => `- ${phrase}`).join("\\n") : "- none"}
 
 REJECTED DRAFT
 ${rejectedPost}`;
