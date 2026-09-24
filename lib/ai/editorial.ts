@@ -383,6 +383,17 @@ export async function generateEditorialAngles(story: Story) {
   };
 }
 
+export function sanitizeLinkedInPost(value: string) {
+  return value
+    .replace(/^\\s*(?:LinkedIn post|Post):\\s*/i, "")
+    .replace(/\\n+\\s*(?:Source|Original source|Article source|Read the original article|Original article)\\s*:?[^\\n]*(?:https?:\\/\\/\\S+)?\\s*$/i, "")
+    .replace(/\\bhttps?:\\/\\/\\S+/gi, "")
+    .replace(/\\n+\\s*(?:Source|Original source|Article source)\\s*:?\\s*$/i, "")
+    .replace(/[ \\t]+\\n/g, "\\n")
+    .replace(/\\n{3,}/g, "\\n\\n")
+    .trim();
+}
+
 function validateEvidence(value: unknown): Evidence[] {
   return parseEvidence(value);
 }
@@ -568,13 +579,13 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
       .replace(/[ \t]+\n/g, "\n")
       .trim();
 
-  const normalizedPost = stripSourceFooter(rawPost);
+  const normalizedPost = sanitizeLinkedInPost(rawPost);
   const headline = story.headline.trim();
   const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const normalizedStart = normalizedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const post = normalizedStart.startsWith(normalizedHeadline)
+  const post = sanitizeLinkedInPost(normalizedStart.startsWith(normalizedHeadline)
     ? normalizedPost
-    : `${headline}\n\n${normalizedPost}`;
+    : `${headline}\n\n${normalizedPost}`);
 
   if (!post) {
     throw new Error("PostCraft could not produce a post from the selected angle.");
@@ -583,6 +594,7 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
   const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
   const hasGenericFiller = postHasGenericFiller(post);
+  const hasNoSourceLeak = !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(post);
   const characterCount = post.length;
 
   console.info("[PostCraft] post_validation", {
@@ -590,10 +602,11 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     hasConcreteAnchor,
     hasSourceGrounding,
     hasGenericFiller,
+    hasNoSourceLeak,
     characterCount,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || characterCount < 700 || characterCount > 1600) {
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 700 || characterCount > 1600) {
     throw new Error("PostCraft rejected the generated draft because it was not sufficiently grounded in the selected source. The article will be skipped and another source will be tried.");
   }
 
