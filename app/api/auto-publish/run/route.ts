@@ -6,7 +6,7 @@ import type { ResearchItem } from "@/lib/research/news";
 import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/research/discovery";
 import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
-import { normalizeInterests } from "@/lib/content-interests";
+import { normalizeInterests, type ContentInterest } from "@/lib/content-interests";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,7 +109,7 @@ function isScheduleDue(localMinutes: number, publishTime: string) {
   return elapsed < 15;
 }
 
-async function buildDraft(interests: string[]) {
+async function buildDraft(interests: ContentInterest[]) {
   // Keep interactive regeneration comfortably inside the request budget.
   // Each candidate can require source verification plus two AI generations,
   // so processing ten candidates serially can easily exceed Vercel limits.
