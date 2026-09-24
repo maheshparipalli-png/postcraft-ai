@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { generateEditorialDraft } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
