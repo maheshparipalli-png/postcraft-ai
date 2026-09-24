@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
-import { searchNews, type ResearchItem } from "@/lib/research/news";
+import type { ResearchItem } from "@/lib/research/news";
+import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/research/discovery";
 import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
 import { normalizeInterests } from "@/lib/content-interests";
@@ -119,17 +120,13 @@ async function buildDraft(interests: string[]) {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const candidateSets = await Promise.all(interests.map((interest) => searchNews(interest)));
-      const seenUrls = new Set<string>();
-      const candidates = candidateSets
-        .flat()
-        .filter((item) => {
-          const key = item.url.trim().toLowerCase().replace(/\/$/, "");
-          if (!key || seenUrls.has(key)) return false;
-          seenUrls.add(key);
-          return true;
-        })
-        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const discovery = await discoverAcrossInterests(interests);
+      const candidates = selectInterestAwareCandidates(discovery.candidates, 24);
+
+      for (const failure of discovery.failedInterests) {
+        errors.push(`Attempt ${attempt}: ${failure.interest} discovery failed — ${failure.error}`);
+      }
+
       const usableCandidates = candidates
         .filter((item) => item.title?.trim() && item.url?.trim() && item.snippet?.trim())
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
