@@ -640,22 +640,50 @@ export async function generateEditorialPost(
         ? parsedResult.post.trim()
         : rawResult.trim();
 
-    const normalizedPost = sanitizeLinkedInPost(rawPost);
+    const decodedPost = rawPost
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .replace(/\\r/g, "\n");
+
+    const normalizedPost = sanitizeLinkedInPost(decodedPost);
     const headline = story.headline.trim();
     const normalizedHeadline = headline
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
-    const normalizedStart = normalizedPost
+
+    const normalizedLines = normalizedPost
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const withoutDuplicateHeadline = normalizedLines.filter((line, index) => {
+      if (index === 0) return true;
+
+      const normalizedLine = line
+        .replace(/^\*\*(?:headline|title|post):\*\*\s*/i, "")
+        .replace(/^(?:headline|title|post):\s*/i, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+      return !(
+        normalizedLine === normalizedHeadline ||
+        normalizedLine.startsWith(normalizedHeadline + " ")
+      );
+    });
+
+    const body = withoutDuplicateHeadline.join("\n\n");
+    const normalizedStart = body
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
 
-    return sanitizeLinkedInPost(
-      normalizedStart.startsWith(normalizedHeadline)
-        ? normalizedPost
-        : `${headline}\\n\\n${normalizedPost}`,
-    );
+    const finalPost = normalizedStart.startsWith(normalizedHeadline)
+      ? body
+      : headline + "\n\n" + body;
+
+    return sanitizeLinkedInPost(finalPost);
   }
 
   function validatePost(post: string): ValidationResult {
