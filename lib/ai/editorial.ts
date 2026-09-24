@@ -325,8 +325,23 @@ Use exactly this structure:
     })
   );
 
-  const evidence = parseEvidence(parsed?.evidence);
+  let evidence = parseEvidence(parsed?.evidence);
   const angles = selectSafeAngles(parseAngles(parsed?.angles));
+
+  // Small local models sometimes return usable angles but omit the separate
+  // evidence array. Reconstruct the evidence ledger from each angle's own
+  // evidence field so post generation never fails merely because the model
+  // omitted redundant structure.
+  if (!evidence.length && angles.length) {
+    evidence = angles
+      .filter((angle) => angle.evidence?.trim())
+      .slice(0, 3)
+      .map((angle) => ({
+        claim: angle.angle,
+        support: angle.evidence.trim(),
+        type: "fact" as const,
+      }));
+  }
 
   // Small local models can occasionally return valid JSON with no usable
   // angles even when the supplied story contains enough evidence. Keep the
