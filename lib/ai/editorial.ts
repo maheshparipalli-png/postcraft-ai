@@ -938,8 +938,8 @@ ${rejectedPost}`;
 
   function buildDeterministicFallbackPost() {
     const sentences = story.summary
-      .replace(/\\s+/g, " ")
-      .split(/(?<=[.!?])\\s+/)
+      .replace(/\s+/g, " ")
+      .split(/(?<=[.!?])\s+/)
       .map((sentence) => sentence.trim())
       .filter((sentence) => sentence.length >= 45);
 
