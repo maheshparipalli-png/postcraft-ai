@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import { getAIProvider } from "@/lib/ai/provider";
 
 type Story = { topic: string; headline: string; source: string; summary: string; url?: string };
@@ -361,8 +362,17 @@ export async function generateEditorialDraft(
   onPostToken?: (token: string) => void,
 ) {
   const startedAt = Date.now();
-  const editorial = await buildEditorialPass(story);
-  const ranked = rankAngles(editorial.angles, story);
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
+
+  const editorial = await buildEditorialPass(normalizedStory);
+  const ranked = rankAngles(editorial.angles, normalizedStory);
 
   if (!ranked.length) {
     const fallback = buildGroundedFallback(story);
@@ -373,7 +383,7 @@ export async function generateEditorialDraft(
       criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
     };
     const post = await generateEditorialPost(
-      story,
+      normalizedStory,
       selected.angle,
       selected.why,
       "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
@@ -385,7 +395,7 @@ export async function generateEditorialDraft(
 
   const selected = ranked[0];
   const post = await generateEditorialPost(
-    story,
+    normalizedStory,
     selected.angle,
     selected.why,
     "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
@@ -415,14 +425,7 @@ export async function generateEditorialAngles(story: Story) {
   };
 }
 
-export function decodeEditorialEntities(value: string) {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
+export { decodeHtmlEntities as decodeEditorialEntities };
 
 export function sanitizeLinkedInPost(value: string) {
   return value
