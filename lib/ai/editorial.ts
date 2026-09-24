@@ -424,7 +424,7 @@ export function decodeEditorialEntities(value: string) {
     .replace(/&gt;/g, ">");
 }
 
-function sanitizeLinkedInPost(value: string) {
+export function sanitizeLinkedInPost(value: string) {
   return value
     .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
