@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 ﻿"use client";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -48,17 +49,6 @@ function formatPublishedAtIST(value: string) {
   }).format(date) + " IST";
 }
 
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#(\\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
-}
 
 function cleanGeneratedPost(value: string) {
   return value
