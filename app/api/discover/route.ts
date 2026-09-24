@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import { NextResponse } from "next/server";
 import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/research/discovery";
 import { createClient } from "@/lib/supabase/server";
@@ -152,17 +153,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const ideas = usableResearch.slice(0, Math.min(8, usableResearch.length)).map((item, index) => ({
-      title: item.title,
-      description: item.snippet,
-      whyItMatters: getWhyItStandsOut(item.title, item.snippet, item.interest),
-      sourceIndexes: [index],
-      interest: item.interest,
-      source: item.source,
-      url: item.url,
-      imageUrl: item.imageUrl || null,
-      publishedAt: item.publishedAt,
-    }));
+    const ideas = usableResearch.slice(0, Math.min(8, usableResearch.length)).map((item, index) => {
+      const title = decodeHtmlEntities(item.title);
+      const description = decodeHtmlEntities(item.snippet);
+      const source = decodeHtmlEntities(item.source);
+
+      return {
+        title,
+        description,
+        whyItMatters: getWhyItStandsOut(title, description, item.interest),
+        sourceIndexes: [index],
+        interest: item.interest,
+        source,
+        url: item.url,
+        imageUrl: item.imageUrl || null,
+        publishedAt: item.publishedAt,
+      };
+    });
 
     return NextResponse.json({ count: usableResearch.length, ideas, interests, failedInterests, selectedBy: "interest coverage + editorial quality ranking" });
   } catch (error) {
