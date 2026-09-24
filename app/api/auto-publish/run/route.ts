@@ -342,9 +342,9 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
-    const body = await request.json().catch(() => ({}));
-    const topic = typeof body?.topic === "string" && body.topic.trim() ? body.topic.trim() : "AI & Technology";
-    if (topic !== "AI & Technology") return NextResponse.json({ error: "Automatic publishing is currently restricted to the AI & Technology feed." }, { status: 400 });
+    // The selected-interest profile is the source of truth. The legacy topic
+    // field is intentionally ignored so one hard-coded feed cannot bypass it.
+    await request.json().catch(() => ({}));
 
     return await runAutomaticWorkflow(request, user.id);
   } catch (error) {
