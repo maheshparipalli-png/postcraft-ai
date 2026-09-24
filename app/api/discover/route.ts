@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchNews } from "@/lib/research/news";
+import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/research/discovery";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeInterests } from "@/lib/content-interests";
@@ -99,27 +99,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const discoveryResults = await Promise.allSettled(interests.map((interest) => searchNews(interest)));
-    const failedInterests = discoveryResults
-      .map((result, index) => result.status === "rejected" ? {
-        interest: interests[index],
-        error: result.reason instanceof Error ? result.reason.message : "Content source lookup failed",
-      } : null)
-      .filter((item) => item !== null);
-    const researchSets = discoveryResults
-      .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof searchNews>>> => result.status === "fulfilled")
-      .map((result) => result.value);
-    const seen = new Set<string>();
-    const research = researchSets
-      .flat()
-      .filter((item) => {
-        const key = item.url.trim().toLowerCase().replace(/\/$/, "");
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      .slice(0, 24);
+    const { candidates, failedInterests } = await discoverAcrossInterests(interests);
+    const research = selectInterestAwareCandidates(candidates, 12);
+
     const normalizeUrl = (value: string) => {
       try {
         const url = new URL(value);
@@ -172,18 +154,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const ideas = usableResearch.slice(0, 4).map((item, index) => ({
+    const ideas = usableResearch.slice(0, Math.min(8, usableResearch.length)).map((item, index) => ({
       title: item.title,
       description: item.snippet,
       whyItMatters: getWhyItStandsOut(item.title, item.snippet, topic),
       sourceIndexes: [index],
+      interest: item.interest,
       source: item.source,
       url: item.url,
       imageUrl: item.imageUrl || null,
       publishedAt: item.publishedAt,
     }));
 
-    return NextResponse.json({ count: usableResearch.length, ideas, interests, selectedBy: "personalized editorial value ranking" });
+    return NextResponse.json({ count: usableResearch.length, ideas, interests, failedInterests, selectedBy: "interest coverage + editorial quality ranking" });
   } catch (error) {
     console.error("Discover API error:", error);
     const message =
