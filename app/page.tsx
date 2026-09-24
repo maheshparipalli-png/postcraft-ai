@@ -229,6 +229,7 @@ export default function Home() {
   const [originalityMessage, setOriginalityMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState("");
   const [error, setError] = useState("");
   const angleRequestRef = useRef(0);
   const angleAbortRef = useRef<AbortController | null>(null);
@@ -396,7 +397,7 @@ async function discoverIdeas() {
   }, [authReady, authUser?.id, appAccessAllowed]);
 
   useEffect(() => {
-    if (!post.trim() || !selectedIdea) {
+    if (angleLoading || !post.trim() || !selectedIdea) {
       setPostCardImage("");
       return;
     }
@@ -458,10 +459,11 @@ function resetFromStory() {
     setNewsDate(formatDateInput(idea.publishedAt));
     setSourceUrl(idea.url);
     setError("");
+    setGenerationStatus("Checking the source and building the editorial angle…");
     setAngleLoading(true);
 
     try {
-      const response = await fetch("/api/discover/editorial", {
+      const response = await fetch("/api/discover/editorial/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -474,9 +476,32 @@ function resetFromStory() {
         signal: controller.signal,
       });
 
-      const raw = await response.text();
-      let data: {
-        error?: string;
+      if (!response.ok) {
+        const raw = await response.text();
+        let data: { error?: string } | null = null;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          data = null;
+        }
+        throw new Error(
+          data?.error ||
+          (raw && raw.trim() ? raw.trim().slice(0, 300) : "") ||
+          `PostCraft could not create the post (HTTP ${response.status}).`,
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("PostCraft did not return a streaming response. Please try again.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamedPost = "";
+      let completed = false;
+
+      const applyDone = (data: {
         article?: {
           title?: string;
           source?: string;
@@ -486,105 +511,173 @@ function resetFromStory() {
         };
         post?: string;
         selectedAngle?: { angle?: string; why?: string; evidence?: string };
+        angle?: { angle?: string; why?: string; evidence?: string };
         angles?: unknown[];
         evidence?: unknown[];
-      } | null = null;
+      }) => {
+        if (!data.post || !(data.selectedAngle?.angle || data.angle?.angle)) {
+          throw new Error("PostCraft returned an incomplete editorial draft. No validated post and angle were received.");
+        }
 
-      try {
-        data = raw ? JSON.parse(raw) : null;
-      } catch {
-        data = null;
-      }
+        const selected = data.selectedAngle || data.angle;
+        if (!selected?.angle) {
+          throw new Error("PostCraft did not return a usable editorial angle.");
+        }
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-          (raw && raw.trim() ? raw.trim().slice(0, 300) : "") ||
-          `PostCraft could not create the post (HTTP ${response.status}).`,
+        const selectedText = selected.angle.trim();
+        const generatedPost = cleanGeneratedPost(data.post);
+
+        const generatedAngles: AngleSuggestion[] = Array.isArray(data.angles)
+          ? data.angles
+              .map((item: unknown): AngleSuggestion | null => {
+                if (!item || typeof item !== "object") return null;
+                const value = item as { angle?: unknown; why?: unknown; evidence?: unknown };
+                const text = typeof value.angle === "string" ? value.angle.trim() : "";
+                if (!text) return null;
+                return {
+                  text,
+                  why: typeof value.why === "string" ? value.why.trim() : "",
+                  evidence: typeof value.evidence === "string" ? value.evidence.trim() : "",
+                };
+              })
+              .filter((item: AngleSuggestion | null): item is AngleSuggestion => Boolean(item))
+            : [];
+
+        const verifiedArticle = data.article;
+        const verifiedTitle = decodeHtmlEntities(
+          verifiedArticle?.title?.trim() || idea.title,
         );
+        const verifiedSource = decodeHtmlEntities(
+          verifiedArticle?.source?.trim() || idea.source,
+        );
+        const verifiedUrl = verifiedArticle?.url?.trim() || idea.url;
+        const verifiedDate = formatDateInput(verifiedArticle?.publishedAt || idea.publishedAt);
+        const verifiedContent = verifiedArticle?.content?.trim() || idea.description || "";
+
+        setNewsTitle(verifiedTitle);
+        setNewsSource(verifiedSource);
+        setNewsDate(verifiedDate);
+        setSourceUrl(verifiedUrl);
+        setVerifiedSummary(verifiedContent);
+
+        const generatedEvidence: Evidence[] = Array.isArray(data.evidence)
+          ? data.evidence
+              .map((item: unknown): Evidence | null => {
+                if (!item || typeof item !== "object") return null;
+                const value = item as { claim?: unknown; support?: unknown; type?: unknown };
+                const claim = typeof value.claim === "string" ? value.claim.trim() : "";
+                const support = typeof value.support === "string" ? value.support.trim() : "";
+                const type =
+                  value.type === "fact" || value.type === "interpretation" || value.type === "uncertainty"
+                    ? value.type
+                    : "fact";
+                return claim && support ? { claim, support, type } : null;
+              })
+              .filter((item: Evidence | null): item is Evidence => Boolean(item))
+            : [];
+
+        setEvidence(generatedEvidence);
+        setSuggestedAngles(generatedAngles);
+        setAngle(selectedText);
+
+        const storyTitle = verifiedTitle;
+        const titleNormalized = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const postNormalized = generatedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const postWithTitle = postNormalized.startsWith(titleNormalized)
+          ? generatedPost
+          : `${storyTitle}\n\n${generatedPost}`;
+
+        setPost(postWithTitle);
+        setOriginalityStatus("idle");
+        setOriginalityMessage("");
+        setGenerationStatus("");
+        completed = true;
+      };
+
+      const consumeLine = (line: string) => {
+        if (!line.trim()) return;
+
+        let event: {
+          type?: string;
+          message?: string;
+          token?: string;
+          error?: string;
+          article?: {
+            title?: string;
+            source?: string;
+            url?: string;
+            publishedAt?: string;
+            content?: string;
+          };
+          post?: string;
+          selectedAngle?: { angle?: string; why?: string; evidence?: string };
+          angle?: { angle?: string; why?: string; evidence?: string };
+          angles?: unknown[];
+          evidence?: unknown[];
+        };
+
+        try {
+          event = JSON.parse(line);
+        } catch {
+          return;
+        }
+
+        if (event.type === "status") {
+          setGenerationStatus(event.message || "PostCraft is working on the story…");
+          return;
+        }
+
+        if (event.type === "token") {
+          const token = typeof event.token === "string" ? event.token : "";
+          if (!token) return;
+          streamedPost += token;
+          setGenerationStatus("Writing the LinkedIn post…");
+          setPost(streamedPost);
+          return;
+        }
+
+        if (event.type === "error") {
+          throw new Error(event.error || "PostCraft could not complete the editorial draft.");
+        }
+
+        if (event.type === "done") {
+          applyDone(event);
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          consumeLine(line);
+        }
       }
 
-      if (!data?.post || !data?.selectedAngle?.angle) {
-        throw new Error("PostCraft could not create a strong editorial draft for this story. Try another story.");
+      buffer += decoder.decode();
+      if (buffer.trim()) consumeLine(buffer);
+
+      if (!completed) {
+        throw new Error("PostCraft ended the editorial stream before returning a validated draft.");
       }
 
       if (requestId !== angleRequestRef.current) return;
-
-      const selected = data.selectedAngle;
-      if (!selected?.angle) {
-        throw new Error("PostCraft did not return a usable editorial angle.");
-      }
-      const selectedText = selected.angle.trim();
-      const generatedPost = cleanGeneratedPost(data.post);
-
-      const generatedAngles: AngleSuggestion[] = Array.isArray(data.angles)
-        ? data.angles
-            .map((item: unknown): AngleSuggestion | null => {
-              if (!item || typeof item !== "object") return null;
-              const value = item as { angle?: unknown; why?: unknown; evidence?: unknown };
-              const text = typeof value.angle === "string" ? value.angle.trim() : "";
-              if (!text) return null;
-              return {
-                text,
-                why: typeof value.why === "string" ? value.why.trim() : "",
-                evidence: typeof value.evidence === "string" ? value.evidence.trim() : "",
-              };
-            })
-            .filter((item: AngleSuggestion | null): item is AngleSuggestion => Boolean(item))
-        : [];
-
-      const verifiedArticle = data.article;
-      const verifiedTitle = decodeHtmlEntities(
-        verifiedArticle?.title?.trim() || idea.title,
-      );
-      const verifiedSource = decodeHtmlEntities(
-        verifiedArticle?.source?.trim() || idea.source,
-      );
-      const verifiedUrl = verifiedArticle?.url?.trim() || idea.url;
-      const verifiedDate = formatDateInput(verifiedArticle?.publishedAt || idea.publishedAt);
-      const verifiedContent = verifiedArticle?.content?.trim() || idea.description || "";
-
-      setNewsTitle(verifiedTitle);
-      setNewsSource(verifiedSource);
-      setNewsDate(verifiedDate);
-      setSourceUrl(verifiedUrl);
-      setVerifiedSummary(verifiedContent);
-      const generatedEvidence: Evidence[] = Array.isArray(data.evidence)
-        ? data.evidence
-            .map((item: unknown): Evidence | null => {
-              if (!item || typeof item !== "object") return null;
-              const value = item as { claim?: unknown; support?: unknown; type?: unknown };
-              const claim = typeof value.claim === "string" ? value.claim.trim() : "";
-              const support = typeof value.support === "string" ? value.support.trim() : "";
-              const type =
-                value.type === "fact" || value.type === "interpretation" || value.type === "uncertainty"
-                  ? value.type
-                  : "fact";
-              return claim && support ? { claim, support, type } : null;
-            })
-            .filter((item: Evidence | null): item is Evidence => Boolean(item))
-        : [];
-      setEvidence(generatedEvidence);
-      setSuggestedAngles(generatedAngles);
-      setAngle(selectedText);
-
-      const storyTitle = verifiedTitle;
-      const titleNormalized = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const postNormalized = generatedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const postWithTitle = postNormalized.startsWith(titleNormalized)
-        ? generatedPost
-        : `${storyTitle}\n\n${generatedPost}`;
-
-      setPost(postWithTitle);
-      setOriginalityStatus("idle");
-      setOriginalityMessage("");
     } catch (err) {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
+        setPost("");
+        setPostCardImage("");
         setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
       }
     } finally {
-      if (requestId === angleRequestRef.current) setAngleLoading(false);
+      if (requestId === angleRequestRef.current) {
+        setGenerationStatus("");
+        setAngleLoading(false);
+      }
     }
   }
 
@@ -1019,7 +1112,7 @@ function resetFromStory() {
                 <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Selected story</div>
                 <div className="mt-2 font-serif text-xl leading-7">{selectedIdea.title}</div>
                 <p className="mt-3 max-w-xl text-xs leading-5 text-neutral-500">
-                  PostCraft is generating your LinkedIn post automatically.
+                  {generationStatus || "PostCraft is generating your LinkedIn post automatically."}
                 </p>
               </div>
             {angleLoading ? (

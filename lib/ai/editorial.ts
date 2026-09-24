@@ -321,12 +321,27 @@ Use exactly this structure:
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 350,
+      numPredict: 220,
     })
   );
 
-  const evidence = parseEvidence(parsed?.evidence);
+  let evidence = parseEvidence(parsed?.evidence);
   const angles = selectSafeAngles(parseAngles(parsed?.angles));
+
+  // Small local models sometimes return usable angles but omit the separate
+  // evidence array. Reconstruct the evidence ledger from each angle's own
+  // evidence field so post generation never fails merely because the model
+  // omitted redundant structure.
+  if (!evidence.length && angles.length) {
+    evidence = angles
+      .filter((angle) => angle.evidence?.trim())
+      .slice(0, 3)
+      .map((angle) => ({
+        claim: angle.angle,
+        support: angle.evidence.trim(),
+        type: "fact" as const,
+      }));
+  }
 
   // Small local models can occasionally return valid JSON with no usable
   // angles even when the supplied story contains enough evidence. Keep the
@@ -341,7 +356,10 @@ Use exactly this structure:
 }
 
 
-export async function generateEditorialDraft(story: Story) {
+export async function generateEditorialDraft(
+  story: Story,
+  onPostToken?: (token: string) => void,
+) {
   const startedAt = Date.now();
   const editorial = await buildEditorialPass(story);
   const ranked = rankAngles(editorial.angles, story);
@@ -354,12 +372,26 @@ export async function generateEditorialDraft(story: Story) {
       score: 6,
       criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
     };
-    const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", fallback.evidence);
+    const post = await generateEditorialPost(
+      story,
+      selected.angle,
+      selected.why,
+      "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+      fallback.evidence,
+      onPostToken,
+    );
     return { angles: [selected], evidence: fallback.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
   }
 
   const selected = ranked[0];
-  const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", editorial.evidence);
+  const post = await generateEditorialPost(
+    story,
+    selected.angle,
+    selected.why,
+    "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+    editorial.evidence,
+    onPostToken,
+  );
 
   console.info("[PostCraft] editorial_pipeline_ms=" + (Date.now() - startedAt) + " candidates=" + editorial.angles.length + " ranked=" + ranked.length + " selected_score=" + selected.score);
   return { angles: ranked.slice(0, 3), evidence: editorial.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
@@ -381,6 +413,17 @@ export async function generateEditorialAngles(story: Story) {
     angles: editorial.angles,
     evidence: editorial.evidence,
   };
+}
+
+export function sanitizeLinkedInPost(value: string) {
+  return value
+    .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
+    .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
+    .replace(/\n+\s*(?:Source|Original source|Article source)\s*:?\s*$/i, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function validateEvidence(value: unknown): Evidence[] {
@@ -419,9 +462,10 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
     if (postTerms.has(term)) sharedTerms += 1;
   }
 
-  // The prompt asks for 110-160 words. Keep a reasonable floor, but do not
-  // reject a useful draft merely because the small local model came in short.
-  return words.length >= 100 && words.length <= 210 && sharedTerms >= 2;
+  // The prompt targets 120-180 words, but the production local model can
+  // occasionally produce a shorter draft. Keep the grounding gate strict
+  // while allowing a slightly shorter, still useful LinkedIn post.
+  return words.length >= 90 && words.length <= 210 && sharedTerms >= 2;
 }
 
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
@@ -477,7 +521,8 @@ export async function generateEditorialPost(
   angle: string,
   angleWhy: string,
   modeInstruction: string,
-  suppliedEvidence?: Evidence[]
+  suppliedEvidence?: Evidence[],
+  onPostToken?: (token: string) => void,
 ) {
   const evidence = validateEvidence(suppliedEvidence);
 
@@ -546,13 +591,21 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   // produce a 110-160 word post plus strict JSON structure can occasionally
   // yield valid model output that is not parseable as JSON. The editorial pass
   // still uses JSON because its structured evidence/angle output is needed.
-  const rawResult = await provider().generateText(prompt.replace(
-    "Return ONLY JSON: {\"post\":\"the finished LinkedIn post\"}",
+  const finalPrompt = prompt.replace(
+    `Return ONLY JSON: {"post":"the finished LinkedIn post"}`,
     "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
-  ), {
-    temperature: 0.3,
-    numPredict: 220,
-  });
+  );
+
+  const rawResult = onPostToken
+    ? await provider().generateTextStream(
+        finalPrompt,
+        { temperature: 0.3, numPredict: 180 },
+        onPostToken,
+      )
+    : await provider().generateText(finalPrompt, {
+        temperature: 0.3,
+        numPredict: 180,
+      });
 
   const parsedResult = parseJson(rawResult);
   const rawPost =
@@ -568,13 +621,13 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
       .replace(/[ \t]+\n/g, "\n")
       .trim();
 
-  const normalizedPost = stripSourceFooter(rawPost);
+  const normalizedPost = sanitizeLinkedInPost(rawPost);
   const headline = story.headline.trim();
   const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const normalizedStart = normalizedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const post = normalizedStart.startsWith(normalizedHeadline)
+  const post = sanitizeLinkedInPost(normalizedStart.startsWith(normalizedHeadline)
     ? normalizedPost
-    : `${headline}\n\n${normalizedPost}`;
+    : `${headline}\n\n${normalizedPost}`);
 
   if (!post) {
     throw new Error("PostCraft could not produce a post from the selected angle.");
@@ -583,6 +636,7 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
   const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
   const hasGenericFiller = postHasGenericFiller(post);
+  const hasNoSourceLeak = !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(post);
   const characterCount = post.length;
 
   console.info("[PostCraft] post_validation", {
@@ -590,11 +644,19 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     hasConcreteAnchor,
     hasSourceGrounding,
     hasGenericFiller,
+    hasNoSourceLeak,
     characterCount,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || characterCount < 700 || characterCount > 1600) {
-    throw new Error("PostCraft rejected the generated draft because it was not sufficiently grounded in the selected source. The article will be skipped and another source will be tried.");
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 600 || characterCount > 1600) {
+    console.warn("[PostCraft] post_rejected", {
+      hasConcreteAnchor,
+      hasSourceGrounding,
+      hasGenericFiller,
+      hasNoSourceLeak,
+      characterCount,
+    });
+    throw new Error("PostCraft rejected the generated draft because it did not meet the editorial quality gate. The draft must remain grounded in the selected source and contain enough substance for LinkedIn.");
   }
 
   return post;
