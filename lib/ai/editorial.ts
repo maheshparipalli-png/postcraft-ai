@@ -531,7 +531,7 @@ export async function generateEditorialPost(
   }
 
   const ledger = evidence
-    .map((e, i) => \`\${i}. \${e.claim} [\${e.type}] — \${e.support}\`)
+    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
     .join("\n");
 
   type ValidationResult = {
@@ -566,7 +566,7 @@ export async function generateEditorialPost(
     return sanitizeLinkedInPost(
       normalizedStart.startsWith(normalizedHeadline)
         ? normalizedPost
-        : \`\${headline}\\n\\n\${normalizedPost}\`,
+        : `${headline}\\n\\n${normalizedPost}`,
     );
   }
 
@@ -605,10 +605,10 @@ export async function generateEditorialPost(
       reasons.push("The draft contains a source URL or source footer.");
     }
     if (characterCount < 600) {
-      reasons.push(\`The draft is too short at \${characterCount} characters.\`);
+      reasons.push(`The draft is too short at ${characterCount} characters.`);
     }
     if (characterCount > 1600) {
-      reasons.push(\`The draft is too long at \${characterCount} characters.\`);
+      reasons.push(`The draft is too long at ${characterCount} characters.`);
     }
 
     return {
@@ -623,7 +623,7 @@ export async function generateEditorialPost(
     };
   }
 
-  const basePrompt = \`You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+  const basePrompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
 
 Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
 
@@ -636,21 +636,21 @@ Every factual claim must be supported by the supplied story evidence. Preserve u
 Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, forced rhetorical questions, and generic phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note".
 
 STORY
-Headline: \${story.headline}
-Source: \${story.source}
-Summary: \${story.summary}
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
 
 SELECTED ANGLE
-\${angle}
+${angle}
 
 WHY THIS ANGLE WORKS
-\${angleWhy}
+${angleWhy}
 
 STORY EVIDENCE
-\${ledger}
+${ledger}
 
 USER'S TAKE
-\${modeInstruction}
+${modeInstruction}
 
 Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs.
 
@@ -660,7 +660,7 @@ Start the post with the exact story headline as a standalone first line.
 Do not include the source URL, source footer, or any other URL.
 Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", "What do you think?", "Agree or disagree?", or "Thoughts?".
 
-Return ONLY the finished LinkedIn post.\`;
+Return ONLY the finished LinkedIn post.`;
 
   async function generateRaw(prompt: string) {
     return provider().generateText(prompt, {
@@ -670,7 +670,7 @@ Return ONLY the finished LinkedIn post.\`;
   }
 
   async function repairRaw(rejectedPost: string, validation: ValidationResult) {
-    const repairPrompt = \`You are PostCraft AI's senior editorial repair editor.
+    const repairPrompt = `You are PostCraft AI's senior editorial repair editor.
 
 Repair the rejected LinkedIn draft below. Do not replace the story with invented information.
 
@@ -687,24 +687,24 @@ Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
 
 STORY
-Headline: \${story.headline}
-Source: \${story.source}
-Summary: \${story.summary}
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
 
 SELECTED ANGLE
-\${angle}
+${angle}
 
 WHY THIS ANGLE WORKS
-\${angleWhy}
+${angleWhy}
 
 STORY EVIDENCE
-\${ledger}
+${ledger}
 
 VALIDATION FAILURES
-\${validation.reasons.map((reason) => \`- \${reason}\`).join("\\n")}
+${validation.reasons.map((reason) => `- ${reason}`).join("\\n")}
 
 REJECTED DRAFT
-\${rejectedPost}\`;
+${rejectedPost}`;
 
     return generateRaw(repairPrompt);
   }
@@ -743,7 +743,7 @@ REJECTED DRAFT
     });
 
     throw new Error(
-      \`PostCraft could not produce a validated editorial draft after one repair attempt. \${repairedValidation.reasons.join(" ")}\`,
+      `PostCraft could not produce a validated editorial draft after one repair attempt. ${repairedValidation.reasons.join(" ")}`,
     );
   }
 
