@@ -349,7 +349,7 @@ Use exactly this structure:
   // editorial pipeline grounded by falling back to a deterministic angle
   // derived only from the supplied headline and summary.
   if (!angles.length) {
-    const fallback = buildGroundedFallback(story);
+    const fallback = buildGroundedFallback(normalizedStory);
     if (fallback.angles.length) return fallback;
   }
 
@@ -409,7 +409,15 @@ export async function generateEditorialDraft(
 
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
-  const editorial = await buildEditorialPass(story);
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
+  const editorial = await buildEditorialPass(normalizedStory);
 
   console.info(
     `[PostCraft] editorial_ms=${Date.now() - startedAt} model_only=true evidence=${editorial.evidence.length} angles=${editorial.angles.length}`
