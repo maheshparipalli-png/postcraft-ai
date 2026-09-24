@@ -445,9 +445,10 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
     if (postTerms.has(term)) sharedTerms += 1;
   }
 
-  // The prompt asks for 110-160 words. Keep a reasonable floor, but do not
-  // reject a useful draft merely because the small local model came in short.
-  return words.length >= 100 && words.length <= 210 && sharedTerms >= 2;
+  // The prompt targets 120-180 words, but the production local model can
+  // occasionally produce a shorter draft. Keep the grounding gate strict
+  // while allowing a slightly shorter, still useful LinkedIn post.
+  return words.length >= 90 && words.length <= 210 && sharedTerms >= 2;
 }
 
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
@@ -621,8 +622,15 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     characterCount,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 700 || characterCount > 1600) {
-    throw new Error("PostCraft rejected the generated draft because it was not sufficiently grounded in the selected source. The article will be skipped and another source will be tried.");
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 600 || characterCount > 1600) {
+    console.warn("[PostCraft] post_rejected", {
+      hasConcreteAnchor,
+      hasSourceGrounding,
+      hasGenericFiller,
+      hasNoSourceLeak,
+      characterCount,
+    });
+    throw new Error("PostCraft rejected the generated draft because it did not meet the editorial quality gate. The draft must remain grounded in the selected source and contain enough substance for LinkedIn.");
   }
 
   return post;
