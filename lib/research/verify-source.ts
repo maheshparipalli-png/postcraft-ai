@@ -241,15 +241,15 @@ function isAggregatorSource(source: string) {
 
 function extractArticleBodySummary(html: string) {
   const containers = [
-    html.match(/<article[^>]*>([\\s\\S]*?)<\\/article>/i)?.[1] ?? "",
-    html.match(/<main[^>]*>([\\s\\S]*?)<\\/main>/i)?.[1] ?? "",
+    html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1] ?? "",
+    html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? "",
   ];
 
   for (const container of containers) {
     if (!container) continue;
 
     const paragraphs = Array.from(
-      container.matchAll(/<p(?:\\s[^>]*)?>([\\s\\S]*?)<\\/p>/gi),
+      container.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi),
     )
       .map((match) => cleanText(match[1]))
       .filter((text) => text.length >= 40);
