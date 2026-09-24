@@ -405,8 +405,9 @@ function scoreStory(item: ResearchItem, mode: string) {
   else score -= mode === "PostCraft Recommended" ? 18 : 5;
   if (title.length >= 45 && title.length <= 140) score += 3;
 
-  if (mode === "AI & Technology" && /\b(ai|artificial intelligence|technology|tech|robot|model|chip|semiconductor|software|cyber)\b/i.test(title)) score += 12;
-  if (mode === "India" && /\b(india|indian|delhi|mumbai|bengaluru|hyderabad|modi|government|rupee|rbi|upi)\b/i.test(title)) score += 12;
+  // Topic-specific relevance is already enforced by the query set. Do not give
+  // AI or India an extra ranking bonus; otherwise those interests can dominate
+  // a user's personalized pool simply because of their labels.
   if (mode === "PostCraft Recommended") {
     if (/\b(why|how|could|question|debate|risk|trade[- ]?off|benefit|cost|impact|change)\b/i.test(title)) score += 8;
     if (hasUsableEvidence(item)) score += Math.min(12, Math.floor(item.snippet.length / 120) * 3);
