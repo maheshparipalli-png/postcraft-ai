@@ -157,7 +157,7 @@ export async function POST(request: Request) {
     const ideas = usableResearch.slice(0, Math.min(8, usableResearch.length)).map((item, index) => ({
       title: item.title,
       description: item.snippet,
-      whyItMatters: getWhyItStandsOut(item.title, item.snippet, topic),
+      whyItMatters: getWhyItStandsOut(item.title, item.snippet, item.interest),
       sourceIndexes: [index],
       interest: item.interest,
       source: item.source,
