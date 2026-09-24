@@ -38,6 +38,46 @@ const searchQueries: Record<string, string[]> = {
     "companies business disruption when:7d",
     "business leadership when:7d",
   ],
+  Entrepreneurship: [
+    "startups founders venture funding when:7d",
+    "entrepreneurship startup strategy when:7d",
+    "small business innovation when:7d",
+  ],
+  "Finance & Economy": [
+    "India economy markets inflation when:7d",
+    "business finance interest rates investment when:7d",
+    "global economy policy markets when:7d",
+  ],
+  "Career & Work": [
+    "jobs skills workplace change when:7d",
+    "future of work career skills when:7d",
+    "workplace leadership productivity when:7d",
+  ],
+  "Marketing & Sales": [
+    "marketing customer behavior sales when:7d",
+    "brand strategy digital marketing when:7d",
+    "B2B sales growth customer acquisition when:7d",
+  ],
+  Education: [
+    "education skills learning technology when:7d",
+    "higher education workforce skills when:7d",
+    "education policy learning outcomes when:7d",
+  ],
+  Healthcare: [
+    "healthcare technology medicine research when:7d",
+    "healthcare systems policy innovation when:7d",
+    "medical research breakthrough when:7d",
+  ],
+  Sustainability: [
+    "climate energy sustainability business when:7d",
+    "renewable energy transition when:7d",
+    "environment technology sustainability when:7d",
+  ],
+  Productivity: [
+    "workplace productivity tools when:7d",
+    "productivity work habits management when:7d",
+    "future of work efficiency when:7d",
+  ],
   Leadership: [
     "leadership management when:7d",
     "CEO leadership when:7d",
