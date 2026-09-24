@@ -47,3 +47,25 @@ export function normalizeStatisticContent(
     statLabel: statLabel.slice(0, 120),
   };
 }
+
+
+/**
+ * PostCard copy is rendered directly into SVG text. Normalize model/source
+ * formatting first so Markdown/HTML artifacts never become visible card text.
+ */
+export function normalizePostcardText(value: string): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(/\uFEFF/g, "")
+    .replace(/^\s*\`\`\`(?:json|text|markdown)?\s*/i, "")
+    .replace(/\s*\`\`\`\s*$/i, "")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/\*\*(.*?)\*\*/gs, "$1")
+    .replace(/__(.*?)__/gs, "$1")
+    .replace(/\*(.*?)\*/gs, "$1")
+    .replace(/_(.*?)_/gs, "$1")
+    .replace(/^\s*[-*•]\s+/gm, "")
+    .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
