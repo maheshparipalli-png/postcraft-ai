@@ -243,11 +243,11 @@ function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: An
 
   const claim = apprenticeshipTheme
     ? "AI may be removing the routine junior tasks that traditionally helped people learn their trade."
-    : headline;
+    : firstSentence;
 
   const angle = apprenticeshipTheme
     ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
-    : "The useful question in this story is what changes when " + headline.replace(/[.]+$/, "") + ".";
+    : `The concrete development worth examining is that ${firstSentence.replace(/[.]+$/, "")}.`;
 
   return {
     evidence: [
