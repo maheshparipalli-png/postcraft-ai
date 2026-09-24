@@ -114,11 +114,16 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
       const raw = await getAIProvider().generateText(prompt, {
         temperature: 0.72,
         numPredict: 220,
+        format: "json",
       });
 
       let generated: Record<string, unknown> = {};
       try {
-        const parsed = JSON.parse(raw);
+        const cleaned = raw
+          .replace(/^\s*\`\`\`(?:json)?\s*/i, "")
+          .replace(/\s*\`\`\`\s*$/i, "")
+          .trim();
+        const parsed = JSON.parse(cleaned);
         if (parsed && typeof parsed === "object") generated = parsed as Record<string, unknown>;
       } catch {
         throw new Error("PostCard AI returned an invalid response. Please try again.");
