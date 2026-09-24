@@ -5,13 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
-type Template = "quote" | "editorial" | "insight" | "stat";
+type Template = "quote" | "story" | "editorial" | "insight" | "stat";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
 const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
+  { id: "story", name: "Motivational Story", description: "Short story with a life lesson" },
   { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
   { id: "insight", name: "Insight", description: "One idea, big and clear" },
   { id: "stat", name: "Statistic", description: "Lead with a number" },
@@ -136,6 +137,11 @@ export default function PostCardPage() {
   const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");
   const [quoteHash, setQuoteHash] = useState<string | null>(null);
   const [quoteAuthor, setQuoteAuthor] = useState("");
+  const [storyHash, setStoryHash] = useState<string | null>(null);
+  const [storySourceName, setStorySourceName] = useState("");
+  const [storySourceTitle, setStorySourceTitle] = useState("");
+  const [storySourceUrl, setStorySourceUrl] = useState("");
+  const [storyCategory, setStoryCategory] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("gradient");
@@ -356,6 +362,30 @@ export default function PostCardPage() {
         ${textLines(quoteFit.lines, 68, quoteY, quoteFit.size, 500, quoteFit.gap)}
         ${body ? `<text x="68" y="${authorY}" font-family="Arial,sans-serif" font-size="${authorFit.size}" font-weight="400" fill="${mutedColor}">${escapeXml(authorFit.text)}</text>` : ""}
       `;
+    } else if (template === "story") {
+      const titleFit = fitText(headline || "Your motivational story title.", {
+        maxWidth: 900, maxLines: 3, startSize: 58, minSize: 40, weight: 600, lineHeight: 62,
+      });
+      const bodyFit = fitText(body || "Generate a short story with a turning point and a lesson.", {
+        maxWidth: 900, maxLines: 11, startSize: 29, minSize: 22, weight: 400, lineHeight: 35,
+      });
+      const lessonFit = fitText(closing || "The lesson stays with you.", {
+        maxWidth: 900, maxLines: 3, startSize: 31, minSize: 25, weight: 600, lineHeight: 38,
+      });
+      const titleY = 255;
+      const titleEnd = titleY + Math.max(1, titleFit.lines.length - 1) * titleFit.gap + titleFit.size;
+      const bodyY = titleEnd + 42;
+      const bodyEnd = bodyY + Math.max(1, bodyFit.lines.length - 1) * bodyFit.gap + bodyFit.size;
+      const dividerY = bodyEnd + 28;
+      const lessonY = dividerY + 52;
+
+      content = `
+        <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">A SHORT STORY</text>
+        ${textLines(titleFit.lines, 68, titleY, titleFit.size, 600, titleFit.gap)}
+        ${textLines(bodyFit.lines, 68, bodyY, bodyFit.size, 400, bodyFit.gap)}
+        <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
+        ${textLines(lessonFit.lines, 68, lessonY, lessonFit.size, 600, lessonFit.gap)}
+      `;
     } else {
       const headlineFit = fitText(headline || "Your main thought goes here.", {
         maxWidth: 900, maxLines: 5, startSize: 68, minSize: 46, weight: 500, lineHeight: 68,
@@ -459,10 +489,43 @@ export default function PostCardPage() {
         setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
         setQuoteHash(data.quote.hash || null);
         setQuoteAuthor(data.quote.author || "");
+        setStoryHash(null);
+        setStorySourceName("");
+        setStorySourceTitle("");
+        setStorySourceUrl("");
+        setStoryCategory("");
         setGenerationCount(nextCount);
         setGenerateMessage(`Fresh ${data.quote.category || quoteField} quote selected.`);
       } catch (error) {
         setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational quote.");
+      } finally {
+        setGenerating(false);
+      }
+      return;
+    }
+
+    if (template === "story") {
+      try {
+        const categories = ["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"];
+        const category = categories[(nextCount - 1) % categories.length];
+        const response = await fetch(`/api/postcard/story?category=${encodeURIComponent(category)}`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || !data?.story) throw new Error(data?.error || "Could not retrieve a motivational story.");
+        setHeadline(data.story.title || "");
+        setBody(data.story.body || "");
+        setClosing(data.story.lesson || "");
+        setStoryHash(data.story.hash || null);
+        setStorySourceName(data.story.sourceName || "");
+        setStorySourceTitle(data.story.sourceTitle || "");
+        setStorySourceUrl(data.story.sourceUrl || "");
+        setStoryCategory(data.story.category || category);
+        setSource(data.story.sourceName ? `Inspired by: ${data.story.sourceName}` : "Source: PostCard");
+        setQuoteHash(null);
+        setQuoteAuthor("");
+        setGenerationCount(nextCount);
+        setGenerateMessage(`Fresh ${data.story.category || category} story selected.`);
+      } catch (error) {
+        setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational story.");
       } finally {
         setGenerating(false);
       }
@@ -545,10 +608,15 @@ export default function PostCardPage() {
           stat: normalizedStat.stat,
           statLabel: normalizedStat.statLabel,
           source,
-          quoteHash,
+          quoteHash: template === "quote" ? quoteHash : null,
           quoteText: template === "quote" ? headline : "",
           quoteAuthor: template === "quote" ? quoteAuthor : "",
           quoteCategory: template === "quote" ? quoteField : "",
+          storyHash: template === "story" ? storyHash : null,
+          storySourceName: template === "story" ? storySourceName : "",
+          storySourceTitle: template === "story" ? storySourceTitle : "",
+          storySourceUrl: template === "story" ? storySourceUrl : "",
+          storyCategory: template === "story" ? storyCategory : "",
         }),
       });
       const data = await response.json().catch(() => null);
@@ -737,7 +805,26 @@ export default function PostCardPage() {
                         setStatLabel("");
                         setQuoteHash(null);
                         setQuoteAuthor("");
+                        setStoryHash(null);
+                        setStorySourceName("");
+                        setStorySourceTitle("");
+                        setStorySourceUrl("");
+                        setStoryCategory("");
                         setSource("Inspirational quotes provided by ZenQuotes API");
+                      } else if (item.id === "story") {
+                        setHeadline("");
+                        setBody("");
+                        setClosing("");
+                        setStat("");
+                        setStatLabel("");
+                        setQuoteHash(null);
+                        setQuoteAuthor("");
+                        setStoryHash(null);
+                        setStorySourceName("");
+                        setStorySourceTitle("");
+                        setStorySourceUrl("");
+                        setStoryCategory("");
+                        setSource("Motivational story source");
                       } else if (item.id === "stat") {
                         setHeadline("");
                         setBody("");
@@ -746,8 +833,13 @@ export default function PostCardPage() {
                         setStatLabel("");
                         setQuoteHash(null);
                         setQuoteAuthor("");
+                        setStoryHash(null);
+                        setStorySourceName("");
+                        setStorySourceTitle("");
+                        setStorySourceUrl("");
+                        setStoryCategory("");
                         setSource("Source: PostCard");
-                      } else {
+                      } else { 
                         setHeadline("");
                         setBody("");
                         setClosing("");
@@ -755,6 +847,11 @@ export default function PostCardPage() {
                         setStatLabel("");
                         setQuoteHash(null);
                         setQuoteAuthor("");
+                        setStoryHash(null);
+                        setStorySourceName("");
+                        setStorySourceTitle("");
+                        setStorySourceUrl("");
+                        setStoryCategory("");
                         setSource("Source: PostCard");
                       }
                     }}
