@@ -385,12 +385,12 @@ export async function generateEditorialAngles(story: Story) {
 
 export function sanitizeLinkedInPost(value: string) {
   return value
-    .replace(/^\\s*(?:LinkedIn post|Post):\\s*/i, "")
-    .replace(/\\n+\\s*(?:Source|Original source|Article source|Read the original article|Original article)\\s*:?[^\\n]*(?:https?:\\/\\/\\S+)?\\s*$/i, "")
-    .replace(/\\bhttps?:\\/\\/\\S+/gi, "")
-    .replace(/\\n+\\s*(?:Source|Original source|Article source)\\s*:?\\s*$/i, "")
-    .replace(/[ \\t]+\\n/g, "\\n")
-    .replace(/\\n{3,}/g, "\\n\\n")
+    .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
+    .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
+    .replace(/\n+\s*(?:Source|Original source|Article source)\s*:?\s*$/i, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
