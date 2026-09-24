@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeStatisticContent } from "@/lib/postcard/content";
 
-type Template = "quote" | "story" | "editorial" | "insight" | "stat";
+type Template = "quote" | "story" | "success" | "person" | "history" | "thought" | "mindful";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
 const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
@@ -13,9 +12,11 @@ const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
   { id: "story", name: "Motivational Story", description: "Short story with a life lesson" },
-  { id: "editorial", name: "Editorial", description: "Profile-led thought card" },
-  { id: "insight", name: "Insight", description: "One idea, big and clear" },
-  { id: "stat", name: "Statistic", description: "Lead with a number" },
+  { id: "success", name: "Success Story", description: "Achievement, comeback, or breakthrough" },
+  { id: "person", name: "Person of the Day", description: "An inspiring person and their lesson" },
+  { id: "history", name: "Historical Moment", description: "A moment from history with a modern lesson" },
+  { id: "thought", name: "Thought Experiment", description: "A question that makes people think" },
+  { id: "mindful", name: "Mindful Movement", description: "A small action to slow down and reset" },
 ];
 
 const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
@@ -120,7 +121,7 @@ function initial(name: string) {
 }
 
 export default function PostCardPage() {
-  const [template, setTemplate] = useState<Template>("editorial");
+  const [template, setTemplate] = useState<Template>("quote");
   const [name, setName] = useState("Your Name");
   const [profileLocked, setProfileLocked] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -132,8 +133,6 @@ export default function PostCardPage() {
   const [closing, setClosing] = useState(
     "Work earns a seat, but people-centered impact builds a legacy."
   );
-  const [stat, setStat] = useState("");
-  const [statLabel, setStatLabel] = useState("");
   const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");
   const [quoteHash, setQuoteHash] = useState<string | null>(null);
   const [quoteAuthor, setQuoteAuthor] = useState("");
@@ -166,12 +165,7 @@ export default function PostCardPage() {
 
   const initials = useMemo(() => initial(name), [name]);
 
-  useEffect(() => {
-    if (template !== "stat") return;
-    const normalized = normalizeStatisticContent(stat, stat, statLabel);
-    if (normalized.stat && normalized.stat !== stat.trim()) setStat(normalized.stat);
-    if (normalized.statLabel && normalized.statLabel !== statLabel.trim()) setStatLabel(normalized.statLabel);
-  }, [template]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -302,17 +296,11 @@ export default function PostCardPage() {
   }
 
   function buildSvg(backgroundId = background) {
-    const normalizedStat = normalizeStatisticContent(stat, stat, statLabel);
-    const displayStat = normalizedStat.stat;
-    const displayStatLabel = normalizedStat.statLabel;
-
     const safeName = escapeXml(name);
     const safeHandle = escapeXml(handle);
     const safeHeadline = escapeXml(headline);
     const safeBody = escapeXml(body);
     const safeClosing = escapeXml(closing);
-    const safeStat = escapeXml(displayStat || "—");
-    const safeStatLabel = escapeXml(displayStatLabel);
     const safeSource = escapeXml(source);
     const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
     const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
@@ -327,28 +315,7 @@ export default function PostCardPage() {
       ).join("");
 
     let content = "";
-    if (template === "stat") {
-      const statFit = fitSingleLine(displayStat || "—", 880, 138, 78, 700);
-      const labelFit = fitText(displayStatLabel || "Add a short explanation for this statistic.", {
-        maxWidth: 820, maxLines: 4, startSize: 38, minSize: 28, weight: 400, lineHeight: 46,
-      });
-      const closingFit = fitText(closing || "The takeaway matters as much as the number.", {
-        maxWidth: 820, maxLines: 3, startSize: 34, minSize: 26, weight: 600, lineHeight: 41,
-      });
-
-      const statY = 330;
-      const labelY = statY + statFit.size + 72;
-      const labelEnd = labelY + Math.max(1, labelFit.lines.length - 1) * labelFit.gap + labelFit.size;
-      const dividerY = labelEnd + 48;
-      const closingY = dividerY + 58;
-
-      content = `
-        <text x="540" y="${statY}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${statFit.size}" font-weight="700" fill="${textColor}">${safeStat}</text>
-        ${textLines(labelFit.lines, 540, labelY, labelFit.size, 400, labelFit.gap, "middle")}
-        <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
-        ${textLines(closingFit.lines, 68, closingY, closingFit.size, 600, closingFit.gap)}
-      `;
-    } else if (template === "quote") {
+    if (template === "quote") {
       const quoteFit = fitText(headline || "Your motivational quote goes here.", {
         maxWidth: 900, maxLines: 6, startSize: 64, minSize: 42, weight: 500, lineHeight: 66,
       });
@@ -398,17 +365,25 @@ export default function PostCardPage() {
       });
 
       const contentX = 68;
-      const headlineY = template === "editorial" ? 300 : 250;
+      const formatLabel = ({
+        success: "A SUCCESS STORY",
+        person: "PERSON OF THE DAY",
+        history: "A MOMENT IN HISTORY",
+        thought: "THOUGHT EXPERIMENT",
+        mindful: "MINDFUL MOVEMENT",
+      } as Record<string, string>)[template] || "POSTCARD";
+      const headlineY = 285;
       const headlineEnd = headlineY + Math.max(1, headlineFit.lines.length - 1) * headlineFit.gap + headlineFit.size;
       const bodyY = headlineEnd + 50;
       const bodyEnd = bodyY + Math.max(1, bodyFit.lines.length - 1) * bodyFit.gap + bodyFit.size;
-      const dividerY = template === "editorial" ? bodyEnd + 34 : bodyEnd + 22;
-      const closingY = template === "editorial" ? dividerY + 56 : bodyEnd + 54;
+      const dividerY = bodyEnd + 26;
+      const closingY = dividerY + 56;
 
       content = `
+        ${textLines([formatLabel], contentX, 220, 18, 700, 24)}
         ${textLines(headlineFit.lines, contentX, headlineY, headlineFit.size, 500, headlineFit.gap)}
         ${textLines(bodyFit.lines, contentX, bodyY, bodyFit.size, 400, bodyFit.gap)}
-        ${template === "editorial" ? `<line x1="${contentX}" y1="${dividerY}" x2="${contentX + 125}" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>` : ""}
+        <line x1="${contentX}" y1="${dividerY}" x2="${contentX + 125}" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
         ${textLines(closingFit.lines, contentX, closingY, closingFit.size, 600, closingFit.gap)}
       `;
     }
@@ -532,19 +507,14 @@ export default function PostCardPage() {
       return;
     }
 
-    const directions = [
-      "sports comeback or breakthrough",
-      "business decision or company turnaround",
-      "entrepreneurship and persistence",
-      "leadership and people",
-      "an unexpected success lesson",
-      "failure, recovery, and resilience",
-      "discipline and long-term consistency",
-      "learning, craft, or mastery",
-      "a remarkable human achievement",
-      "a simple everyday lesson with a deeper meaning",
-    ];
-    const direction = directions[(nextCount - 1) % directions.length];
+    const directions: Record<Exclude<Template, "quote" | "story">, string> = {
+      success: "a true-to-life success, comeback, breakthrough, or achievement story",
+      person: "an inspiring person, their journey, and one useful lesson from their life or work",
+      history: "a historical moment, what happened, and why it still matters today",
+      thought: "a thought experiment built around a surprising but useful question",
+      mindful: "a small mindful movement or reset practice that someone can do today",
+    };
+    const direction = directions[template as Exclude<Template, "quote" | "story">] || "a practical life lesson";
     const seed = Math.random().toString(36).slice(2, 10);
     setGenerationCount(nextCount);
     try {
@@ -563,22 +533,14 @@ export default function PostCardPage() {
           headline: "",
           supportingThought: "",
           closing: "",
-          stat,
           source: "",
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not generate the card copy.");
-
-      if (template === "stat") {
-        if (data.stat) setStat(data.stat);
-        if (data.statLabel) setStatLabel(data.statLabel);
-        if (data.closing) setClosing(data.closing);
-      } else {
-        if (data.headline) setHeadline(data.headline);
-        if (data.body) setBody(data.body);
-        if (data.closing) setClosing(data.closing);
-      }
+      if (data.headline) setHeadline(data.headline);
+      if (data.body) setBody(data.body);
+      if (data.closing) setClosing(data.closing);
       setGenerateMessage("Generated a fresh, human-sounding version.");
     } catch (error) {
       setGenerateMessage(error instanceof Error ? error.message : "Could not generate the card copy.");
@@ -586,9 +548,7 @@ export default function PostCardPage() {
       setGenerating(false);
     }
   }
-
   async function saveCard() {
-    const normalizedStat = normalizeStatisticContent(stat, stat, statLabel);
     setSaving(true);
     setSaved(false);
     setGenerateMessage("");
@@ -605,8 +565,8 @@ export default function PostCardPage() {
           headline,
           body,
           closing,
-          stat: normalizedStat.stat,
-          statLabel: normalizedStat.statLabel,
+          stat: "",
+          statLabel: "",
           source,
           quoteHash: template === "quote" ? quoteHash : null,
           quoteText: template === "quote" ? headline : "",
@@ -722,7 +682,7 @@ export default function PostCardPage() {
               Turn ideas into visuals.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">
-              Create clean, professional social cards from a thought, quote, statistic, or LinkedIn post.
+              Create clean, professional social cards from a quote, story, success, person, historical moment, thought experiment, or mindful movement.
             </p>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
@@ -796,64 +756,23 @@ export default function PostCardPage() {
                       setGenerateMessage("");
                       setSaved(false);
                       setSavedCardId(null);
-
-                      if (item.id === "quote") {
-                        setHeadline("");
-                        setBody("");
-                        setClosing("");
-                        setStat("");
-                        setStatLabel("");
-                        setQuoteHash(null);
-                        setQuoteAuthor("");
-                        setStoryHash(null);
-                        setStorySourceName("");
-                        setStorySourceTitle("");
-                        setStorySourceUrl("");
-                        setStoryCategory("");
-                        setSource("Inspirational quotes provided by ZenQuotes API");
-                      } else if (item.id === "story") {
-                        setHeadline("");
-                        setBody("");
-                        setClosing("");
-                        setStat("");
-                        setStatLabel("");
-                        setQuoteHash(null);
-                        setQuoteAuthor("");
-                        setStoryHash(null);
-                        setStorySourceName("");
-                        setStorySourceTitle("");
-                        setStorySourceUrl("");
-                        setStoryCategory("");
-                        setSource("Motivational story source");
-                      } else if (item.id === "stat") {
-                        setHeadline("");
-                        setBody("");
-                        setClosing("");
-                        setStat("");
-                        setStatLabel("");
-                        setQuoteHash(null);
-                        setQuoteAuthor("");
-                        setStoryHash(null);
-                        setStorySourceName("");
-                        setStorySourceTitle("");
-                        setStorySourceUrl("");
-                        setStoryCategory("");
-                        setSource("Source: PostCard");
-                      } else { 
-                        setHeadline("");
-                        setBody("");
-                        setClosing("");
-                        setStat("");
-                        setStatLabel("");
-                        setQuoteHash(null);
-                        setQuoteAuthor("");
-                        setStoryHash(null);
-                        setStorySourceName("");
-                        setStorySourceTitle("");
-                        setStorySourceUrl("");
-                        setStoryCategory("");
-                        setSource("Source: PostCard");
-                      }
+                      setHeadline("");
+                      setBody("");
+                      setClosing("");
+                      setQuoteHash(null);
+                      setQuoteAuthor("");
+                      setStoryHash(null);
+                      setStorySourceName("");
+                      setStorySourceTitle("");
+                      setStorySourceUrl("");
+                      setStoryCategory("");
+                      setSource(
+                        item.id === "quote"
+                          ? "Inspirational quotes provided by ZenQuotes API"
+                          : item.id === "story"
+                            ? "Motivational story source"
+                            : "Source: PostCard"
+                      );
                     }}
                     className={`border px-4 py-4 text-left transition ${template === item.id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 hover:border-neutral-900"}`}
                   >
@@ -873,7 +792,7 @@ export default function PostCardPage() {
               >
                 {generating ? "✦ Generating PostCard..." : "✦ Generate PostCard"}
               </button>
-              <p className="mt-2 text-center text-[11px] text-neutral-400">Quotes use curated feeds; Motivational Stories use fresh RSS source material and original AI retellings.</p>
+              <p className="mt-2 text-center text-[11px] text-neutral-400">Quotes use curated feeds; stories use source material; factual formats should be verified before publishing.</p>
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
@@ -918,26 +837,30 @@ export default function PostCardPage() {
                     </p>
                   )}
                 </div>
-              ) : template === "stat" ? (
+              ) : (
                 <div className="mt-5 space-y-5">
                   <Field
-                    label="Statistic"
-                    value={stat}
-                    onChange={(value) => {
-                      const normalized = normalizeStatisticContent(value, value, "");
-                      if (normalized.stat) {
-                        setStat(normalized.stat);
-                        if (normalized.statLabel) setStatLabel(normalized.statLabel);
-                      } else {
-                        setStat(value);
-                      }
-                    }}
-                    placeholder="e.g. 70%, 3.2x, $4.2B, 1 in 5"
+                    label={template === "success" ? "Story title" : template === "person" ? "Person" : template === "history" ? "Historical moment" : template === "thought" ? "Thought experiment" : "Mindful movement"}
+                    value={headline}
+                    onChange={setHeadline}
                   />
-                  <Field label="What it means" value={statLabel} onChange={setStatLabel} textarea />
-                  <p className="text-[11px] leading-5 text-neutral-500">Enter only the number/value here. If you paste a sentence containing a statistic, PostCard will split the value from the explanation.</p>
+                  <Field
+                    label={template === "success" ? "Story" : template === "person" ? "Why this person matters" : template === "history" ? "What happened" : template === "thought" ? "Explore the idea" : "Practice"}
+                    value={body}
+                    onChange={setBody}
+                    textarea
+                  />
+                  <Field
+                    label={template === "success" ? "Lesson" : template === "person" ? "Takeaway" : template === "history" ? "Why it matters today" : template === "thought" ? "Question to leave with the reader" : "Reflection"}
+                    value={closing}
+                    onChange={setClosing}
+                    textarea
+                  />
+                  <p className="text-[11px] leading-5 text-neutral-500">
+                    Generate creates a fresh version for this format. For people and historical moments, verify factual details before publishing.
+                  </p>
                 </div>
-              ) : (
+
                 <div className="mt-5 space-y-5">
                   <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
