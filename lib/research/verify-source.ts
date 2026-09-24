@@ -239,6 +239,30 @@ function isAggregatorSource(source: string) {
   return /^(google news|bing news|yahoo news)$/i.test(source.trim());
 }
 
+function extractArticleBodySummary(html: string) {
+  const containers = [
+    html.match(/<article[^>]*>([\\s\\S]*?)<\\/article>/i)?.[1] ?? "",
+    html.match(/<main[^>]*>([\\s\\S]*?)<\\/main>/i)?.[1] ?? "",
+  ];
+
+  for (const container of containers) {
+    if (!container) continue;
+
+    const paragraphs = Array.from(
+      container.matchAll(/<p(?:\\s[^>]*)?>([\\s\\S]*?)<\\/p>/gi),
+    )
+      .map((match) => cleanText(match[1]))
+      .filter((text) => text.length >= 40);
+
+    if (paragraphs.length >= 2) {
+      const combined = paragraphs.slice(0, 8).join(" ");
+      if (combined.length >= 300) return combined.slice(0, 1800);
+    }
+  }
+
+  return "";
+}
+
 function extractSummary(html: string) {
   const candidates = [
     extractMeta(html, "og:description"),
@@ -247,9 +271,16 @@ function extractSummary(html: string) {
     extractJsonLdDescription(html),
   ];
 
-  return candidates.find(
+  const metadataSummary = candidates.find(
     (value) => value.length >= 40 && !genericGoogleNewsText.test(value),
   ) ?? "";
+
+  const articleSummary = extractArticleBodySummary(html);
+  if (articleSummary) {
+    return (metadataSummary ? metadataSummary + " " : "") + articleSummary;
+  }
+
+  return metadataSummary;
 }
 
 export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
