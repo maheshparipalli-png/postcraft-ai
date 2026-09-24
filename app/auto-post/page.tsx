@@ -20,27 +20,23 @@ function fallbackVisual(preview: Preview): VisualCopy {
   const text = preview.post
     .replace(/^This post is based on[^\n]*\n*/i, "")
     .replace(/\n+Read the original article:[\s\S]*$/i, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
     .trim();
 
-  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
-  const first = sentences[0] || text;
-  const headline =
-    first.length >= 35 && first.length <= 115
-      ? first
-      : preview.angle?.angle?.trim() || "The useful point is what this change means in practice.";
-
-  const remaining = sentences.filter((item) => item !== first);
-  const points = remaining.slice(0, 3).map((item) => item.replace(/[.!?]+$/, ""));
+  const paragraphs = text.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
+  const bodyText = paragraphs.length > 1 ? paragraphs.slice(1).join(" ") : text;
+  const sentences = bodyText.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
+  const points = sentences.slice(0, 3).map((item) => item.replace(/[.!?]+$/, ""));
   const takeaway = sentences.length > 3
     ? sentences[sentences.length - 1].replace(/[.!?]+$/, "")
-    : (remaining[remaining.length - 1] || "").replace(/[.!?]+$/, "");
+    : (preview.angle?.angle || "").replace(/[.!?]+$/, "");
 
   return {
-    headline: headline.replace(/[.!?]+$/, ""),
+    headline: preview.article.title.trim(),
     body: preview.angle?.angle?.trim() || "",
     points,
     takeaway,
-    attribution: `Based on a ${preview.article.source} article`,
+    attribution: preview.article.source ? `Source: ${preview.article.source}` : "",
   };
 }
 
@@ -162,7 +158,7 @@ async function renderVisual(visual: VisualCopy) {
 
   ctx.fillStyle = "#737373";
   ctx.font = "14px Arial";
-  ctx.fillText("Prepared with PostCraft AI · Review before publishing", margin, height - 24);
+  ctx.fillText("PostCraft AI · Review before publishing", margin, height - 24);
 
   return canvas.toDataURL("image/png");
 }
@@ -242,7 +238,22 @@ export default function AutoPostPage() {
     } finally { setRunning(false); }
   }
 
-  useEffect(() => { if (hydrated && !preview) void prepareDraft(); }, [hydrated]);
+  useEffect(() => {
+    if (hydrated && !preview) void prepareDraft();
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!preview || visualUrl || rendering) return;
+    let cancelled = false;
+    setRendering(true);
+    void renderVisual(preview.visual || fallbackVisual(preview))
+      .then((url) => { if (!cancelled) setVisualUrl(url); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not render the infographic.");
+      })
+      .finally(() => { if (!cancelled) setRendering(false); });
+    return () => { cancelled = true; };
+  }, [preview, visualUrl, rendering]);
 
   async function regenerateDraft() {
     if (running) return;
