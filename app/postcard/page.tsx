@@ -133,7 +133,9 @@ export default function PostCardPage() {
   );
   const [stat, setStat] = useState("");
   const [statLabel, setStatLabel] = useState("");
-  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");\n  const [quoteHash, setQuoteHash] = useState<string | null>(null);\n  const [quoteAuthor, setQuoteAuthor] = useState("");
+  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");
+  const [quoteHash, setQuoteHash] = useState<string | null>(null);
+  const [quoteAuthor, setQuoteAuthor] = useState("");
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("gradient");
