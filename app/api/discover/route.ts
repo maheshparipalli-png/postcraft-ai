@@ -73,9 +73,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const topic = typeof body?.topic === "string" ? body.topic.trim() : "Personalized";
-
+    await request.json().catch(() => ({}));
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
