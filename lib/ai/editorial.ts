@@ -527,7 +527,13 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs, aiming for about 900-1,300 characters when practical. The first 1-2 lines must earn the "see more" click with a specific fact, tension, result, or surprising implication from the story. Do not start with a greeting or a generic statement about AI, technology, business, or change.
+Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs, aiming for about 900-1,500 characters when practical.
+
+IMPORTANT TITLE RULE:
+Start the post itself with the exact story headline as a standalone first line. Do not hide the headline in metadata or leave it only in the source card. After the title, continue with the editorial point of view in natural language.
+
+The first 1-2 lines after the title must earn the "see more" click with a specific fact, tension, result, or surprising implication from the story. Do not start with a greeting or a generic statement about AI, technology, business, or change.
+Do not include the source URL, "Read the original article", a source-link footer, or any other URL anywhere in the post.
 
 Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language. Write like a thoughtful professional who has actually read the source: use natural contractions where they fit, vary sentence length, prefer concrete nouns and verbs, and allow a little personality without pretending to have personal experience. Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", or formulaic hook language. Use no hashtags unless one is genuinely useful; never add a block of generic hashtags.
 
@@ -549,10 +555,26 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   });
 
   const parsedResult = parseJson(rawResult);
-  const post =
+  const rawPost =
     typeof parsedResult?.post === "string"
       ? parsedResult.post.trim()
       : rawResult.trim();
+
+  const stripSourceFooter = (value: string) =>
+    value
+      .replace(/\n+\s*(?:read the original article|source|original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
+      .replace(/\n+\s*https?:\/\/\S+\s*$/i, "")
+      .replace(/\bhttps?:\/\/\S+/gi, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .trim();
+
+  const normalizedPost = stripSourceFooter(rawPost);
+  const headline = story.headline.trim();
+  const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normalizedStart = normalizedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const post = normalizedStart.startsWith(normalizedHeadline)
+    ? normalizedPost
+    : `${headline}\n\n${normalizedPost}`;
 
   if (!post) {
     throw new Error("PostCraft could not produce a post from the selected angle.");
