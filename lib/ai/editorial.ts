@@ -269,6 +269,14 @@ function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: An
 }
 
 async function buildEditorialPass(story: Story) {
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
   const prompt = `You are PostCraft AI, an editorial thinking partner. Generate the strongest useful response from the selected story below.
 
 Do not search the internet. Do not fetch another article. Work only from the story information provided here.
@@ -660,7 +668,7 @@ export async function generateEditorialPost(
         ? parsedResult.post.trim()
         : rawResult.trim();
 
-    const decodedPost = decodeEditorialEntities(
+    const decodedPost = decodeHtmlEntities(
       rawPost
         .replace(/\\r\\n/g, "\n")
         .replace(/\\n/g, "\n")
