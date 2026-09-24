@@ -192,7 +192,7 @@ async function buildDraft(interests: string[]) {
               reason: `Selected from ${usableCandidates.length} usable AI stories after source verification and editorial evidence checks.`,
             },
             angle: bestAngle,
-            post: `${generated.trim()}\n\nRead the original article: ${story.url}`,
+            post: generated.trim(),
             visual: { ...visual, attribution },
             nextStep: "Review the prepared draft. LinkedIn unattended publishing remains disabled until the integration is validated.",
           };
