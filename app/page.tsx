@@ -60,7 +60,14 @@ function decodeHtmlEntities(value: string) {
 }
 
 function cleanGeneratedPost(value: string) {
-  return value.replace(/^```(?:text|markdown|json)?\s*/i, "").replace(/\s*```$/i, "").replace(/^\s*(LinkedIn post|Post):\s*/i, "").trim();
+  return value
+    .replace(/^\`\`\`(?:text|markdown|json)?\s*/i, "")
+    .replace(/\s*\`\`\`$/i, "")
+    .replace(/^\s*(LinkedIn post|Post):\s*/i, "")
+    .replace(/\n+\s*Source\s*:\s*[^\n]*$/i, "")
+    .replace(/\n+\s*(?:Read the original article|Original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
+    .trim();
 }
 
 function renderPostCardImage(title: string, post: string, angle: string, source: string) {
