@@ -490,7 +490,7 @@ function getConcreteEvidenceTerms(
     value
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
-      .split(/\\s+/)
+      .split(/\s+/)
       .filter((word) => word.length >= 5 && !stopWords.has(word));
 
   const sourceText = [
@@ -517,13 +517,13 @@ function postHasConcreteEvidenceDensity(
   );
 
   const paragraphs = post
-    .split(/\\n\\s*\\n/)
+    .split(/\n\s*\n/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .slice(1);
 
   const substantiveParagraphs = paragraphs.filter(
-    (paragraph) => paragraph.split(/\\s+/).filter(Boolean).length >= 15,
+    (paragraph) => paragraph.split(/\s+/).filter(Boolean).length >= 15,
   );
 
   const paragraphsWithEvidence = substantiveParagraphs.filter((paragraph) => {
