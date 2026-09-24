@@ -873,7 +873,7 @@ export default function PostCardPage() {
               >
                 {generating ? "✦ Generating PostCard..." : "✦ Generate PostCard"}
               </button>
-              <p className="mt-2 text-center text-[11px] text-neutral-400">Motivational Quote uses sourced quotations; other formats use AI-generated copy.</p>
+              <p className="mt-2 text-center text-[11px] text-neutral-400">Quotes use curated feeds; Motivational Stories use fresh RSS source material and original AI retellings.</p>
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
@@ -890,6 +890,33 @@ export default function PostCardPage() {
                   <Field label="Quote" value={headline} onChange={setHeadline} textarea />
                   <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); }} />
                   <p className="text-[11px] leading-5 text-neutral-500">Quotes come from an external feed. Once you save or publish one, it is excluded from your future selections for 90 days.</p>
+                </div>
+              ) : template === "story" ? (
+                <div className="mt-5 space-y-5">
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Story field</span>
+                    <select
+                      value={storyCategory || "resilience"}
+                      onChange={(e) => setStoryCategory(e.target.value)}
+                      className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
+                    >
+                      {["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"].map((field) => (
+                        <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field label="Story title" value={headline} onChange={setHeadline} />
+                  <Field label="Story" value={body} onChange={setBody} textarea />
+                  <Field label="Lesson" value={closing} onChange={setClosing} textarea />
+                  <p className="text-[11px] leading-5 text-neutral-500">
+                    PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving.
+                  </p>
+                  {storySourceName && (
+                    <p className="text-[11px] leading-5 text-neutral-500">
+                      Source material: <span className="font-medium text-neutral-700">{storySourceName}</span>
+                      {storySourceUrl ? <> · <a href={storySourceUrl} target="_blank" rel="noreferrer" className="underline">open source</a></> : null}
+                    </p>
+                  )}
                 </div>
               ) : template === "stat" ? (
                 <div className="mt-5 space-y-5">
