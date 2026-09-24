@@ -812,6 +812,7 @@ export async function generateEditorialPost(
       hasGenericFiller,
       hasNoSourceLeak,
       genericFillerPhrases,
+      metaEditorialPhrases,
       evidenceDensity,
     };
   }
