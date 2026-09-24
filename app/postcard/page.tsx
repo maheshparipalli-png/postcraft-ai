@@ -507,7 +507,7 @@ export default function PostCardPage() {
     if (template === "story") {
       try {
         const categories = ["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"];
-        const category = categories[(nextCount - 1) % categories.length];
+        const category = storyCategory || categories[(nextCount - 1) % categories.length];
         const response = await fetch(`/api/postcard/story?category=${encodeURIComponent(category)}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || !data?.story) throw new Error(data?.error || "Could not retrieve a motivational story.");
