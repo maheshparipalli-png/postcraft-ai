@@ -148,6 +148,13 @@ export default function Home() {
 
         setAuthUser({ id: user.id, email: user.email });
 
+        const preferencesResponse = await fetch("/api/preferences/interests", { cache: "no-store" });
+        const preferences = await preferencesResponse.json().catch(() => null);
+        if (preferencesResponse.ok && !preferences?.completed) {
+          router.replace("/interests?next=/");
+          return;
+        }
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
