@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CONTENT_INTERESTS } from "@/lib/content-interests";
 
 export default function InterestsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next")?.startsWith("/") ? searchParams.get("next")! : "/";
+  const [nextPath] = useState(() => {
+    if (typeof window === "undefined") return "/";
+    const value = new URLSearchParams(window.location.search).get("next");
+    return value?.startsWith("/") ? value : "/";
+  });
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,7 +25,8 @@ export default function InterestsPage() {
         if (!response.ok) throw new Error(data?.error || "Could not load your interests.");
         if (!active) return;
         setSelected(Array.isArray(data?.interests) ? data.interests : []);
-        if (data?.completed && !searchParams.get("setup")) router.replace(next);
+        const setup = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("setup") === "1";
+        if (data?.completed && !setup) router.replace(nextPath);
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : "Could not load your interests.");
@@ -31,7 +35,7 @@ export default function InterestsPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [next, router, searchParams]);
+  }, [nextPath, router]);
 
   function toggle(id: string) {
     setSelected((current) =>
@@ -58,7 +62,7 @@ export default function InterestsPage() {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not save your interests.");
-      router.replace(next);
+      router.replace(nextPath);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your interests.");
