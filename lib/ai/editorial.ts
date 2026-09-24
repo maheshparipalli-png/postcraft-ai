@@ -356,7 +356,10 @@ Use exactly this structure:
 }
 
 
-export async function generateEditorialDraft(story: Story) {
+export async function generateEditorialDraft(
+  story: Story,
+  onPostToken?: (token: string) => void,
+) {
   const startedAt = Date.now();
   const editorial = await buildEditorialPass(story);
   const ranked = rankAngles(editorial.angles, story);
@@ -369,12 +372,26 @@ export async function generateEditorialDraft(story: Story) {
       score: 6,
       criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
     };
-    const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", fallback.evidence);
+    const post = await generateEditorialPost(
+      story,
+      selected.angle,
+      selected.why,
+      "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+      fallback.evidence,
+      onPostToken,
+    );
     return { angles: [selected], evidence: fallback.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
   }
 
   const selected = ranked[0];
-  const post = await generateEditorialPost(story, selected.angle, selected.why, "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.", editorial.evidence);
+  const post = await generateEditorialPost(
+    story,
+    selected.angle,
+    selected.why,
+    "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+    editorial.evidence,
+    onPostToken,
+  );
 
   console.info("[PostCraft] editorial_pipeline_ms=" + (Date.now() - startedAt) + " candidates=" + editorial.angles.length + " ranked=" + ranked.length + " selected_score=" + selected.score);
   return { angles: ranked.slice(0, 3), evidence: editorial.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
@@ -504,7 +521,8 @@ export async function generateEditorialPost(
   angle: string,
   angleWhy: string,
   modeInstruction: string,
-  suppliedEvidence?: Evidence[]
+  suppliedEvidence?: Evidence[],
+  onPostToken?: (token: string) => void,
 ) {
   const evidence = validateEvidence(suppliedEvidence);
 
