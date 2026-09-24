@@ -247,7 +247,7 @@ function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: An
 
   const angle = apprenticeshipTheme
     ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
-    : `The concrete development worth examining is that ${firstSentence.replace(/[.]+$/, "")}.`;
+    : firstSentence.replace(/[.]+$/, "") + ".";
 
   return {
     evidence: [
