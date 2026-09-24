@@ -860,13 +860,6 @@ export default function PostCardPage() {
                     Generate creates a fresh version for this format. For people and historical moments, verify factual details before publishing.
                   </p>
                 </div>
-
-                <div className="mt-5 space-y-5">
-                  <Field label="Main thought" value={headline} onChange={setHeadline} textarea />
-                  <p className="text-[11px] leading-5 text-neutral-500">
-                    Supporting thought and closing line are generated automatically and used in the PostCard layout.
-                  </p>
-                </div>
               )}
 
               {generateMessage && <div className="mt-5 text-xs text-neutral-600">{generateMessage}</div>}
