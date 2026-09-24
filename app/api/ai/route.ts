@@ -66,63 +66,50 @@ export async function POST(request: Request) {
       const currentStat = typeof body?.stat === "string" ? body.stat.trim() : "";
       const source = typeof body?.source === "string" ? body.source.trim() : "";
 
+      const formatInstructions = ({
+        success: `Create a compact success/comeback story. Use an identifiable human situation, a setback or obstacle, a turning point, and a useful lesson. Do not invent a named person or claim a real event unless source material is supplied.`,
+        person: `Create a Person of the Day card. Choose a widely known inspiring person only when you can state broadly established facts. Do not invent dates, achievements, quotes, or personal details. Focus on one defining contribution and one practical lesson.`,
+        history: `Create a Historical Moment card. Use a well-established historical event or moment and explain why it still matters. Do not invent dates, participants, quotations, or outcomes. If factual certainty is not possible, keep the wording general rather than making a specific claim.`,
+        thought: `Create a Thought Experiment. Present a surprising hypothetical question, a short setup, and a useful reflection. It must be clearly hypothetical, not presented as a fact or prediction.`,
+        mindful: `Create a Mindful Movement card. Give the reader one small physical or attention-based action they can do today, such as a slow walk, stretch, breath, pause, or deliberate observation. Keep it practical and non-medical.`,
+      } as Record<string, string>)[template] || "Create one practical motivational idea.";
+
       const prompt = `You are PostCard, the human-sounding visual writing assistant inside PostCraft.
 
-Create a FRESH motivational social-card idea. Every Generate click is a request for a genuinely different idea, not a rewrite of the previous card.
+Create a FRESH social-card idea for the selected format. Every Generate click should be genuinely different from the previous card.
 
-Today's editorial direction: ${category}
-Variation seed: ${variationSeed}
+FORMAT: ${template}
+EDITORIAL DIRECTION: ${category}
+VARIATION SEED: ${variationSeed}
+
+${formatInstructions}
 
 The previous card was:
 Headline: ${previousHeadline || "(none)"}
 Body: ${previousBody || "(none)"}
 Closing: ${previousClosing || "(none)"}
 
-Do NOT reuse the previous card's topic, metaphor, message, structure, or wording. Do not simply replace a few words. Start with a different underlying idea.
+Do NOT reuse the previous card's topic, metaphor, message, structure, or wording. Start with a different underlying idea.
 
-Prefer concrete inspiration from the requested direction: a sporting comeback, business lesson, leadership moment, entrepreneurial struggle, mastery, resilience, achievement, or an everyday human observation. Do not claim that a real event, person, quote, statistic, or company did something unless it is supplied as source material. When no source is supplied, write an original motivational idea rather than inventing a real-world story.
+For the selected format:
+- headline: 6-12 words, clear and specific
+- body: 2-4 short sentences, roughly 80-150 words for story-based formats and 35-80 words for the other formats
+- closing: one memorable takeaway, 8-18 words
 
-Create short social-card copy that is easy to understand, specific, and human. It should sound like a thoughtful person sharing an observation, not a corporate marketing team and not an AI news summary.
+For Person of the Day and Historical Moment, do not fabricate factual details. If source material is absent, prefer broadly established facts and avoid precise claims you cannot support.
+For Thought Experiment, make the hypothetical nature unmistakable.
+For Mindful Movement, avoid medical claims or promises.
+For Success Story, do not present an invented story as a verified real event.
 
-Use the supplied idea and existing draft only when they contain useful source material. Do not invent facts, statistics, quotes, names, or claims.
+Avoid corporate clichés, generic motivational filler, hashtags, emojis, and phrases like "in today's rapidly changing world", "game changer", "revolutionary", or "it is important to note".
 
-For editorial or insight cards:
-- headline: one clear main thought, 8-12 words and no more than about 70 characters
-- body: 1-2 short sentences explaining what it means in plain English, no more than about 180 characters
-- closing: one memorable human observation, 6-12 words and no more than about 80 characters
-
-These are hard layout limits, not suggestions. Shorter is better. Never add extra explanation.
-The body must answer "Why does this matter?" rather than repeat the headline. The closing should feel like a person's takeaway, not a generic motivational slogan.
-
-For statistic cards:
-- stat: ONLY the compact numeric/value hero, such as "70%", "3.2x", "$4.2B", "1 in 5", or "42". Never put a sentence, clause, explanation, or source name in stat.
-- If a statistic is supplied by the user, preserve its value exactly.
-- If the supplied statistic is embedded in a sentence, extract only the numeric/value portion into stat.
-- If no statistic is supplied, leave stat empty. NEVER invent a statistic.
-- statLabel: one short plain-English sentence explaining the supplied statistic, ideally 1-2 lines, no more than about 100 characters.
-- closing: one short human takeaway, no more than about 80 characters.
-
-The statistic card has a strict visual hierarchy: the number is the hero, the explanation is secondary, and the takeaway is tertiary. Never make the explanation the giant headline.
-
-Avoid corporate clichés, generic motivational language, hashtags, emojis, and phrases like "in today's rapidly changing world", "this highlights the importance", "game changer", "revolutionary", or "it is important to note".
-
-Keep the language conversational. Prefer concrete words and short sentences. A little personality is good. Do not pretend to have personal experiences.
-
-FORMAT: ${template}
+Keep the language conversational, concrete, and human. Do not pretend to have personal experiences.
 
 USER IDEA:
 ${idea || "(No separate idea provided.)"}
 
-CURRENT INPUT:
-Main thought: ${currentHeadline || "(empty)"}
-Supporting thought: ${currentBody || "(empty)"}
-Closing line: ${currentClosing || "(empty)"}
-Statistic: ${currentStat || "(empty)"}
+Return ONLY valid JSON with keys: headline, body, closing.`;
 
-SOURCE / FOOTER:
-${source || "(none)"}
-
-Return ONLY valid JSON with keys: headline, body, closing, stat, statLabel.`;
 
       const raw = await getAIProvider().generateText(prompt, {
         temperature: 0.72,
