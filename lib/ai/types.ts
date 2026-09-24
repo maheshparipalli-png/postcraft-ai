@@ -8,4 +8,9 @@ export type AIGenerateOptions = {
 
 export type AIProvider = {
   generateText(prompt: string, options?: AIGenerateOptions): Promise<string>;
+  generateTextStream(
+    prompt: string,
+    options: AIGenerateOptions | undefined,
+    onToken: (token: string) => void,
+  ): Promise<string>;
 };
