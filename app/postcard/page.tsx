@@ -723,7 +723,41 @@ export default function PostCardPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setTemplate(item.id)}
+                    onClick={() => {
+                      setTemplate(item.id);
+                      setGenerateMessage("");
+                      setSaved(false);
+                      setSavedCardId(null);
+
+                      if (item.id === "quote") {
+                        setHeadline("");
+                        setBody("");
+                        setClosing("");
+                        setStat("");
+                        setStatLabel("");
+                        setQuoteHash(null);
+                        setQuoteAuthor("");
+                        setSource("Inspirational quotes provided by ZenQuotes API");
+                      } else if (item.id === "stat") {
+                        setHeadline("");
+                        setBody("");
+                        setClosing("");
+                        setStat("");
+                        setStatLabel("");
+                        setQuoteHash(null);
+                        setQuoteAuthor("");
+                        setSource("Source: PostCard");
+                      } else {
+                        setHeadline("");
+                        setBody("");
+                        setClosing("");
+                        setStat("");
+                        setStatLabel("");
+                        setQuoteHash(null);
+                        setQuoteAuthor("");
+                        setSource("Source: PostCard");
+                      }
+                    }}
                     className={`border px-4 py-4 text-left transition ${template === item.id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 hover:border-neutral-900"}`}
                   >
                     <div className="text-sm font-semibold">{item.name}</div>
