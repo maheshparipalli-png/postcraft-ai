@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { generateEditorialDraft } from "@/lib/ai/editorial";
-import { verifySourceUrl } from "@/lib/research/verify-source";
+import { verifySourceUrl, type VerifiedSource } from "@/lib/research/verify-source";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +17,16 @@ function decodeHtmlEntities(value: string) {
     .replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&nbsp;/gi, " ");
+}
+
+function canUseDiscoveryFallback(error: unknown, summary: string) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    summary.length >= 80 &&
+    /could not be opened|returned HTTP (401|403|408|429|5\d\d)|timed out|timeout|fetch failed|network/i.test(
+      message,
+    )
+  );
 }
 
 export async function POST(request: Request) {
@@ -49,22 +59,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "The original source URL is required." }, { status: 400 });
     }
 
-    const verified = await verifySourceUrl(url);
+    let verified: VerifiedSource | null = null;
+    let sourceAccessFallback = false;
+
+    try {
+      verified = await verifySourceUrl(url);
+    } catch (error) {
+      // Some publishers block server-side requests (403/429/5xx) even though
+      // the article is valid and readable by the user. Discovery already has a
+      // publisher URL plus a vetted feed summary, so do not discard the story
+      // when that evidence is sufficient. We clearly mark it as unverified.
+      if (!canUseDiscoveryFallback(error, fallbackSummary)) throw error;
+      sourceAccessFallback = true;
+      console.warn("Discover editorial source verification fallback:", {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     const story = {
       topic: interest || "PostCraft",
       headline: decodeHtmlEntities(
-        verified.title.trim().length > 8 ? verified.title : fallbackTitle,
+        verified?.title?.trim().length && verified.title.trim().length > 8
+          ? verified.title
+          : fallbackTitle,
       ),
-      source: verified.source || fallbackSource || "the original publisher",
-      summary: verified.summary || fallbackSummary,
-      url: verified.url || url,
+      source: verified?.source || fallbackSource || "the original publisher",
+      summary: verified?.summary || fallbackSummary,
+      url: verified?.url || url,
     };
 
     if (!story.headline || story.summary.length < 40) {
       return NextResponse.json(
         {
-          error:
-            "PostCraft verified the source, but it did not expose enough article detail for a grounded editorial draft.",
+          error: sourceAccessFallback
+            ? "The publisher blocked automated access and the discovery result did not contain enough article detail for a grounded editorial draft."
+            : "PostCraft verified the source, but it did not expose enough article detail for a grounded editorial draft.",
         },
         { status: 422 },
       );
@@ -77,15 +107,18 @@ export async function POST(request: Request) {
         title: story.headline,
         source: story.source,
         url: story.url,
-        publishedAt: verified.publishedAt,
+        publishedAt: verified?.publishedAt || "",
         content: story.summary,
+        sourceVerified: !sourceAccessFallback,
       },
       angle: editorial.selectedAngle,
       angles: editorial.angles,
       evidence: editorial.evidence,
       post: editorial.post,
       ranking: {
-        reason: "Selected story verified at the original publisher, then processed through the same editorial pipeline as Auto-post.",
+        reason: sourceAccessFallback
+          ? "Selected story came from a direct publisher URL with sufficient discovery evidence; the publisher blocked automated verification, so the draft was grounded only in the discovery evidence."
+          : "Selected story was verified at the original publisher, then processed through the same editorial pipeline as Auto-post.",
       },
       nextStep: "Review the source, angle, post and PostCard before publishing.",
     });
