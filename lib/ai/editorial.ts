@@ -582,7 +582,7 @@ export async function generateEditorialPost(
     );
     const hasGenericFiller = postHasGenericFiller(post);
     const hasNoSourceLeak =
-      !/https?:\\/\\/|(?:^|\\n)\\s*(?:source|original source|article source)\\s*:/im.test(
+      !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(
         post,
       );
 
