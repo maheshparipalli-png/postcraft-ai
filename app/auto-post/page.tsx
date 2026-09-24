@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { sanitizeLinkedInPost } from "@/lib/ai/editorial";
 
 type VisualCopy = { headline: string; body: string; attribution: string; points?: string[]; takeaway?: string };
 type Preview = {
@@ -194,7 +195,7 @@ export default function AutoPostPage() {
           setPreview({
             article: { title: data.draft.source_title, source: data.draft.source_name || "Unknown source", url: data.draft.source_url, publishedAt: data.draft.created_at },
             angle: { angle: data.draft.recommended_angle || "", why: data.draft.angle_why || "" },
-            post: data.draft.working_post || data.draft.generated_post,
+            post: sanitizeLinkedInPost(data.draft.working_post || data.draft.generated_post),
             ranking: { candidateCount: data.draft.candidate_count || undefined, reason: data.draft.ranking_reason || undefined },
           });
           setPublished(data.draft.status === "published");
@@ -231,7 +232,7 @@ export default function AutoPostPage() {
       const saveResponse = await fetch("/api/auto-post/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preview: data, replace: force }) });
       const savedData = await saveResponse.json().catch(() => null);
       if (!saveResponse.ok) throw new Error(savedData?.error || "The draft could not be saved.");
-      setPreview(data); setPublished(false); setRegenerationFailed(false); window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      setPreview({ ...data, post: sanitizeLinkedInPost(data.post) }); setPublished(false); setRegenerationFailed(false); window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (err) {
       if (force && preview) setRegenerationFailed(true);
       setError(err instanceof Error ? err.message : "Something went wrong while preparing the draft.");
