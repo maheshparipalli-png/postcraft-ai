@@ -99,7 +99,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const researchSets = await Promise.all(interests.map((interest) => searchNews(interest)));
+    const discoveryResults = await Promise.allSettled(interests.map((interest) => searchNews(interest)));
+    const failedInterests = discoveryResults
+      .map((result, index) => result.status === "rejected" ? {
+        interest: interests[index],
+        error: result.reason instanceof Error ? result.reason.message : "Content source lookup failed",
+      } : null)
+      .filter((item): item is { interest: string; error: string } => Boolean(item));
+    const researchSets = discoveryResults
+      .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof searchNews>>> => result.status === "fulfilled")
+      .map((result) => result.value);
     const seen = new Set<string>();
     const research = researchSets
       .flat()
@@ -127,9 +136,17 @@ export async function POST(request: Request) {
     }
 
     if (!research.length) {
+      const partialFailure = failedInterests.length > 0;
       return NextResponse.json(
-        { error: "PostCraft could not find enough high-value stories across your selected interests today. Try adding another interest." },
-        { status: 404 },
+        {
+          error: partialFailure
+            ? "PostCraft could not retrieve usable stories from your selected content sources right now. Please retry in a moment."
+            : "PostCraft could not find enough high-value stories across your selected interests today. Try adding another interest.",
+          code: partialFailure ? "DISCOVERY_SOURCES_UNAVAILABLE" : "NO_STORIES_FOUND",
+          interests,
+          failedInterests,
+        },
+        { status: partialFailure ? 502 : 404 },
       );
     }
 
@@ -145,7 +162,12 @@ export async function POST(request: Request) {
 
     if (!usableResearch.length) {
       return NextResponse.json(
-        { error: "PostCraft found stories, but none met the evidence and quality threshold. No low-value filler was added." },
+        {
+          error: "PostCraft found stories, but none met the evidence and quality threshold. No low-value filler was added.",
+          code: "NO_HIGH_VALUE_STORIES",
+          candidateCount: research.length,
+          interests,
+        },
         { status: 422 },
       );
     }

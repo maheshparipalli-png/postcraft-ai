@@ -205,9 +205,22 @@ async function discoverIdeas() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: selectedTopic }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error ?? "Discovery failed");
-      setIdeas(Array.isArray(data?.ideas) ? data.ideas : []);
+      const raw = await response.text();
+      let data: { error?: string; code?: string; count?: number; ideas?: Idea[] } | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+      if (!response.ok) {
+        const detail = data?.error || (raw && raw.trim() ? raw.slice(0, 220) : "");
+        throw new Error(detail || `Discovery could not be completed (HTTP ${response.status}).`);
+      }
+      const discoveredIdeas = Array.isArray(data?.ideas) ? data.ideas : [];
+      if (!discoveredIdeas.length) {
+        throw new Error("No high-value stories met your interest and quality filters today. PostCraft will not add filler.");
+      }
+      setIdeas(discoveredIdeas);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Discovery failed");
     } finally {
