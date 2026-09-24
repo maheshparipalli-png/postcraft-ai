@@ -5,6 +5,7 @@ import { getBillingAccess } from "@/lib/billing/access";
 import { searchNews, type ResearchItem } from "@/lib/research/news";
 import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
+import { normalizeInterests } from "@/lib/content-interests";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,7 +95,7 @@ function isScheduleDue(localMinutes: number, publishTime: string) {
   return elapsed < 15;
 }
 
-async function buildDraft() {
+async function buildDraft(interests: string[]) {
   // Keep interactive regeneration comfortably inside the request budget.
   // Each candidate can require source verification plus two AI generations,
   // so processing ten candidates serially can easily exceed Vercel limits.
@@ -105,7 +106,17 @@ async function buildDraft() {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const candidates = await searchNews("AI & Technology");
+      const candidateSets = await Promise.all(interests.map((interest) => searchNews(interest)));
+      const seenUrls = new Set<string>();
+      const candidates = candidateSets
+        .flat()
+        .filter((item) => {
+          const key = item.url.trim().toLowerCase().replace(/\/$/, "");
+          if (!key || seenUrls.has(key)) return false;
+          seenUrls.add(key);
+          return true;
+        })
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
       const usableCandidates = candidates
         .filter((item) => item.title?.trim() && item.url?.trim() && item.snippet?.trim())
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
@@ -126,7 +137,7 @@ async function buildDraft() {
           const verifiedSummary = verified.summary?.trim();
           const searchSummary = candidate.snippet?.trim();
           const story = {
-            topic: "AI & Technology",
+            topic: interests.join(", "),
             headline: decodeHtmlEntities((verified.title && verified.title.trim().length > 8 && verified.title.trim().toLowerCase() !== "msn" ? verified.title : candidate.title) || candidate.title),
             source: verified.source || candidate.source,
             summary: verifiedSummary || searchSummary || "",
@@ -203,6 +214,21 @@ async function processScheduledUser(userId: string, mode: string, timezone: stri
   const admin = createAdminClient();
   const local = getLocalScheduleParts(timezone);
 
+  const { data: preferences, error: preferencesError } = await admin
+    .from("postcraft_user_preferences")
+    .select("interests,interests_completed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (preferencesError) {
+    return { userId, status: "preferences_error", date: local.date };
+  }
+
+  const interests = normalizeInterests(preferences?.interests);
+  if (!preferences?.interests_completed_at || !interests.length) {
+    return { userId, status: "interests_required", date: local.date };
+  }
+
   if (!isScheduleDue(local.minutesSinceMidnight, publishTime)) {
     return {
       userId,
@@ -224,7 +250,7 @@ async function processScheduledUser(userId: string, mode: string, timezone: stri
   const reserved = await reserveCronDraft(admin, userId, local.date);
   if (!reserved) return { userId, status: "already_processed", date: local.date };
 
-  const result = await buildDraft();
+  const result = await buildDraft(interests);
   if (!result.ok) {
     await admin.from("postcraft_daily_drafts").update({
       status: "failed",
@@ -255,9 +281,26 @@ async function processScheduledUser(userId: string, mode: string, timezone: stri
 
 async function runAutomaticWorkflow(request: NextRequest, userId?: string) {
   if (userId) {
-    const result = await buildDraft();
+    const admin = createAdminClient();
+    const { data: preferences, error: preferencesError } = await admin
+      .from("postcraft_user_preferences")
+      .select("interests,interests_completed_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (preferencesError) throw preferencesError;
+
+    const interests = normalizeInterests(preferences?.interests);
+    if (!preferences?.interests_completed_at || !interests.length) {
+      return NextResponse.json(
+        { error: "Choose your areas of interest before generating personalized content.", code: "INTERESTS_REQUIRED" },
+        { status: 428 },
+      );
+    }
+
+    const result = await buildDraft(interests);
     if (!result.ok) return NextResponse.json(result, { status: 503 });
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, interests });
   }
 
   const admin = createAdminClient();
@@ -272,7 +315,7 @@ async function runAutomaticWorkflow(request: NextRequest, userId?: string) {
   return NextResponse.json({
     ok: true,
     processed: results,
-    message: "Scheduled automation checked. LinkedIn unattended publishing remains held until the integration is validated.",
+    message: "Scheduled automation checked using each user's selected interests. LinkedIn unattended publishing remains held until the integration is validated.",
   });
 }
 
