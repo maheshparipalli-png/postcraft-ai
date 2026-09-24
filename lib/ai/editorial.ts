@@ -591,13 +591,21 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   // produce a 110-160 word post plus strict JSON structure can occasionally
   // yield valid model output that is not parseable as JSON. The editorial pass
   // still uses JSON because its structured evidence/angle output is needed.
-  const rawResult = await provider().generateText(prompt.replace(
-    "Return ONLY JSON: {\"post\":\"the finished LinkedIn post\"}",
+  const finalPrompt = prompt.replace(
+    "Return ONLY JSON: {"post":"the finished LinkedIn post"}",
     "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
-  ), {
-    temperature: 0.3,
-    numPredict: 180,
-  });
+  );
+
+  const rawResult = onPostToken
+    ? await provider().generateTextStream(
+        finalPrompt,
+        { temperature: 0.3, numPredict: 180 },
+        onPostToken,
+      )
+    : await provider().generateText(finalPrompt, {
+        temperature: 0.3,
+        numPredict: 180,
+      });
 
   const parsedResult = parseJson(rawResult);
   const rawPost =
