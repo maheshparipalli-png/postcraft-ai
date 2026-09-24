@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 
 const COOKIE_NAME = "postcraft_linkedin";
+const PRODUCTION_REDIRECT_URI =
+  "https://www.ninety6ai.online/api/linkedin/callback";
 
 function getKey() {
   const secret = process.env.LINKEDIN_COOKIE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.LINKEDIN_CLIENT_SECRET;
@@ -24,7 +26,7 @@ export function decryptLinkedInSession(value: string) {
   try {
     const [ivValue, tagValue, encryptedValue] = value.split(".");
     if (!ivValue || !tagValue || !encryptedValue) return null;
-    const decipher = crypto.createDecipheriv("aes-256-gcm", getKey(), Buffer.from(ivValue, "base64url"));
+    const decipher = crypto.createDecipheriv("aes-256-gcm", getKey(), ivValue ? Buffer.from(ivValue, "base64url") : Buffer.alloc(0));
     decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
     const decrypted = Buffer.concat([
       decipher.update(Buffer.from(encryptedValue, "base64url")),
@@ -38,10 +40,20 @@ export function decryptLinkedInSession(value: string) {
   }
 }
 
-export function getLinkedInConfig() {
+export function getLinkedInRedirectUri(requestOrigin?: string) {
+  const configured = process.env.LINKEDIN_REDIRECT_URI?.trim();
+
+  if (process.env.VERCEL_ENV === "production") {
+    return PRODUCTION_REDIRECT_URI;
+  }
+
+  return configured || `${requestOrigin || "http://localhost:3000"}/api/linkedin/callback`;
+}
+
+export function getLinkedInConfig(requestOrigin?: string) {
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-  const redirectUri = process.env.LINKEDIN_REDIRECT_URI || "http://localhost:3000/api/linkedin/callback";
+  const redirectUri = getLinkedInRedirectUri(requestOrigin);
   if (!clientId || !clientSecret) throw new Error("LinkedIn credentials are not configured.");
   return { clientId, clientSecret, redirectUri };
 }
