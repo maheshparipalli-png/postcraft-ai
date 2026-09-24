@@ -511,6 +511,9 @@ function resetFromStory() {
       if (requestId !== angleRequestRef.current) return;
 
       const selected = data.selectedAngle;
+      if (!selected?.angle) {
+        throw new Error("PostCraft did not return a usable editorial angle.");
+      }
       const selectedText = selected.angle.trim();
       const generatedPost = cleanGeneratedPost(data.post);
 
@@ -546,7 +549,22 @@ function resetFromStory() {
       setNewsDate(verifiedDate);
       setSourceUrl(verifiedUrl);
       setVerifiedSummary(verifiedContent);
-      setEvidence(Array.isArray(data.evidence) ? data.evidence : []);
+      const generatedEvidence: Evidence[] = Array.isArray(data.evidence)
+        ? data.evidence
+            .map((item: unknown): Evidence | null => {
+              if (!item || typeof item !== "object") return null;
+              const value = item as { claim?: unknown; support?: unknown; type?: unknown };
+              const claim = typeof value.claim === "string" ? value.claim.trim() : "";
+              const support = typeof value.support === "string" ? value.support.trim() : "";
+              const type =
+                value.type === "fact" || value.type === "interpretation" || value.type === "uncertainty"
+                  ? value.type
+                  : "fact";
+              return claim && support ? { claim, support, type } : null;
+            })
+            .filter((item: Evidence | null): item is Evidence => Boolean(item))
+        : [];
+      setEvidence(generatedEvidence);
       setSuggestedAngles(generatedAngles);
       setAngle(selectedText);
 
@@ -1101,7 +1119,7 @@ function resetFromStory() {
                   </div>
                   <div className="self-start rounded-2xl border border-neutral-300/80 bg-[#f1efe9] p-6">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">PostCard content</div>
-                    <h3 className="mt-3 font-serif text-2xl leading-tight">{selectedIdea.title}</h3>
+                    <h3 className="mt-3 font-serif text-2xl leading-tight">{selectedIdea?.title || newsTitle}</h3>
                     <p className="mt-4 text-sm leading-6 text-neutral-600">{angle || "Editorial angle"}</p>
                     <p className="mt-5 text-xs leading-5 text-neutral-500">The infographic uses the same title, editorial angle, key points and takeaway as the LinkedIn post.</p>
                   </div>
