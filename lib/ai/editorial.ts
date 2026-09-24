@@ -592,7 +592,7 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   // yield valid model output that is not parseable as JSON. The editorial pass
   // still uses JSON because its structured evidence/angle output is needed.
   const finalPrompt = prompt.replace(
-    "Return ONLY JSON: {"post":"the finished LinkedIn post"}",
+    `Return ONLY JSON: {"post":"the finished LinkedIn post"}`,
     "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
   );
 
