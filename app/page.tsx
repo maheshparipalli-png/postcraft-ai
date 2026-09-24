@@ -63,6 +63,105 @@ function cleanGeneratedPost(value: string) {
   return value.replace(/^```(?:text|markdown|json)?\s*/i, "").replace(/\s*```$/i, "").replace(/^\s*(LinkedIn post|Post):\s*/i, "").trim();
 }
 
+function renderPostCardImage(title: string, post: string, angle: string, source: string) {
+  const width = 1080;
+  const height = 1350;
+  const margin = 78;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not create the PostCard infographic.");
+
+  ctx.fillStyle = "#171717";
+  ctx.fillRect(0, 0, width, height);
+
+  const wrap = (text: string, maxWidth: number, font: string) => {
+    ctx.font = font;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+      const next = line ? line + " " + word : word;
+      if (line && ctx.measureText(next).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
+
+  const fit = (text: string, maxWidth: number, start: number, min: number, maxLines: number, family = "Arial", weight = "700") => {
+    for (let size = start; size >= min; size -= 1) {
+      const font = `${weight} ${size}px ${family}`;
+      const lines = wrap(text, maxWidth, font);
+      if (lines.length <= maxLines) return { size, lines };
+    }
+    return { size: min, lines: wrap(text, maxWidth, `${weight} ${min}px ${family}`).slice(0, maxLines) };
+  };
+
+  ctx.fillStyle = "#a3a3a3";
+  ctx.font = "700 16px Arial";
+  ctx.fillText("POSTCRAFT · LINKEDIN INFOCARD", margin, 72);
+
+  const titleFit = fit(title, width - margin * 2, 52, 30, 4, "Georgia", "700");
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${titleFit.size}px Georgia`;
+  let y = 155;
+  titleFit.lines.forEach((line) => { ctx.fillText(line, margin, y); y += titleFit.size * 1.2; });
+
+  y += 25;
+  ctx.fillStyle = "#d6d3d1";
+  const angleFit = fit(angle || "The key tension behind this story.", width - margin * 2, 27, 20, 4, "Arial", "400");
+  ctx.font = `400 ${angleFit.size}px Arial`;
+  angleFit.lines.forEach((line) => { ctx.fillText(line, margin, y); y += angleFit.size * 1.35; });
+
+  y += 38;
+  ctx.strokeStyle = "#3f3f46";
+  ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(width - margin, y); ctx.stroke();
+
+  const cleaned = post
+    .replace(/^.*?\n\s*\n/, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
+    .trim();
+  const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
+  const points = sentences.slice(0, 3);
+  points.forEach((point, index) => {
+    y += 55;
+    ctx.fillStyle = "#a3a3a3";
+    ctx.font = "700 18px Arial";
+    ctx.fillText(String(index + 1).padStart(2, "0"), margin, y);
+    const p = fit(point.replace(/[.!?]+$/, ""), width - margin * 2 - 65, 25, 18, 4, "Arial", "400");
+    ctx.fillStyle = "#f5f5f5";
+    ctx.font = `400 ${p.size}px Arial`;
+    let py = y;
+    p.lines.forEach((line) => { ctx.fillText(line, margin + 58, py); py += p.size * 1.3; });
+    y = py;
+  });
+
+  const takeaway = sentences.length > 3 ? sentences[sentences.length - 1].replace(/[.!?]+$/, "") : angle;
+  if (takeaway.trim()) {
+    y += 32;
+    ctx.fillStyle = "#737373";
+    ctx.font = "700 15px Arial";
+    ctx.fillText("THE TAKEAWAY", margin, y);
+    y += 30;
+    const t = fit(takeaway, width - margin * 2, 28, 19, 4, "Georgia", "700");
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${t.size}px Georgia`;
+    t.lines.forEach((line) => { ctx.fillText(line, margin, y); y += t.size * 1.3; });
+  }
+
+  const footerY = height - 72;
+  ctx.strokeStyle = "#3f3f46";
+  ctx.beginPath(); ctx.moveTo(margin, footerY - 22); ctx.lineTo(width - margin, footerY - 22); ctx.stroke();
+  ctx.fillStyle = "#a3a3a3";
+  ctx.font = "14px Arial";
+  ctx.fillText(source ? `Source: ${source}` : "PostCraft AI", margin, footerY);
+  return canvas.toDataURL("image/png");
+}
+
 function isUnsupportedAngle(item: AngleSuggestion) {
   const text = `${item.text} ${item.why}`.toLowerCase();
   return [
@@ -112,6 +211,8 @@ export default function Home() {
   const [perspective, setPerspective] = useState<Perspective>("mixed");
   const [perspectiveNote, setPerspectiveNote] = useState("");
   const [post, setPost] = useState("");
+  const [postCardImage, setPostCardImage] = useState("");
+  const [postCardRendering, setPostCardRendering] = useState(false);
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -492,6 +593,29 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
       return false;
     }
   }
+
+  useEffect(() => {
+    if (!post.trim() || !selectedIdea) {
+      setPostCardImage("");
+      return;
+    }
+    let cancelled = false;
+    setPostCardRendering(true);
+    try {
+      const image = renderPostCardImage(
+        decodeHtmlEntities(selectedIdea.title),
+        post,
+        angle,
+        decodeHtmlEntities(selectedIdea.source),
+      );
+      if (!cancelled) setPostCardImage(image);
+    } catch (err) {
+      if (!cancelled) setError(err instanceof Error ? err.message : "Could not create the PostCard infographic.");
+    } finally {
+      if (!cancelled) setPostCardRendering(false);
+    }
+    return () => { cancelled = true; };
+  }, [post, selectedIdea, angle]);
 
   async function publishToLinkedIn() {
     const savedPostId = await savePost();
@@ -913,6 +1037,28 @@ Return the strongest editorial result and finished LinkedIn post. The applicatio
                     aria-label="Post editor"
                   />
                 </div>
+                <div className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
+                  <div className="rounded-2xl border border-neutral-300/80 bg-[#171717] p-4">
+                    <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                      <span>PostCard · Infographic</span>
+                      <span>{postCardRendering ? "Creating…" : "Ready"}</span>
+                    </div>
+                    {postCardImage ? (
+                      <img src={postCardImage} alt="PostCraft LinkedIn infographic PostCard" className="w-full rounded-lg" />
+                    ) : (
+                      <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-500">
+                        Creating your infographic…
+                      </div>
+                    )}
+                  </div>
+                  <div className="self-start rounded-2xl border border-neutral-300/80 bg-[#f1efe9] p-6">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">PostCard content</div>
+                    <h3 className="mt-3 font-serif text-2xl leading-tight">{selectedIdea.title}</h3>
+                    <p className="mt-4 text-sm leading-6 text-neutral-600">{angle || "Editorial angle"}</p>
+                    <p className="mt-5 text-xs leading-5 text-neutral-500">The infographic uses the same title, editorial angle, key points and takeaway as the LinkedIn post.</p>
+                  </div>
+                </div>
+
                 <div className="mt-6 flex items-center justify-between"><span className="text-xs text-neutral-400">Ready to take with you.</span><div className="flex items-center gap-4">
                   <button
                     onClick={savePost}
