@@ -3,6 +3,7 @@ import { searchNews } from "@/lib/research/news";
 import { searchCustomTopic } from "@/lib/research/custom-topic";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
+import { normalizeInterests } from "@/lib/content-interests";
 
 function isAggregatorStory(source: string, url: string) {
   if (/^(google news|bing news|yahoo news)$/i.test(source.trim())) return true;
@@ -74,23 +75,43 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const topic = typeof body?.topic === "string" ? body.topic.trim() : "";
+    const topic = typeof body?.topic === "string" ? body.topic.trim() : "Personalized";
 
-    if (!topic) {
-      return NextResponse.json({ error: "topic is required" }, { status: 400 });
-    }
 
-    if (topic.length > 100) {
-      return NextResponse.json({ error: "topic is too long" }, { status: 400 });
-    }
-
-    const isPresetTopic = topic === "AI & Technology";
-    if (topic !== "AI & Technology") {
-      return NextResponse.json({ error: "PostCraft currently supports AI & Technology stories only." }, { status: 400 });
-    }
-    const research = isPresetTopic ? await searchNews(topic) : await searchCustomTopic(topic);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const { data: preferences, error: preferencesError } = await supabase
+      .from("postcraft_user_preferences")
+      .select("interests,interests_completed_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (preferencesError) throw preferencesError;
+
+    const interests = normalizeInterests(preferences?.interests);
+    if (!preferences?.interests_completed_at || !interests.length) {
+      return NextResponse.json(
+        { error: "Choose your areas of interest before PostCraft discovers content.", code: "INTERESTS_REQUIRED" },
+        { status: 428 },
+      );
+    }
+
+    const researchSets = await Promise.all(interests.map((interest) => searchNews(interest)));
+    const seen = new Set<string>();
+    const research = researchSets
+      .flat()
+      .filter((item) => {
+        const key = item.url.trim().toLowerCase().replace(/\/$/, "");
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 24);
     const normalizeUrl = (value: string) => {
       try {
         const url = new URL(value);
@@ -108,7 +129,7 @@ export async function POST(request: Request) {
 
     if (!research.length) {
       return NextResponse.json(
-        { error: `PostCraft could not find enough recent, relevant stories for “${topic}”. Try a broader or more specific topic.` },
+        { error: "PostCraft could not find enough high-value stories across your selected interests today. Try adding another interest." },
         { status: 404 },
       );
     }
@@ -125,7 +146,7 @@ export async function POST(request: Request) {
 
     if (!usableResearch.length) {
       return NextResponse.json(
-        { error: `PostCraft found stories for “${topic}”, but none contained enough usable source evidence. Try another feed or topic.` },
+        { error: "PostCraft found stories, but none met the evidence and quality threshold. No low-value filler was added." },
         { status: 422 },
       );
     }
@@ -141,7 +162,7 @@ export async function POST(request: Request) {
       publishedAt: item.publishedAt,
     }));
 
-    return NextResponse.json({ count: usableResearch.length, ideas, selectedBy: "editorial value ranking" });
+    return NextResponse.json({ count: usableResearch.length, ideas, interests, selectedBy: "personalized editorial value ranking" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Discovery failed";
     return NextResponse.json({ error: message }, { status: 500 });
