@@ -634,6 +634,9 @@ function getMetaEditorialPhrases(post: string) {
     "validation failure",
     "evidence ledger",
     "editorial repair",
+    "the concrete tension is",
+    "the useful point is",
+    "the practical question is",
   ];
 
   const lower = post.toLowerCase();
@@ -672,8 +675,13 @@ function postHasGenericFiller(post: string) {
 }
 
 function postHasEditorialInsight(post: string, story: Story, angle: string) {
-  const body = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean).slice(3).join(" ");
+  const blocks = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const bodyBlocks = blocks.slice(3);
+  const body = bodyBlocks.join(" ");
+  const conclusion = bodyBlocks.at(-1) || "";
   if (body.split(/\s+/).filter(Boolean).length < 30) return false;
+  if (conclusion.split(/\s+/).filter(Boolean).length < 10) return false;
+  if (!/[.!?]$/.test(conclusion.trim())) return false;
   const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story);
   const bodyLower = body.toLowerCase();
   const anchoredTerms = angleTerms.filter((term) => bodyLower.includes(term));
