@@ -890,7 +890,7 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a concise LinkedIn post of 60-120 words. The infographic will appear ABOVE this text on LinkedIn, so the written copy must complement the visual rather than repeat it.
+Write a concise LinkedIn post of 65-105 words. Aim for 80-95 words so you stay safely below the 120-word hard limit. The infographic will appear ABOVE this text on LinkedIn, so the written copy must complement the visual rather than repeat it.
 
 LINKEDIN STRUCTURE:
 Line 1: the exact story headline as a standalone line.
@@ -933,8 +933,8 @@ At least two concrete story-specific details must appear in the repaired post.
 The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
 Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
-Keep 60-120 words and 320-950 characters.
-The first three non-empty lines must be: exact headline, short hook, short hook.
+Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
+The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
 Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
 
