@@ -365,7 +365,7 @@ Use exactly this structure:
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 120,
+      numPredict: 96,
     })
   );
 
@@ -969,7 +969,7 @@ Return ONLY the finished LinkedIn post.`;
   async function generateRaw(prompt: string) {
     return provider().generateText(prompt, {
       temperature: 0.3,
-      numPredict: 120,
+      numPredict: 96,
     });
   }
 
