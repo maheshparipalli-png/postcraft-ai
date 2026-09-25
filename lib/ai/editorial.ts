@@ -42,8 +42,8 @@ function parseEvidence(value: unknown): Evidence[] {
         type?: unknown;
       };
 
-      const claim = typeof v.claim === "string" ? v.claim.trim() : "";
-      const support = typeof v.support === "string" ? v.support.trim() : "";
+      const claim = typeof v.claim === "string" ? normalizeGeneratedText(v.claim, { plainPunctuation: true }) : "";
+      const support = typeof v.support === "string" ? normalizeGeneratedText(v.support, { plainPunctuation: true }) : "";
       const type =
         v.type === "fact" ||
         v.type === "interpretation" ||
@@ -78,11 +78,11 @@ function parseAngles(value: unknown): Angle[] {
             ? v.text
             : "";
 
-      const angle = angleValue.trim();
-      const why = typeof v.why === "string" ? v.why.trim() : "";
+      const angle = normalizeGeneratedText(angleValue, { plainPunctuation: true });
+      const why = typeof v.why === "string" ? normalizeGeneratedText(v.why, { plainPunctuation: true }) : "";
       const evidence =
         typeof v.evidence === "string" && v.evidence.trim()
-          ? v.evidence.trim()
+          ? normalizeGeneratedText(v.evidence, { plainPunctuation: true })
           : "Based on the selected story and its supplied summary.";
 
       return angle
