@@ -874,17 +874,23 @@ export async function generateEditorialPost(
     };
   }
 
-  const basePrompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, angle, and evidence.
 
-Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
-
-Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English.
-
-The post MUST add one specific editorial observation that emerges from the story's concrete details. The angle itself must name the concrete subjects, actions, products, people, jobs, decisions, places, numbers, or other distinctive details that make this story different from other stories in the same topic area. Do not merely rewrite the source. Connect at least two story details and explain the tension, trade-off, mechanism, boundary, or consequence between them. If you cannot make a genuinely story-specific observation from the supplied evidence, do not manufacture one. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", "key takeaway", "the story reports", "the story highlights", "the practical question is", "the useful point is", "the specific change described", or "rather than a broader claim" in the finished post.
-
-Every factual claim must be supported by the supplied story evidence. Preserve uncertainty where the story is uncertain.
-
-Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, forced rhetorical questions, and generic phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note".
+Rules:
+- Use ONLY the supplied story. No web search, outside facts, invented numbers, examples, quotes, motives, or causation.
+- Write like a thoughtful human professional in plain English.
+- First three non-empty lines MUST be:
+  1) the exact story headline
+  2) a short story-specific hook
+  3) a second short story-specific hook
+- Then write 2-3 short paragraphs.
+- The body must connect at least two concrete story details and explain one specific tension, trade-off, mechanism, boundary, or consequence.
+- The final paragraph must complete the thought with a specific conclusion grounded in the story.
+- Avoid generic AI/LinkedIn filler, broad themes, rhetorical engagement bait, and editorial-process language.
+- Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
+- The infographic appears above the text, so complement it rather than repeat it.
+- Length: 65-105 words; target 80-95 words; hard maximum 120 words and 950 characters.
+- Return ONLY the finished LinkedIn post.
 
 STORY
 Headline: ${story.headline}
@@ -901,26 +907,9 @@ STORY EVIDENCE
 ${ledger}
 
 USER'S TAKE
-${modeInstruction}
+${modeInstruction}`;
 
-Write a concise LinkedIn post of 65-105 words. Aim for 80-95 words so you stay safely below the 120-word hard limit. The infographic will appear ABOVE this text on LinkedIn, so the written copy must complement the visual rather than repeat it.
 
-LINKEDIN STRUCTURE:
-Line 1: the exact story headline as a standalone line.
-Line 2: a short, punchy hook that creates curiosity using a concrete detail or tension from this story.
-Line 3: a second short hook line that deepens the tension or tells the reader why the detail matters.
-Then use 2-3 very short paragraphs to explain the story-specific point.
-
-The FINAL paragraph MUST conclude the argument. It must answer: "So what does this concrete tension reveal?" or "What should the professional reader understand from these details?" The conclusion must be a complete, specific sentence grounded in the story — never "The concrete tension is...", "The key takeaway is...", "This raises questions...", or a fragment ending with "..". Do not introduce a new topic in the conclusion.
-
-The first three lines must feel like a deliberate LinkedIn hook, not a summary label. Avoid generic hooks such as "AI is changing everything", "The future is here", "This is a game changer", or "We need to adapt".
-
-Do not repeat the infographic word-for-word. Let the infographic carry the key visual facts; let the text provide the sharp interpretation and context.
-
-Do not include the source URL, source footer, or any other URL.
-Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", "What do you think?", "Agree or disagree?", or "Thoughts?".
-
-Return ONLY the finished LinkedIn post.`;
 
   async function generateRaw(prompt: string) {
     return provider().generateText(prompt, {
