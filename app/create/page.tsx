@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -65,7 +66,7 @@ export default function CreatePostPage() {
       if (!response.ok || typeof data?.text !== "string") {
         throw new Error(data?.error || "AI could not complete the request.");
       }
-      setDraft(data.text.trim());
+      setDraft(normalizeGeneratedText(data.text, { plainPunctuation: true }));
       setSaved(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI could not complete the request.");
