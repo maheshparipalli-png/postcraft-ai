@@ -125,6 +125,7 @@ export async function POST(request: Request) {
             angles: editorial.angles,
             evidence: editorial.evidence,
             post: editorial.post,
+            discoveryInsight: editorial.discoveryInsight,
             ranking: {
               reason: sourceAccessFallback
                 ? "Selected story came from a direct publisher URL with sufficient discovery evidence; the publisher blocked automated verification, so the draft was grounded only in the discovery evidence."
