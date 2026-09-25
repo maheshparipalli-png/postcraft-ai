@@ -472,6 +472,10 @@ function validateEvidence(value: unknown): Evidence[] {
 function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   const words = post.trim().split(/\s+/).filter(Boolean);
 
+  // LinkedIn copy is intentionally short: the infographic carries the visual
+  // depth, while the text below it delivers a fast hook and concise context.
+  if (words.length < 60 || words.length > 120) return false;
+
   // Anchor validation should follow the actual story, not a fixed topic list.
   // This prevents valid posts about new companies, products, people, or domains
   // from being rejected simply because their vocabulary is unfamiliar.
@@ -504,7 +508,7 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   // The prompt targets 120-180 words, but the production local model can
   // occasionally produce a shorter draft. Keep the grounding gate strict
   // while allowing a slightly shorter, still useful LinkedIn post.
-  return words.length >= 90 && words.length <= 210 && sharedTerms >= 2;
+  return sharedTerms >= 2;
 }
 
 function getConcreteEvidenceTerms(
@@ -692,6 +696,7 @@ export async function generateEditorialPost(
     reasons: string[];
     wordCount: number;
     characterCount: number;
+    hasHook: boolean;
     hasConcreteAnchor: boolean;
     hasSourceGrounding: boolean;
     hasGenericFiller: boolean;
@@ -764,6 +769,16 @@ export async function generateEditorialPost(
   function validatePost(post: string): ValidationResult {
     const wordCount = post.split(/\s+/).filter(Boolean).length;
     const characterCount = post.length;
+    const lines = post.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const headline = story.headline.trim();
+    const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const firstLineNormalized = (lines[0] || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const hookLines = lines.slice(1, 3);
+    const hasHook =
+      firstLineNormalized === normalizedHeadline &&
+      hookLines.length === 2 &&
+      hookLines.every((line) => line.length >= 12 && line.length <= 110) &&
+      !/^(?:the key takeaway|in conclusion|what do you think|agree or disagree)[:.!]?$/i.test(hookLines.join(" "));
     const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
     const hasSourceGrounding = postHasSourceGrounding(
       post,
@@ -787,10 +802,20 @@ export async function generateEditorialPost(
 
     const reasons: string[] = [];
 
+    if (!hasHook) {
+      reasons.push("The draft must start with the exact headline followed by two short, story-specific hook lines.");
+    }
+    if (wordCount < 60 || wordCount > 120) {
+      reasons.push(`The draft must be 60-120 words; it is ${wordCount} words.`);
+    }
+    if (characterCount < 320) {
+      reasons.push(`The draft is too short at ${characterCount} characters.`);
+    }
+    if (characterCount > 950) {
+      reasons.push(`The draft is too long at ${characterCount} characters.`);
+    }
     if (!hasConcreteAnchor) {
-      reasons.push(
-        "The draft is not sufficiently anchored to concrete story-specific terms or has an invalid word count.",
-      );
+      reasons.push("The draft is not sufficiently anchored to concrete story-specific terms.");
     }
     if (!hasSourceGrounding) {
       reasons.push(
@@ -805,7 +830,7 @@ export async function generateEditorialPost(
     }
     if (!evidenceDensity.ok) {
       reasons.push(
-        "The draft is too generic: use at least three concrete story-specific details and keep every substantive paragraph anchored to the supplied evidence.",
+        "The draft is too generic: use at least two concrete story-specific details and keep every substantive paragraph anchored to the supplied evidence.",
       );
     }
     if (!hasNoSourceLeak) {
@@ -823,6 +848,7 @@ export async function generateEditorialPost(
       reasons,
       wordCount,
       characterCount,
+      hasHook,
       hasConcreteAnchor,
       hasSourceGrounding,
       hasGenericFiller,
@@ -862,10 +888,17 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs.
+Write a concise LinkedIn post of 60-120 words. The infographic will appear ABOVE this text on LinkedIn, so the written copy must complement the visual rather than repeat it.
 
-IMPORTANT TITLE RULE:
-Start the post with the exact story headline as a standalone first line.
+LINKEDIN STRUCTURE:
+Line 1: the exact story headline as a standalone line.
+Line 2: a short, punchy hook that creates curiosity using a concrete detail or tension from this story.
+Line 3: a second short hook line that deepens the tension or tells the reader why the detail matters.
+Then use 2-3 very short paragraphs to explain the story-specific point and finish with one concise takeaway.
+
+The first three lines must feel like a deliberate LinkedIn hook, not a summary label. Avoid generic hooks such as "AI is changing everything", "The future is here", "This is a game changer", or "We need to adapt".
+
+Do not repeat the infographic word-for-word. Let the infographic carry the key visual facts; let the text provide the sharp interpretation and context.
 
 Do not include the source URL, source footer, or any other URL.
 Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", "What do you think?", "Agree or disagree?", or "Thoughts?".
@@ -894,10 +927,12 @@ Fix EVERY validation failure listed below.
 The exact generic filler and meta-editorial phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
-At least three concrete story-specific details must appear in the repaired post.
-Every substantive paragraph after the headline must contain at least one concrete detail from the supplied evidence.
+At least two concrete story-specific details must appear in the repaired post.
+The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
+Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
-Keep 90-210 words and 600-1600 characters.
+Keep 60-120 words and 320-950 characters.
+The first three non-empty lines must be: exact headline, short hook, short hook.
 Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
 
@@ -964,10 +999,10 @@ ${rejectedPost}`;
     const selectedSentences = sentences.slice(0, 5);
     const paragraphs = [
       story.headline.trim(),
-      `One concrete point in the story is that ${selectedSentences[0]}`,
-      `The article also points to ${selectedSentences[1]}`,
-      `Another detail is ${selectedSentences[2]}`,
-      `That makes the central issue practical: ${angle.replace(/[.]+$/, "")}.`,
+      `The detail that matters: ${selectedSentences[0]}`,
+      `And the tension is this: ${angle.replace(/[.]+$/, "")}.`,
+      `The story also points to ${selectedSentences[1]}`,
+      `Another concrete detail: ${selectedSentences[2]}`,
     ];
 
     if (selectedSentences[3]) {
