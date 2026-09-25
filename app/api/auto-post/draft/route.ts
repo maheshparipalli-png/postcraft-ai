@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,9 @@ export async function POST(request: NextRequest) {
     if (existing?.status === "published") return NextResponse.json({ draft: existing, locked: true, persistent: true, error: "This daily draft has already been published and cannot be replaced." }, { status: 409 });
     if (existing && !replace) return NextResponse.json({ draft: existing, locked: true, persistent: true });
 
-    const row = { user_id: user.id, draft_date: draftDate, status: "ready", source_url: preview.article.url, source_title: preview.article.title, source_name: preview.article.source, generated_post: preview.post, working_post: preview.post, recommended_angle: preview.angle?.angle || null, angle_why: preview.angle?.why || null, ranking_reason: preview.ranking?.reason || null, candidate_count: preview.ranking?.candidateCount || null, verification_status: "verified", updated_at: new Date().toISOString() };
+    const normalizedPost = normalizeGeneratedText(typeof preview.post === "string" ? preview.post : "", { plainPunctuation: true });
+    if (!normalizedPost) return NextResponse.json({ error: "The generated draft is empty after text normalization." }, { status: 422 });
+    const row = { user_id: user.id, draft_date: draftDate, status: "ready", source_url: preview.article.url, source_title: preview.article.title, source_name: preview.article.source, generated_post: normalizedPost, working_post: normalizedPost, recommended_angle: preview.angle?.angle || null, angle_why: preview.angle?.why || null, ranking_reason: preview.ranking?.reason || null, candidate_count: preview.ranking?.candidateCount || null, verification_status: "verified", updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from("postcraft_daily_drafts").upsert(row, { onConflict: "user_id,draft_date" }).select("*").single();
     if (error) throw error;
     return NextResponse.json({ draft: data, locked: true, persistent: true, replaced: Boolean(existing) });
