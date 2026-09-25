@@ -276,9 +276,12 @@ function extractSummary(html: string) {
   ) ?? "";
 
   const articleSummary = extractArticleBodySummary(html);
-  if (articleSummary) {
-    return (metadataSummary ? metadataSummary + " " : "") + articleSummary;
-  }
+
+  // Publisher metadata is often an excerpt of the article itself. Combining
+  // both can duplicate the opening paragraph and pollute the editorial brief.
+  // Prefer the richer article body whenever we have one; metadata remains the
+  // fallback for publishers whose article HTML is not extractable.
+  if (articleSummary) return articleSummary;
 
   return metadataSummary;
 }
