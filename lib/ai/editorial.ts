@@ -462,10 +462,10 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
     if (postTerms.has(term)) sharedTerms += 1;
   }
 
-  // The prompt targets 120-180 words, but the production local model can
-  // occasionally produce a shorter draft. Keep the grounding gate strict
-  // while allowing a slightly shorter, still useful LinkedIn post.
-  return words.length >= 90 && words.length <= 210 && sharedTerms >= 2;
+  // LinkedIn copy is intentionally concise because the infographic carries
+  // the visual depth. The text should stand on its own without becoming an
+  // article-length summary.
+  return words.length >= 60 && words.length <= 120 && sharedTerms >= 2;
 }
 
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
@@ -504,6 +504,10 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
 
 function postHasGenericFiller(post: string) {
   return [
+    "the useful point in this story is",
+    "the specific change described in the source",
+    "rather than a broader claim about ai",
+    "the concrete tension is",
     "it's crucial to recognize",
     "not evenly distributed",
     "highlights the need",
@@ -545,11 +549,12 @@ The post MUST add an editorial proposition, not merely rewrite the source. Think
 2. Find the strongest tension, trade-off, contradiction, unanswered question, or second-order implication that is actually supported by the story and selected angle.
 3. State that insight clearly in your own words.
 4. Explain why the tension matters using only the supplied evidence.
-5. If appropriate, end with one specific question that follows naturally from that tension.
+5. END WITH A CONCLUSION that resolves the tension and tells the reader what the concrete details reveal. Do not leave the thought unfinished and do not end by merely naming the tension.
+6. Do not end with a discussion question; the post should conclude with the editorial insight.
 
 A useful test: if the post could be created by copying the source summary and replacing a few words, it has failed. The reader should come away with a distinct idea about the story, not a recap of it.
 
-Prefer structures such as "The interesting part is not X. It is Y.", "That creates a less obvious problem: ...", or "The real tension here is ...", but use them naturally and do not force a template.
+Prefer structures such as "The interesting part is not X. It is Y." or "That creates a less obvious problem: ..." when they fit naturally. Do not force a template. Never end with "The concrete tension is..." or another unfinished setup.
 
 For stories about AI monitoring, AI safety, AI agents, or AI systems supervising other AI systems, examine the concrete tension between capability and oversight, including who watches the monitoring system, without inventing facts that are not in the story.
 
@@ -572,7 +577,7 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a natural LinkedIn post of roughly 120-180 words in 4-7 short paragraphs, aiming for about 900-1,500 characters when practical.
+Write a concise LinkedIn post of 60-120 words in 4-6 short paragraphs, aiming for 70-100 words and 320-950 characters. The infographic carries the visual depth, so the written copy should make one clear editorial point rather than become a long summary.
 
 IMPORTANT TITLE RULE:
 Start the post itself with the exact story headline as a standalone first line. Do not hide the headline in metadata or leave it only in the source card. After the title, continue with the editorial point of view in natural language.
@@ -637,6 +642,12 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
   const hasGenericFiller = postHasGenericFiller(post);
   const hasNoSourceLeak = !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(post);
+  const blocks = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const conclusion = blocks.at(-1) || "";
+  const hasCompleteConclusion =
+    conclusion.split(/\s+/).filter(Boolean).length >= 10 &&
+    /[.!?]$/.test(conclusion) &&
+    !/^(?:the concrete tension is|the useful point is|the practical question is|this means)\b/i.test(conclusion);
   const characterCount = post.length;
 
   console.info("[PostCraft] post_validation", {
@@ -648,12 +659,13 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
     characterCount,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || characterCount < 600 || characterCount > 1600) {
+  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || !hasCompleteConclusion || characterCount < 320 || characterCount > 950) {
     console.warn("[PostCraft] post_rejected", {
       hasConcreteAnchor,
       hasSourceGrounding,
       hasGenericFiller,
       hasNoSourceLeak,
+      hasCompleteConclusion,
       characterCount,
     });
     throw new Error("PostCraft rejected the generated draft because it did not meet the editorial quality gate. The draft must remain grounded in the selected source and contain enough substance for LinkedIn.");
