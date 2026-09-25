@@ -246,9 +246,19 @@ function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: An
     ? "AI may be removing the routine junior tasks that traditionally helped people learn their trade."
     : firstSentence;
 
+  // A fallback angle must be an editorial framing, not a copy of the source
+  // summary. Prefer a concrete distinction explicitly present in the story.
+  const authorizationGap = summary.match(
+    /(?:authorization|authorisation)[^.!?]{0,220}?(?:cannot|can't|does not|doesn't)[^.!?]{0,220}/i,
+  );
+
   const angle = apprenticeshipTheme
     ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
-    : firstSentence.replace(/[.]+$/, "") + ".";
+    : authorizationGap
+      ? "The security gap is between allowing an AI agent to call a tool and controlling which data that tool can return."
+      : firstSentence.length <= 180
+        ? firstSentence.replace(/[.]+$/, "") + "."
+        : "The useful point in this story is the specific change described in the source, rather than a broader claim about AI.";
 
   return {
     evidence: [
