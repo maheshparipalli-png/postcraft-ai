@@ -197,6 +197,12 @@ function isWeakAngle(angle: Angle, story?: Story) {
     "need to reskill", "improve efficiency", "drive efficiency",
     "responsible innovation", "strike a balance", "broader implications",
     "profound implications",
+    "the useful point",
+    "specific change described",
+    "rather than a broader claim",
+    "rather than a broad claim",
+    "specific development to examine",
+    "the strongest angle",
   ].some((phrase) => text.includes(phrase)) ||
     (story ? angleLooksLikeSummary(angle, story) : false) ||
     !angleHasInterpretation(angle);
@@ -221,7 +227,11 @@ function getAngleSpecificTerms(angle: Angle, story: Story) {
   return Array.from(angleTerms).filter((term) => storyTerms.has(term));
 }
 function angleHasConcreteGrounding(angle: Angle, story: Story) {
-  return getAngleSpecificTerms(angle, story).length >= 2;
+  const terms = getAngleSpecificTerms(
+    { ...angle, evidence: "" },
+    story,
+  );
+  return terms.length >= 2;
 }
 
 function scoreAngle(angle: Angle, story: Story): RankedAngle {
@@ -863,7 +873,7 @@ Do not search the internet. Do not add outside facts. Do not invent statistics, 
 
 Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English.
 
-The post MUST add one specific editorial observation that emerges from the story's concrete details. Do not merely rewrite the source. Connect at least two story details and explain the tension, trade-off, mechanism, boundary, or consequence between them. If you cannot make a genuinely story-specific observation from the supplied evidence, do not manufacture one. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", "key takeaway", "the story reports", "the story highlights", or "the practical question is" in the finished post.
+The post MUST add one specific editorial observation that emerges from the story's concrete details. The angle itself must name the concrete subjects, actions, products, people, jobs, decisions, places, numbers, or other distinctive details that make this story different from other stories in the same topic area. Do not merely rewrite the source. Connect at least two story details and explain the tension, trade-off, mechanism, boundary, or consequence between them. If you cannot make a genuinely story-specific observation from the supplied evidence, do not manufacture one. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", "key takeaway", "the story reports", "the story highlights", "the practical question is", "the useful point is", "the specific change described", or "rather than a broader claim" in the finished post.
 
 Every factual claim must be supported by the supplied story evidence. Preserve uncertainty where the story is uncertain.
 
@@ -930,7 +940,7 @@ Preserve the exact headline as the first standalone line.
 Preserve the central editorial angle.
 Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
 Fix EVERY validation failure listed below.
-The exact generic filler and meta-editorial phrases detected by the validator are listed below. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
+The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
 At least two concrete story-specific details must appear in the repaired post.
