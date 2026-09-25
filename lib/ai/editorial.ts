@@ -293,107 +293,63 @@ function buildGroundedFallback(_story: Story): { evidence: Evidence[]; angles: A
   return { evidence: [], angles: [] };
 }
 async function buildEditorialPass(story: Story) {
-  const normalizedStory: Story = {
-    ...story,
-    topic: decodeHtmlEntities(story.topic),
-    headline: decodeHtmlEntities(story.headline),
-    source: decodeHtmlEntities(story.source),
-    summary: decodeHtmlEntities(story.summary),
-    url: story.url,
-  };
-  const prompt = `You are PostCraft AI, an editorial thinking partner. Generate the strongest useful response from the selected story below.
+  const prompt = `You are PostCraft AI's editorial planner. Work ONLY from the supplied story.
 
-Do not search the internet. Do not fetch another article. Work only from the story information provided here.
-
-SELECTED STORY
+STORY
 Topic: ${story.topic}
 Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Find the most interesting thing to say about THIS story. Do not merely summarize it and do not produce a broad theme about AI, technology, work, leadership, or society.
+Return ONE concrete editorial angle, not a summary and not a broad AI/technology theme.
 
-First identify the concrete detail that makes this story unusual or consequential. Then identify the editorial tension created by that detail: a trade-off, contradiction, mechanism, incentive, boundary, affected group, or decision.
+The angle must:
+- use at least two distinctive story details;
+- explain a specific tension, trade-off, mechanism, boundary, dependency, or consequence;
+- be understandable only because of THIS story;
+- avoid invented motives, causation, statistics, examples, quotes, or outside context;
+- avoid generic themes such as "AI is changing work", "people need to adapt", "future of work", "responsible innovation", "improve efficiency", or "raises questions".
 
-Return up to 3 genuinely different theses. Each thesis must make an observation a reader would not get by simply reading the headline or summary. A thesis that mostly restates the summary is invalid.
-
-For each angle, the "angle" is an interpretation, not a topic and not a rewritten sentence from the source. The "why" must explain what the concrete details reveal, change, constrain, or complicate. Use at least one explicit relationship such as a trade-off, contrast, mechanism, boundary, dependency, or consequence.
-
-Also return one "discoveryInsight": a single sentence of 20-35 words explaining why THIS story is interesting to a professional reader. It must contain at least two concrete story terms and one interpretation. Never use generic wording such as "the interesting part", "this raises questions", "the story highlights", or "what it means in practice". Prefer one strong thesis over three weak ones. Do not manufacture diversity by rewriting the same claim three ways.
-
-A good thesis should still make sense only because of THIS story. If it could be pasted onto ten unrelated AI stories without changing its meaning, reject it.
-
-Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If evidence is limited, make that limitation part of the angle.
-
-Do not use generic angles such as:
-- technology is changing work
-- people need to adapt
-- AI will improve efficiency
-- AI may increase inequality
-- this raises questions
-- future of work
-- responsible innovation
-- the need to strike a balance
-- the implications are profound
-
-The evidence field must quote or closely paraphrase at least two concrete details from the supplied story when the source contains them. The why field must explain the tension created by those details; it must not introduce a new factual claim.
-
-Do not write theses such as "AI is changing work", "companies need to adapt", "this raises questions", "the future of work", or "AI will improve efficiency". Those are themes, not editorial insight.
-
-Return ONLY valid JSON. Do not use Markdown fences or explanatory text.
-
-Use exactly this structure:
+Return ONLY valid JSON in this exact shape:
 {
   "evidence": [
-    {
-      "claim": "short concrete point from the supplied story",
-      "support": "headline or summary detail",
-      "type": "fact"
-    }
+    {"claim": "short concrete fact from the story", "support": "supporting headline or summary detail", "type": "fact"}
   ],
-  "angles": [
-    {
-      "angle": "specific thesis",
-      "why": "why this specific thesis is worth considering",
-      "evidence": "the story detail that supports this angle"
-    }
-  ],
-  "discoveryInsight": "20-35 word, story-specific explanation of why this story is interesting to a professional reader"
+  "angle": {
+    "angle": "one specific editorial thesis",
+    "why": "one short explanation of the story-specific tension",
+    "evidence": "two concrete story details supporting the thesis"
+  }
 }`;
 
   const parsed = parseJson(
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 96,
-    })
+      numPredict: 64,
+    }),
   );
 
   let evidence = parseEvidence(parsed?.evidence);
-  const angles = selectSafeAngles(parseAngles(parsed?.angles));
-  const discoveryInsight =
-    typeof parsed?.discoveryInsight === "string"
-      ? normalizeGeneratedText(parsed.discoveryInsight, { plainPunctuation: true })
-      : "";
+  const parsedAngles = parseAngles(
+    parsed?.angle ? [parsed.angle] : parsed?.angles,
+  );
+  const angles = selectSafeAngles(parsedAngles);
 
-  // Small local models sometimes return usable angles but omit the separate
-  // evidence array. Reconstruct the evidence ledger from each angle's own
-  // evidence field so post generation never fails merely because the model
-  // omitted redundant structure.
   if (!evidence.length && angles.length) {
-    evidence = angles
-      .filter((angle) => angle.evidence?.trim())
-      .slice(0, 3)
-      .map((angle) => ({
-        claim: angle.angle,
-        support: angle.evidence.trim(),
-        type: "fact" as const,
-      }));
+    evidence = angles.slice(0, 1).map((angle) => ({
+      claim: angle.angle,
+      support: angle.evidence.trim(),
+      type: "fact" as const,
+    }));
   }
 
-  return { evidence, angles, discoveryInsight };
+  return {
+    evidence,
+    angles,
+    discoveryInsight: "",
+  };
 }
-
 
 export async function generateEditorialDraft(
   story: Story,
