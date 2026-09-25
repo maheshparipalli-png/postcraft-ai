@@ -37,9 +37,11 @@ function getRequestBody(model: string, prompt: string, options: AIGenerateOption
     messages: [{ role: "user", content: prompt }],
     stream,
     ...(options.format ? { format: options.format } : {}),
+    keep_alive: "10m",
     options: {
       temperature: options.temperature ?? 0.78,
       num_predict: options.numPredict ?? 400,
+      num_ctx: 2048,
     },
   };
 }
@@ -76,7 +78,7 @@ async function requestOllama(
       },
       body: JSON.stringify(getRequestBody(model, prompt, options, stream)),
       cache: "no-store",
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(150_000),
     });
   } catch (error) {
     console.error("[Ollama] Request failed", {
