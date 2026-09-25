@@ -7,6 +7,7 @@ import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/re
 import { generateEditorialAngles, generateEditorialPost } from "@/lib/ai/editorial";
 import { verifySourceUrl } from "@/lib/research/verify-source";
 import { normalizeInterests, type ContentInterest } from "@/lib/content-interests";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -158,7 +159,7 @@ async function buildDraft(interests: ContentInterest[]) {
           const bestAngle = editorial.angles[0];
           if (!bestAngle) throw new Error("The selected article did not produce a sufficiently grounded angle.");
 
-          const generated = await generateEditorialPost(
+          const generated = normalizeGeneratedText(await generateEditorialPost(
             story,
             bestAngle.angle,
             bestAngle.why,
