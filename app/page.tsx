@@ -1203,9 +1203,6 @@ function resetFromStory() {
                     </div>
                   </div>
                 </div>
-                {publishFormat !== "image" && <div className="mt-8">
-                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Draft commentary</div>
-                </div>}
                 <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
                   <div className="rounded-2xl border border-neutral-300/80 bg-[#171717] p-4">
                     <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
