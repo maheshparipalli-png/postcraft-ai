@@ -163,17 +163,38 @@ function isWeakAngle(angle: Angle) {
   const text = angle.angle.toLowerCase() + " " + angle.why.toLowerCase();
   if (words.length < 7) return true;
   return [
-    "indicating a shift",
-    "need for a different approach",
-    "need for a new approach",
-    "highlights the importance",
-    "importance of",
-    "need to survive",
-    "need to prepare",
-    "need to adapt",
-    "changing nature",
-    "raises an important",
+    "indicating a shift", "need for a different approach", "need for a new approach",
+    "highlights the importance", "importance of", "need to survive", "need to prepare",
+    "need to adapt", "changing nature", "changing the nature", "raises an important",
+    "raises questions", "raises a question", "future of work", "future of ai",
+    "ai is changing", "technology is changing", "people need to adapt",
+    "companies need to adapt", "organizations need to adapt", "need to upskill",
+    "need to reskill", "improve efficiency", "drive efficiency",
+    "responsible innovation", "strike a balance", "broader implications",
+    "profound implications",
   ].some((phrase) => text.includes(phrase));
+}
+
+function getAngleSpecificTerms(angle: Angle, story: Story) {
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should", "technology",
+    "business", "people", "future", "question", "need", "important",
+    "specific", "change", "changing", "thing", "things",
+  ]);
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/)
+      .filter((word) => word.length >= 5 && !stopWords.has(word));
+  const storyTerms = new Set(normalize(story.headline + " " + story.summary));
+  const angleTerms = new Set(normalize(angle.angle + " " + angle.evidence));
+  return Array.from(angleTerms).filter((term) => storyTerms.has(term));
+}
+function angleHasConcreteGrounding(angle: Angle, story: Story) {
+  return getAngleSpecificTerms(angle, story).length >= 2;
 }
 
 function scoreAngle(angle: Angle, story: Story): RankedAngle {
@@ -193,7 +214,7 @@ function scoreAngle(angle: Angle, story: Story): RankedAngle {
 }
 
 function rankAngles(angles: Angle[], story: Story): RankedAngle[] {
-  return angles.filter((angle) => !isWeakAngle(angle)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
+  return angles.filter((angle) => !isWeakAngle(angle)).filter((angle) => angleHasConcreteGrounding(angle, story)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
 }
 
 function selectSafeAngles(angles: Angle[]) {
@@ -231,54 +252,9 @@ function selectSafeAngles(angles: Angle[]) {
   return unique;
 }
 
-function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: Angle[] } {
-  const summary = story.summary.trim();
-  const headline = story.headline.trim();
-  if (!summary || summary.length < 40) return { evidence: [], angles: [] };
-
-  const firstSentence =
-    summary.split(/(?<=[.!?])\s+/).find((sentence) => sentence.trim().length >= 40)?.trim() ||
-    summary;
-
-  const support = firstSentence.slice(0, 420);
-  const apprenticeshipTheme = /junior|entry[- ]level|young|apprenticeship|routine|bottom rungs|trade/i.test(summary);
-
-  const claim = apprenticeshipTheme
-    ? "AI may be removing the routine junior tasks that traditionally helped people learn their trade."
-    : firstSentence;
-
-  // A fallback angle must be an editorial framing, not a copy of the source
-  // summary. Prefer a concrete distinction explicitly present in the story.
-  const authorizationGap = summary.match(
-    /(?:authorization|authorisation)[^.!?]{0,220}?(?:cannot|can't|does not|doesn't)[^.!?]{0,220}/i,
-  );
-
-  const angle = apprenticeshipTheme
-    ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
-    : authorizationGap
-      ? "The security gap is between allowing an AI agent to call a tool and controlling which data that tool can return."
-      : firstSentence.length <= 180
-        ? firstSentence.replace(/[.]+$/, "") + "."
-        : "The useful point in this story is the specific change described in the source, rather than a broader claim about AI.";
-
-  return {
-    evidence: [
-      {
-        claim,
-        support,
-        type: "fact",
-      },
-    ],
-    angles: [
-      {
-        angle,
-        why: "This stays close to a concrete detail in the supplied story rather than adding outside assumptions.",
-        evidence: support,
-      },
-    ],
-  };
+function buildGroundedFallback(_story: Story): { evidence: Evidence[]; angles: Angle[] } {
+  return { evidence: [], angles: [] };
 }
-
 async function buildEditorialPass(story: Story) {
   const normalizedStory: Story = {
     ...story,
@@ -298,9 +274,13 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, affected group, trade-off, mechanism, timeline, decision, constraint, or unresolved point contained in the story information.
+Find the most interesting thing to say about THIS story. Do not merely summarize it and do not produce a broad theme about AI, technology, work, leadership, or society.
 
-Return up to 3 genuinely different angles. They should differ in thesis, not just wording. Prefer one strong angle over three weak or repetitive ones. Do not manufacture diversity by rewriting the same claim three ways.
+First identify the concrete detail that makes this story unusual or consequential. Then identify the editorial tension created by that detail: a trade-off, contradiction, mechanism, incentive, boundary, affected group, or decision.
+
+Return up to 3 genuinely different theses. Each thesis must make an observation a reader would not get by simply reading the headline. Prefer one strong thesis over three weak ones. Do not manufacture diversity by rewriting the same claim three ways.
+
+A good thesis should still make sense only because of THIS story. If it could be pasted onto ten unrelated AI stories without changing its meaning, reject it.
 
 Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If evidence is limited, make that limitation part of the angle.
 
@@ -315,7 +295,9 @@ Do not use generic angles such as:
 - the need to strike a balance
 - the implications are profound
 
-The evidence field must quote or closely paraphrase a concrete detail from the supplied story. The why field must explain why that specific detail creates a useful point of view; it must not introduce a new factual claim.
+The evidence field must quote or closely paraphrase at least two concrete details from the supplied story when the source contains them. The why field must explain the tension created by those details; it must not introduce a new factual claim.
+
+Do not write theses such as "AI is changing work", "companies need to adapt", "this raises questions", "the future of work", or "AI will improve efficiency". Those are themes, not editorial insight.
 
 Return ONLY valid JSON. Do not use Markdown fences or explanatory text.
 
@@ -363,15 +345,6 @@ Use exactly this structure:
       }));
   }
 
-  // Small local models can occasionally return valid JSON with no usable
-  // angles even when the supplied story contains enough evidence. Keep the
-  // editorial pipeline grounded by falling back to a deterministic angle
-  // derived only from the supplied headline and summary.
-  if (!angles.length) {
-    const fallback = buildGroundedFallback(normalizedStory);
-    if (fallback.angles.length) return fallback;
-  }
-
   return { evidence, angles };
 }
 
@@ -394,22 +367,7 @@ export async function generateEditorialDraft(
   const ranked = rankAngles(editorial.angles, normalizedStory);
 
   if (!ranked.length) {
-    const fallback = buildGroundedFallback(story);
-    if (!fallback.angles.length) throw new Error("This story did not contain enough specific evidence for a strong editorial angle. Try another story.");
-    const selected = {
-      ...fallback.angles[0],
-      score: 6,
-      criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
-    };
-    const post = await generateEditorialPost(
-      normalizedStory,
-      selected.angle,
-      selected.why,
-      "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
-      fallback.evidence,
-      onPostToken,
-    );
-    return { angles: [selected], evidence: fallback.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
+    throw new Error("This story did not contain enough concrete evidence for a genuinely story-specific editorial angle. PostCraft will not manufacture a generic AI post.");
   }
 
   const selected = ranked[0];
@@ -672,6 +630,16 @@ function postHasGenericFiller(post: string) {
   return getGenericFillerPhrases(post).length > 0;
 }
 
+function postHasEditorialInsight(post: string, story: Story, angle: string) {
+  const body = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean).slice(3).join(" ");
+  if (body.split(/\s+/).filter(Boolean).length < 30) return false;
+  const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story);
+  const bodyLower = body.toLowerCase();
+  const anchoredTerms = angleTerms.filter((term) => bodyLower.includes(term));
+  const markers = ["but","yet","instead","rather","because","means","reveals","shows","leaves","forces","changes","shifts","depends","trade-off","tradeoff","boundary","gap","constraint","cost","risk","advantage","disadvantage","tension","unlike","while"];
+  return anchoredTerms.length >= 2 && markers.some((value) => bodyLower.includes(value));
+}
+
 export async function generateEditorialPost(
   story: Story,
   angle: string,
@@ -698,6 +666,7 @@ export async function generateEditorialPost(
     hasHook: boolean;
     hasConcreteAnchor: boolean;
     hasSourceGrounding: boolean;
+    hasEditorialInsight: boolean;
     hasGenericFiller: boolean;
     genericFillerPhrases: string[];
     metaEditorialPhrases: string[];
@@ -785,6 +754,7 @@ export async function generateEditorialPost(
       evidence,
       angle,
     );
+    const hasEditorialInsight = postHasEditorialInsight(post, story, angle);
     const genericFillerPhrases = getGenericFillerPhrases(post);
     const hasGenericFiller = genericFillerPhrases.length > 0;
     const metaEditorialPhrases = getMetaEditorialPhrases(post);
@@ -821,6 +791,9 @@ export async function generateEditorialPost(
         "The draft does not contain enough distinctive evidence from the selected story.",
       );
     }
+    if (!hasEditorialInsight) {
+      reasons.push("The draft lacks a clear story-specific editorial insight. Connect concrete story details to a distinct tension, mechanism, trade-off, or consequence.");
+    }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
     }
@@ -844,6 +817,7 @@ export async function generateEditorialPost(
       hasHook,
       hasConcreteAnchor,
       hasSourceGrounding,
+      hasEditorialInsight,
       hasGenericFiller,
       hasNoSourceLeak,
       genericFillerPhrases,
@@ -858,7 +832,7 @@ Do not search the internet. Do not add outside facts. Do not invent statistics, 
 
 Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English.
 
-The post MUST add a specific editorial observation, not merely rewrite the source. Start with the concrete development, then explain a supported implication, contrast, trade-off, or practical consequence that is explicitly grounded in the supplied evidence. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", or "key takeaway" in the finished post.
+The post MUST add one specific editorial observation that emerges from the story's concrete details. Do not merely rewrite the source. Connect at least two story details and explain the tension, trade-off, mechanism, boundary, or consequence between them. If you cannot make a genuinely story-specific observation from the supplied evidence, do not manufacture one. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", "key takeaway", "the story reports", "the story highlights", or "the practical question is" in the finished post.
 
 Every factual claim must be supported by the supplied story evidence. Preserve uncertainty where the story is uncertain.
 
@@ -906,9 +880,17 @@ Return ONLY the finished LinkedIn post.`;
   }
 
   async function repairRaw(rejectedPost: string, validation: ValidationResult) {
-    const repairPrompt = `You are PostCraft AI's senior editorial repair editor.
+    const repairPrompt = `You are PostCraft AI's senior editorial rewrite editor.
 
-Repair the rejected LinkedIn draft below. Do not replace the story with invented information.
+The rejected draft failed because it was structurally or editorially weak. Rewrite it from scratch if necessary. Do not preserve weak wording merely to make the validator pass.
+
+Before writing, silently answer:
+1. What actually happened in this story?
+2. Which two concrete details create the most interesting tension?
+3. What is the one useful interpretation a professional reader can take from those details?
+Then write only that interpretation, grounded in the supplied evidence.
+
+Do not replace the story with invented information.
 
 Work ONLY from the supplied story, selected angle, and evidence.
 Do not search the internet.
@@ -921,6 +903,8 @@ The exact generic filler and meta-editorial phrases detected by the validator ar
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
 At least two concrete story-specific details must appear in the repaired post.
+The body must contain a distinct interpretation or consequence tied to those details. A sentence that would fit almost any AI story is not acceptable.
+Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
 The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
 Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
@@ -980,68 +964,6 @@ ${rejectedPost}`;
   });
 
 
-  function buildDeterministicFallbackPost() {
-    const summary = story.summary.replace(/\s+/g, " ").trim();
-    if (summary.length < 40) return "";
-
-    const sentenceParts = summary
-      .split(/(?<=[.!?])\s+|(?<=[,;:])\s+(?=[A-Z])/)
-      .map((part) => part.trim().replace(/[.!?]+$/, ""))
-      .filter((part) => part.length >= 18);
-
-    const clean = (value: string, maxWords: number) => {
-      const words = value.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-      if (words.length <= maxWords) return words.join(" ");
-      return words.slice(0, maxWords).join(" ").replace(/[,:;]+$/, "");
-    };
-
-    const summaryLead = clean(sentenceParts[0] || summary, 22);
-    const summaryDetail = clean(
-      sentenceParts[1] ||
-        summary
-          .replace(sentenceParts[0] || "", "")
-          .trim() ||
-        summary,
-      24,
-    );
-    const angleText = clean(angle.replace(/[.!?]+$/, ""), 18);
-
-    const hookOne = clean(
-      summaryLead.length >= 30 ? summaryLead : `AI is moving deeper into everyday office work`,
-      14,
-    );
-    const hookTwo = clean(
-      angleText.length >= 12
-        ? angleText
-        : "The real tension is who gets trusted when AI enters the workflow",
-      16,
-    );
-
-    const bodyOne = `The story reports that ${clean(summary, 27)}.`;
-    const bodyTwo = summaryDetail && summaryDetail !== summaryLead
-      ? `The concrete tension is ${summaryDetail.toLowerCase()}.`
-      : `The practical question is how ${clean(angleText || "AI-generated work is judged against experienced human judgment", 22).toLowerCase()}.`;
-
-    const paragraphs = [
-      story.headline.trim(),
-      hookOne,
-      hookTwo,
-      bodyOne,
-      bodyTwo,
-    ];
-
-    const post = sanitizeLinkedInPost(paragraphs.join("\n\n"));
-    const wordCount = post.split(/\s+/).filter(Boolean).length;
-
-    if (wordCount < 65) {
-      const reinforcement = `That makes the story's specific workplace detail more important than a broad claim about AI.`;
-      const expanded = sanitizeLinkedInPost([...paragraphs, reinforcement].join("\n\n"));
-      return expanded.split(/\s+/).filter(Boolean).length <= 105 ? expanded : post;
-    }
-
-    return post;
-  }
-
   const repairedRaw = await repairRaw(firstPost, firstValidation);
   const repairedPost = normalizeGeneratedPost(repairedRaw);
   const repairedValidation = validatePost(repairedPost);
@@ -1055,28 +977,8 @@ ${rejectedPost}`;
     console.error("[PostCraft] post_rejected_after_repair", {
       reasons: repairedValidation.reasons,
     });
-
-    // If the local model fails both generation passes, build a deterministic
-    // evidence-led draft from the verified source summary. This is still
-    // subject to the exact same quality gate; we never bypass validation.
-    const fallbackPost = buildDeterministicFallbackPost();
-    if (fallbackPost) {
-      const fallbackValidation = validatePost(fallbackPost);
-
-      console.info("[PostCraft] post_validation", {
-        attempt: "deterministic_fallback",
-        ...fallbackValidation,
-      });
-
-      if (fallbackValidation.ok) {
-        console.info("[PostCraft] editorial_quality_gate=deterministic_fallback");
-        if (onPostToken) onPostToken(fallbackPost);
-        return fallbackPost;
-      }
-    }
-
     throw new Error(
-      `PostCraft could not produce a validated editorial draft after generation and repair. ${repairedValidation.reasons.join(" ")}`,
+      `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
     );
   }
 
