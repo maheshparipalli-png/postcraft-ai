@@ -197,7 +197,9 @@ function isWeakAngle(angle: Angle, story?: Story) {
     "need to reskill", "improve efficiency", "drive efficiency",
     "responsible innovation", "strike a balance", "broader implications",
     "profound implications",
-  ].some((phrase) => text.includes(phrase));
+  ].some((phrase) => text.includes(phrase)) ||
+    (story ? angleLooksLikeSummary(angle, story) : false) ||
+    !angleHasInterpretation(angle);
 }
 
 function getAngleSpecificTerms(angle: Angle, story: Story) {
