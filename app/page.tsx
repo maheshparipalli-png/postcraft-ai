@@ -731,13 +731,16 @@ function resetFromStory() {
   }
 
   async function publishToLinkedIn() {
+    const publishablePost = post.trim();
+    if (!publishablePost) return;
+
     const savedPostId = await savePost();
 
     if (!savedPostId) {
       setLinkedinMessage("Please save the post before publishing.");
       return;
     }
-    if (!post.trim()) return;
+
     setLinkedinLoading(true);
     setLinkedinMessage("");
     try {
@@ -746,7 +749,7 @@ function resetFromStory() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           postId: savedPostId,
-          commentary: post.trim(),
+          commentary: publishablePost,
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
           imageUrl: publishFormat === "text" ? null : (selectedIdea?.imageUrl || null),
@@ -1181,12 +1184,35 @@ function resetFromStory() {
                   <textarea
                     id="post-editor"
                     value={post}
-                    onChange={(event) => setPost(event.target.value)}
+                    onChange={(event) => {
+                      setPost(event.target.value);
+                      setSaveMessage("");
+                      setLinkedinMessage("");
+                    }}
                     rows={14}
                     spellCheck
                     className="w-full resize-y bg-transparent px-0 py-2 font-serif text-base leading-7 tracking-[-0.005em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-lg sm:leading-8"
                     aria-label="Post editor"
                   />
+                  <div className="mt-6 rounded-2xl border border-neutral-900 bg-white p-5 sm:p-7">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-900">LinkedIn preview</div>
+                        <div className="mt-1 text-xs text-neutral-500">Exactly what PostCraft will send as your LinkedIn text.</div>
+                      </div>
+                      <div className="text-right text-[10px] uppercase tracking-[0.12em] text-neutral-400">
+                        <span>{post.trim() ? post.trim().split(/\s+/).filter(Boolean).length : 0} words</span>
+                        <span className="mx-2">·</span>
+                        <span>{post.trim().length} characters</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 whitespace-pre-wrap font-serif text-base leading-7 tracking-[-0.005em] text-neutral-900 sm:text-lg sm:leading-8">
+                      {post.trim() || "Your final LinkedIn post will appear here."}
+                    </div>
+                    <div className="mt-6 border-t border-neutral-200 pt-4 text-[11px] leading-5 text-neutral-500">
+                      No additional AI generation or editorial rewriting happens between this preview and publishing.
+                    </div>
+                  </div>
                 </div>
                 {publishFormat !== "image" && <div className="mt-8">
                   <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Draft commentary</div>
