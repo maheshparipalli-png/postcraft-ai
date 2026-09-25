@@ -1,8 +1,10 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import { NextResponse } from "next/server";
 import { discoverAcrossInterests, selectInterestAwareCandidates } from "@/lib/research/discovery";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeInterests } from "@/lib/content-interests";
+import { generateEditorialDraft } from "@/lib/ai/editorial";
 
 function isAggregatorStory(source: string, url: string) {
   if (/^(google news|bing news|yahoo news)$/i.test(source.trim())) return true;
@@ -59,6 +61,10 @@ function getWhyItStandsOut(title: string, snippet: string, topic: string) {
   const subject = title.trim().replace(/\s+-\s+[^-]+$/, "");
   return `The story gives us a specific development to examine: “${subject}”. The strongest angle should stay close to what the source actually reports.`;
 }
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
@@ -152,19 +158,85 @@ export async function POST(request: Request) {
       );
     }
 
-    const ideas = usableResearch.slice(0, Math.min(8, usableResearch.length)).map((item, index) => ({
-      title: item.title,
-      description: item.snippet,
-      whyItMatters: getWhyItStandsOut(item.title, item.snippet, item.interest),
-      sourceIndexes: [index],
-      interest: item.interest,
-      source: item.source,
-      url: item.url,
-      imageUrl: item.imageUrl || null,
-      publishedAt: item.publishedAt,
-    }));
+    // Never display a discovery story unless PostCraft can actually produce
+    // a validated editorial post for it.
+    const candidatesForDisplay = usableResearch.slice(0, Math.min(8, usableResearch.length));
+    const editorialReady: Array<{ item: (typeof candidatesForDisplay)[number]; draft: Awaited<ReturnType<typeof generateEditorialDraft>> }> = [];
+    const concurrency = 2;
 
-    return NextResponse.json({ count: usableResearch.length, ideas, interests, failedInterests, selectedBy: "interest coverage + editorial quality ranking" });
+    for (let start = 0; start < candidatesForDisplay.length; start += concurrency) {
+      const batch = candidatesForDisplay.slice(start, start + concurrency);
+      const results = await Promise.all(
+        batch.map(async (item) => {
+          try {
+            const draft = await generateEditorialDraft({
+              topic: item.interest || "PostCraft",
+              headline: decodeHtmlEntities(item.title),
+              source: decodeHtmlEntities(item.source),
+              summary: decodeHtmlEntities(item.snippet),
+              url: item.url,
+            });
+
+            return draft.post.trim() ? { item, draft } : null;
+          } catch (error) {
+            console.warn("[PostCraft] discovery_editorial_preflight_rejected", {
+              url: item.url,
+              title: item.title,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          }
+        }),
+      );
+
+      editorialReady.push(
+        ...results.filter(
+          (result): result is NonNullable<typeof result> => Boolean(result),
+        ),
+      );
+    }
+
+    if (!editorialReady.length) {
+      return NextResponse.json(
+        {
+          error: "PostCraft found stories, but none could produce a validated editorial post. No low-value filler was added.",
+          code: "NO_EDITORIAL_READY_STORIES",
+          candidateCount: usableResearch.length,
+          interests,
+        },
+        { status: 422 },
+      );
+    }
+
+    const ideas = editorialReady.map(({ item, draft }, index) => {
+      const title = decodeHtmlEntities(item.title);
+      const description = decodeHtmlEntities(item.snippet);
+      const source = decodeHtmlEntities(item.source);
+
+      return {
+        title,
+        description,
+        whyItMatters:
+          draft.discoveryInsight ||
+          draft.selectedAngle?.why ||
+          getWhyItStandsOut(title, description, item.interest),
+        sourceIndexes: [index],
+        interest: item.interest,
+        source,
+        url: item.url,
+        imageUrl: item.imageUrl || null,
+        publishedAt: item.publishedAt,
+        editorialReady: true,
+      };
+    });
+
+    return NextResponse.json({
+      count: editorialReady.length,
+      ideas,
+      interests,
+      failedInterests,
+      selectedBy: "interest coverage + editorial quality ranking + editorial post preflight",
+    });
   } catch (error) {
     console.error("Discover API error:", error);
     const message =

@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 export type ResearchItem = {
   title: string;
   source: string;
@@ -113,30 +114,13 @@ const searchQueries: Record<string, string[]> = {
 const genericGoogleNewsText = /comprehensive\\s+up[-–—]to[-–—]date\\s+news\\s+coverage,\\s+aggregated\\s+from\\s+sources\\s+all\\s+over\\s+the\\s+world\\s+by\\s+google\\s+news/i;
 const sponsoredStoryText = /\b(sponsored|advertorial|advertisement|advertising|promoted|paid content|partner content|branded content)\b/i;
 
-function decodeHtml(value: string) {
-  return value
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\u00c2\u00b7/g, "·")
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function getTag(block: string, tag: string) {
   const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
-  return match ? decodeHtml(match[1]) : "";
+  return match ? decodeHtmlEntities(match[1]) : "";
 }
 
 function cleanDescription(value: string, title: string, source: string) {
-  let description = decodeHtml(value)
+  let description = decodeHtmlEntities(value)
     .replace(/\u00c2\u00b7/g, "·")
     .replace(/\s+/g, " ")
     .trim();
@@ -181,11 +165,11 @@ function extractArticleText(html: string) {
 
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) candidates.push(decodeHtml(match[1]));
+    if (match?.[1]) candidates.push(decodeHtmlEntities(match[1]));
   }
 
   const paragraphs = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
-    .map((match) => decodeHtml(match[1]))
+    .map((match) => decodeHtmlEntities(match[1]))
     .filter((text) => text.length >= 60 && text.length <= 1000)
     .filter((text) => !genericGoogleNewsText.test(text))
     .slice(0, 5);

@@ -1,3 +1,5 @@
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
+
 export type StatisticContent = {
   stat: string;
   statLabel: string;
@@ -46,4 +48,13 @@ export function normalizeStatisticContent(
     stat,
     statLabel: statLabel.slice(0, 120),
   };
+}
+
+
+/**
+ * PostCard copy is rendered directly into SVG text. Normalize model/source
+ * formatting first so Markdown/HTML artifacts never become visible card text.
+ */
+export function normalizePostcardText(value: string): string {
+  return normalizeGeneratedText(value, { plainPunctuation: true });
 }

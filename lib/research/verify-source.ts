@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
 import dns from "node:dns/promises";
 import net from "node:net";
 
@@ -10,19 +11,8 @@ export type VerifiedSource = {
   summary: string;
 };
 
-function decodeHtml(value: string) {
-  return value
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#x2F;/gi, "/")
-    .replace(/&#x27;/gi, "'");
-}
-
 function cleanText(value: string) {
-  return decodeHtml(value)
+  return decodeHtmlEntities(value)
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -249,6 +239,30 @@ function isAggregatorSource(source: string) {
   return /^(google news|bing news|yahoo news)$/i.test(source.trim());
 }
 
+function extractArticleBodySummary(html: string) {
+  const containers = [
+    html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1] ?? "",
+    html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? "",
+  ];
+
+  for (const container of containers) {
+    if (!container) continue;
+
+    const paragraphs = Array.from(
+      container.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi),
+    )
+      .map((match) => cleanText(match[1]))
+      .filter((text) => text.length >= 40);
+
+    if (paragraphs.length >= 2) {
+      const combined = paragraphs.slice(0, 8).join(" ");
+      if (combined.length >= 300) return combined.slice(0, 1800);
+    }
+  }
+
+  return "";
+}
+
 function extractSummary(html: string) {
   const candidates = [
     extractMeta(html, "og:description"),
@@ -257,9 +271,19 @@ function extractSummary(html: string) {
     extractJsonLdDescription(html),
   ];
 
-  return candidates.find(
+  const metadataSummary = candidates.find(
     (value) => value.length >= 40 && !genericGoogleNewsText.test(value),
   ) ?? "";
+
+  const articleSummary = extractArticleBodySummary(html);
+
+  // Publisher metadata is often an excerpt of the article itself. Combining
+  // both can duplicate the opening paragraph and pollute the editorial brief.
+  // Prefer the richer article body whenever we have one; metadata remains the
+  // fallback for publishers whose article HTML is not extractable.
+  if (articleSummary) return articleSummary;
+
+  return metadataSummary;
 }
 
 export async function verifySourceUrl(url: string): Promise<VerifiedSource> {

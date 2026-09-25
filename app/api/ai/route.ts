@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
 import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
-import { normalizeStatisticContent } from "@/lib/postcard/content";
+import { normalizePostcardText, normalizeStatisticContent } from "@/lib/postcard/content";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -137,9 +138,9 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
 
       console.info("[PostCraft] postcard_generation_ms=" + (Date.now() - startedAt));
       return NextResponse.json({
-        headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
-        body: typeof generated.body === "string" ? generated.body.trim() : "",
-        closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
+        headline: typeof generated.headline === "string" ? normalizePostcardText(generated.headline) : "",
+        body: typeof generated.body === "string" ? normalizePostcardText(generated.body) : "",
+        closing: typeof generated.closing === "string" ? normalizePostcardText(generated.closing) : "",
         stat: statistic.stat,
         statLabel: statistic.statLabel,
       });
@@ -205,7 +206,7 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
     }
 
     const text = await getAIProvider().generateText(prompt);
-    return NextResponse.json({ text });
+    return NextResponse.json({ text: normalizeGeneratedText(text, { plainPunctuation: true }) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI request failed";
     const status = message.includes("Ollama request failed") || message.includes("Ollama returned")

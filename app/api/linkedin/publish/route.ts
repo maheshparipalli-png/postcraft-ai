@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createHash } from "node:crypto";
 import { assertPublicUrl } from "@/lib/research/verify-source";
 import { sanitizeLinkedInPost } from "@/lib/ai/editorial";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 
 const linkedinHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : null;
     const sourceTitle = typeof body?.sourceTitle === "string" ? body.sourceTitle.trim() : null;
     const quoteHash = typeof body?.quoteHash === "string" ? body.quoteHash.trim() : null;
-    const commentary = sanitizeLinkedInPost(typeof body?.commentary === "string" ? body.commentary : "");
+    const commentary = sanitizeLinkedInPost(normalizeGeneratedText(typeof body?.commentary === "string" ? body.commentary : "", { plainPunctuation: true }));
     const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl.trim() : null;
     const includeSourceImage = body?.includeSourceImage === true;
     const imageDataUrl = typeof body?.imageDataUrl === "string" ? body.imageDataUrl : (includeSourceImage ? await fetchImageDataUrl(imageUrl, sourceUrl) : null);

@@ -1,4 +1,7 @@
-﻿"use client";
+"use client";
+
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,7 +14,6 @@ type Idea = { title: string; description: string; whyItMatters: string; sourceIn
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
-type PublishFormat = "combined" | "text" | "image";
 const perspectives: { id: Perspective; label: string; description: string }[] = [
   { id: "agree", label: "I agree", description: "Build on the argument." },
   { id: "disagree", label: "I disagree", description: "Challenge the argument." },
@@ -49,19 +51,8 @@ function formatPublishedAtIST(value: string) {
 }
 
 
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
 function cleanGeneratedPost(value: string) {
-  return value
-    .replace(/^\`\`\`(?:text|markdown|json)?\s*/i, "")
-    .replace(/\s*\`\`\`$/i, "")
+  return normalizeGeneratedText(value, { plainPunctuation: true })
     .replace(/^\s*(LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*Source\s*:\s*[^\n]*$/i, "")
     .replace(/\n+\s*(?:Read the original article|Original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
@@ -127,10 +118,12 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
   ctx.strokeStyle = "#3f3f46";
   ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(width - margin, y); ctx.stroke();
 
-  const cleaned = post
-    .replace(/^.*?\n\s*\n/, "")
-    .replace(/\bhttps?:\/\/\S+/gi, "")
-    .trim();
+  const cleaned = decodeHtmlEntities(
+    post
+      .replace(/^.*?\n\s*\n/, "")
+      .replace(/\bhttps?:\/\/\S+/gi, "")
+      .trim(),
+  );
   const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
   const points = sentences.slice(0, 3);
   points.forEach((point, index) => {
@@ -219,7 +212,6 @@ export default function Home() {
   const [post, setPost] = useState("");
   const [postCardImage, setPostCardImage] = useState("");
   const [postCardRendering, setPostCardRendering] = useState(false);
-  const [publishFormat, setPublishFormat] = useState<PublishFormat>("combined");
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -439,7 +431,6 @@ function resetFromStory() {
     setNewsSource("");
     setNewsDate("");
     setVerifiedSummary("");
-    setPublishFormat("combined");
     setPostCardImage("");
       }
 
@@ -736,13 +727,16 @@ function resetFromStory() {
   }
 
   async function publishToLinkedIn() {
+    const publishablePost = post.trim();
+    if (!publishablePost) return;
+
     const savedPostId = await savePost();
 
     if (!savedPostId) {
       setLinkedinMessage("Please save the post before publishing.");
       return;
     }
-    if (!post.trim()) return;
+
     setLinkedinLoading(true);
     setLinkedinMessage("");
     try {
@@ -751,11 +745,13 @@ function resetFromStory() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           postId: savedPostId,
-          commentary: post.trim(),
+          commentary: publishablePost,
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
-          imageUrl: publishFormat === "text" ? null : (selectedIdea?.imageUrl || null),
-          imageDataUrl: publishFormat === "text" ? undefined : (postCardImage || undefined),
+          // PostCraft's LinkedIn format is intentionally fixed:
+          // infographic first, concise text immediately below it.
+          imageUrl: null,
+          imageDataUrl: postCardImage || undefined,
           includeSourceImage: false,
         }),
       });
@@ -846,7 +842,7 @@ function resetFromStory() {
                 rows={18}
                 spellCheck
                 autoFocus
-                className="w-full resize-y border-y border-neutral-300/80 bg-transparent px-0 py-7 font-serif text-xl leading-8 tracking-[-0.01em] outline-none focus:border-neutral-900 sm:text-2xl sm:leading-9"
+                className="w-full resize-y border-y border-neutral-300/80 bg-transparent px-0 py-7 font-serif text-base leading-7 tracking-[-0.005em] outline-none focus:border-neutral-900 sm:text-lg sm:leading-8"
                 aria-label="Saved post editor"
               />
 
@@ -1162,20 +1158,11 @@ function resetFromStory() {
 
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-300/80 py-5">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Publishing format</div>
-                    <p className="mt-1 text-xs text-neutral-500">Choose what will be sent to LinkedIn.</p>
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">LinkedIn publishing format</div>
+                    <p className="mt-1 text-xs text-neutral-500">Infographic first, then the concise LinkedIn content below it.</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {([["combined", "Text + visual"], ["text", "Text only"], ["image", "Visual only"]] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setPublishFormat(value)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium ${publishFormat === value ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-600 hover:border-neutral-600"}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                  <div className="rounded-full border border-neutral-900 bg-neutral-900 px-3 py-2 text-xs font-medium text-white">
+                    Infographic + text
                   </div>
                 </div>
 
@@ -1186,16 +1173,36 @@ function resetFromStory() {
                   <textarea
                     id="post-editor"
                     value={post}
-                    onChange={(event) => setPost(event.target.value)}
+                    onChange={(event) => {
+                      setPost(event.target.value);
+                      setSaveMessage("");
+                      setLinkedinMessage("");
+                    }}
                     rows={14}
                     spellCheck
-                    className="w-full resize-y bg-transparent px-0 py-2 font-serif text-xl leading-8 tracking-[-0.01em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-2xl sm:leading-9"
+                    className="w-full resize-y bg-transparent px-0 py-2 font-serif text-base leading-7 tracking-[-0.005em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-lg sm:leading-8"
                     aria-label="Post editor"
                   />
+                  <div className="mt-6 rounded-2xl border border-neutral-900 bg-white p-5 sm:p-7">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-4">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-900">LinkedIn preview</div>
+                        <div className="mt-1 text-xs text-neutral-500">Exactly what PostCraft will send as your LinkedIn text.</div>
+                      </div>
+                      <div className="text-right text-[10px] uppercase tracking-[0.12em] text-neutral-400">
+                        <span>{post.trim() ? post.trim().split(/\s+/).filter(Boolean).length : 0} words</span>
+                        <span className="mx-2">·</span>
+                        <span>{post.trim().length} characters</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 whitespace-pre-wrap font-serif text-base leading-7 tracking-[-0.005em] text-neutral-900 sm:text-lg sm:leading-8">
+                      {post.trim() || "Your final LinkedIn post will appear here."}
+                    </div>
+                    <div className="mt-6 border-t border-neutral-200 pt-4 text-[11px] leading-5 text-neutral-500">
+                      No additional AI generation or editorial rewriting happens between this preview and publishing. LinkedIn will receive the infographic first, followed by this exact text.
+                    </div>
+                  </div>
                 </div>
-                {publishFormat !== "image" && <div className="mt-8">
-                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Draft commentary</div>
-                </div>}
                 <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
                   <div className="rounded-2xl border border-neutral-300/80 bg-[#171717] p-4">
                     <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">

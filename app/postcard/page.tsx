@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { normalizePostcardText } from "@/lib/postcard/content";
 
 type Template = "quote" | "story" | "success" | "person" | "history" | "thought" | "mindful";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
@@ -458,8 +459,8 @@ export default function PostCardPage() {
         const response = await fetch(`/api/postcard/quote?field=${encodeURIComponent(quoteField)}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || !data?.quote) throw new Error(data?.error || "Could not retrieve a motivational quote.");
-        setHeadline(data.quote.text || "");
-        setBody(data.quote.author ? `— ${data.quote.author}` : "");
+        setHeadline(normalizePostcardText(data.quote.text || ""));
+        setBody(data.quote.author ? `— ${normalizePostcardText(data.quote.author)}` : "");
         setClosing("");
         setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
         setQuoteHash(data.quote.hash || null);
@@ -486,9 +487,9 @@ export default function PostCardPage() {
         const response = await fetch(`/api/postcard/story?category=${encodeURIComponent(category)}`, { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || !data?.story) throw new Error(data?.error || "Could not retrieve a motivational story.");
-        setHeadline(data.story.title || "");
-        setBody(data.story.body || "");
-        setClosing(data.story.lesson || "");
+        setHeadline(normalizePostcardText(data.story.title || ""));
+        setBody(normalizePostcardText(data.story.body || ""));
+        setClosing(normalizePostcardText(data.story.lesson || ""));
         setStoryHash(data.story.hash || null);
         setStorySourceName(data.story.sourceName || "");
         setStorySourceTitle(data.story.sourceTitle || "");
@@ -538,9 +539,9 @@ export default function PostCardPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not generate the card copy.");
-      if (data.headline) setHeadline(data.headline);
-      if (data.body) setBody(data.body);
-      if (data.closing) setClosing(data.closing);
+      if (data.headline) setHeadline(normalizePostcardText(data.headline));
+      if (data.body) setBody(normalizePostcardText(data.body));
+      if (data.closing) setClosing(normalizePostcardText(data.closing));
       setGenerateMessage("Generated a fresh, human-sounding version.");
     } catch (error) {
       setGenerateMessage(error instanceof Error ? error.message : "Could not generate the card copy.");
