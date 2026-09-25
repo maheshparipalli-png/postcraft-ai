@@ -563,7 +563,9 @@ function postHasConcreteEvidenceDensity(
     .split(/\n\s*\n/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
-    .slice(1);
+    // The first three blocks are the headline and the two deliberate hook
+    // lines. Evidence-density validation applies to the explanatory body.
+    .slice(3);
 
   const substantiveParagraphs = paragraphs.filter(
     (paragraph) => paragraph.split(/\s+/).filter(Boolean).length >= 15,
@@ -576,7 +578,7 @@ function postHasConcreteEvidenceDensity(
 
   return {
     ok:
-      matchedAnchors.length >= 3 &&
+      matchedAnchors.length >= 2 &&
       substantiveParagraphs.length > 0 &&
       paragraphsWithEvidence.length === substantiveParagraphs.length,
     matchedAnchors: matchedAnchors.slice(0, 8),
@@ -830,7 +832,7 @@ export async function generateEditorialPost(
     }
     if (!evidenceDensity.ok) {
       reasons.push(
-        "The draft is too generic: use at least two concrete story-specific details and keep every substantive paragraph anchored to the supplied evidence.",
+        "The draft is too generic: use at least two concrete story-specific details and keep the explanatory paragraphs anchored to the supplied evidence.",
       );
     }
     if (!hasNoSourceLeak) {
@@ -994,19 +996,21 @@ ${rejectedPost}`;
       .map((sentence) => sentence.trim())
       .filter((sentence) => sentence.length >= 45);
 
-    if (sentences.length < 3) return "";
+    if (sentences.length < 2) return "";
 
-    const selectedSentences = sentences.slice(0, 5);
+    const selectedSentences = sentences.slice(0, 4);
+    const hook = selectedSentences[0].replace(/[.!?]+$/, "");
+    const angleHook = angle.replace(/[.!?]+$/, "");
     const paragraphs = [
       story.headline.trim(),
-      `The detail that matters: ${selectedSentences[0]}`,
-      `And the tension is this: ${angle.replace(/[.]+$/, "")}.`,
-      `The story also points to ${selectedSentences[1]}`,
-      `Another concrete detail: ${selectedSentences[2]}`,
+      hook.length <= 110 ? hook : `${hook.slice(0, 107).trim()}...`,
+      angleHook.length >= 12 && angleHook.length <= 110 ? angleHook : `The story's practical tension is in how this research changes athlete preparation.`,
+      `The story reports: ${selectedSentences[0]}`,
+      `It also explains: ${selectedSentences[1]}`,
     ];
 
-    if (selectedSentences[3]) {
-      paragraphs.push(`The story further describes ${selectedSentences[3]}`);
+    if (selectedSentences[2]) {
+      paragraphs.push(`Another reported detail is ${selectedSentences[2]}`);
     }
 
     return sanitizeLinkedInPost(paragraphs.join("\\n\\n"));
