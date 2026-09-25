@@ -1,4 +1,5 @@
 import { decodeHtmlEntities } from "@/lib/text/decode-html";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 import { getAIProvider } from "@/lib/ai/provider";
 
 type Story = { topic: string; headline: string; source: string; summary: string; url?: string };
@@ -454,7 +455,7 @@ export async function generateEditorialAngles(story: Story) {
 export { decodeHtmlEntities as decodeEditorialEntities };
 
 export function sanitizeLinkedInPost(value: string) {
-  return value
+  return normalizeGeneratedText(value, { plainPunctuation: true })
     .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
     .replace(/\bhttps?:\/\/\S+/gi, "")
