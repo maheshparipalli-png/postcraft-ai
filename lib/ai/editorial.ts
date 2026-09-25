@@ -158,7 +158,32 @@ type RankedAngle = Angle & {
   };
 };
 
-function isWeakAngle(angle: Angle) {
+function angleLooksLikeSummary(angle: Angle, story: Story) {
+  const storyTerms = new Set(
+    normalizeAngleText(story.summary)
+      .split(" ")
+      .filter((word) => word.length >= 5),
+  );
+  const angleTerms = normalizeAngleText(angle.angle)
+    .split(" ")
+    .filter((word) => word.length >= 5);
+
+  if (angleTerms.length < 6) return true;
+  const shared = angleTerms.filter((word) => storyTerms.has(word)).length;
+  return shared / angleTerms.length >= 0.68;
+}
+
+function angleHasInterpretation(angle: Angle) {
+  const text = `${angle.angle} ${angle.why}`.toLowerCase();
+  return [
+    "but", "yet", "instead", "because", "means", "reveals", "shows",
+    "depends", "changes", "shifts", "trade-off", "tradeoff", "boundary",
+    "gap", "constraint", "cost", "risk", "tension", "unlike", "while",
+    "rather than", "not just", "more than",
+  ].some((marker) => text.includes(marker));
+}
+
+function isWeakAngle(angle: Angle, story?: Story) {
   const words = normalizeAngleText(angle.angle).split(" ").filter(Boolean);
   const text = angle.angle.toLowerCase() + " " + angle.why.toLowerCase();
   if (words.length < 7) return true;
@@ -214,7 +239,7 @@ function scoreAngle(angle: Angle, story: Story): RankedAngle {
 }
 
 function rankAngles(angles: Angle[], story: Story): RankedAngle[] {
-  return angles.filter((angle) => !isWeakAngle(angle)).filter((angle) => angleHasConcreteGrounding(angle, story)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
+  return angles.filter((angle) => !isWeakAngle(angle, story)).filter((angle) => angleHasConcreteGrounding(angle, story)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
 }
 
 function selectSafeAngles(angles: Angle[]) {
@@ -278,7 +303,11 @@ Find the most interesting thing to say about THIS story. Do not merely summarize
 
 First identify the concrete detail that makes this story unusual or consequential. Then identify the editorial tension created by that detail: a trade-off, contradiction, mechanism, incentive, boundary, affected group, or decision.
 
-Return up to 3 genuinely different theses. Each thesis must make an observation a reader would not get by simply reading the headline. Prefer one strong thesis over three weak ones. Do not manufacture diversity by rewriting the same claim three ways.
+Return up to 3 genuinely different theses. Each thesis must make an observation a reader would not get by simply reading the headline or summary. A thesis that mostly restates the summary is invalid.
+
+For each angle, the "angle" is an interpretation, not a topic and not a rewritten sentence from the source. The "why" must explain what the concrete details reveal, change, constrain, or complicate. Use at least one explicit relationship such as a trade-off, contrast, mechanism, boundary, dependency, or consequence.
+
+Also return one "discoveryInsight": a single sentence of 20-35 words explaining why THIS story is interesting to a professional reader. It must contain at least two concrete story terms and one interpretation. Never use generic wording such as "the interesting part", "this raises questions", "the story highlights", or "what it means in practice". Prefer one strong thesis over three weak ones. Do not manufacture diversity by rewriting the same claim three ways.
 
 A good thesis should still make sense only because of THIS story. If it could be pasted onto ten unrelated AI stories without changing its meaning, reject it.
 
