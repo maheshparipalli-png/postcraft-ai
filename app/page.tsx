@@ -14,7 +14,6 @@ type Idea = { title: string; description: string; whyItMatters: string; sourceIn
 type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
 type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
-type PublishFormat = "combined" | "text" | "image";
 const perspectives: { id: Perspective; label: string; description: string }[] = [
   { id: "agree", label: "I agree", description: "Build on the argument." },
   { id: "disagree", label: "I disagree", description: "Challenge the argument." },
@@ -213,7 +212,6 @@ export default function Home() {
   const [post, setPost] = useState("");
   const [postCardImage, setPostCardImage] = useState("");
   const [postCardRendering, setPostCardRendering] = useState(false);
-  const [publishFormat, setPublishFormat] = useState<PublishFormat>("combined");
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -433,7 +431,6 @@ function resetFromStory() {
     setNewsSource("");
     setNewsDate("");
     setVerifiedSummary("");
-    setPublishFormat("combined");
     setPostCardImage("");
       }
 
