@@ -159,12 +159,15 @@ async function buildDraft(interests: ContentInterest[]) {
           const bestAngle = editorial.angles[0];
           if (!bestAngle) throw new Error("The selected article did not produce a sufficiently grounded angle.");
 
-          const generated = normalizeGeneratedText(await generateEditorialPost(
-            story,
-            bestAngle.angle,
-            bestAngle.why,
-            "Write the strongest natural version of the selected thesis. Use plain language and a clear point of view.",
-            editorial.evidence,
+          const generated = normalizeGeneratedText(
+            await generateEditorialPost(
+              story,
+              bestAngle.angle,
+              bestAngle.why,
+              "Write the strongest natural version of the selected thesis. Use plain language and a clear point of view.",
+              editorial.evidence,
+            ),
+            { plainPunctuation: true },
           );
 
           const sourceTitle = decodeHtmlEntities(story.headline.trim());
