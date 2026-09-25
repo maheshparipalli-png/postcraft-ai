@@ -1,3 +1,5 @@
+import { decodeHtmlEntities } from "@/lib/text/decode-html";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 import { getAIProvider } from "@/lib/ai/provider";
 
 type Story = { topic: string; headline: string; source: string; summary: string; url?: string };
@@ -40,8 +42,8 @@ function parseEvidence(value: unknown): Evidence[] {
         type?: unknown;
       };
 
-      const claim = typeof v.claim === "string" ? v.claim.trim() : "";
-      const support = typeof v.support === "string" ? v.support.trim() : "";
+      const claim = typeof v.claim === "string" ? normalizeGeneratedText(v.claim, { plainPunctuation: true }) : "";
+      const support = typeof v.support === "string" ? normalizeGeneratedText(v.support, { plainPunctuation: true }) : "";
       const type =
         v.type === "fact" ||
         v.type === "interpretation" ||
@@ -76,11 +78,11 @@ function parseAngles(value: unknown): Angle[] {
             ? v.text
             : "";
 
-      const angle = angleValue.trim();
-      const why = typeof v.why === "string" ? v.why.trim() : "";
+      const angle = normalizeGeneratedText(angleValue, { plainPunctuation: true });
+      const why = typeof v.why === "string" ? normalizeGeneratedText(v.why, { plainPunctuation: true }) : "";
       const evidence =
         typeof v.evidence === "string" && v.evidence.trim()
-          ? v.evidence.trim()
+          ? normalizeGeneratedText(v.evidence, { plainPunctuation: true })
           : "Based on the selected story and its supplied summary.";
 
       return angle
@@ -156,22 +158,80 @@ type RankedAngle = Angle & {
   };
 };
 
-function isWeakAngle(angle: Angle) {
+function angleLooksLikeSummary(angle: Angle, story: Story) {
+  const storyTerms = new Set(
+    normalizeAngleText(story.summary)
+      .split(" ")
+      .filter((word) => word.length >= 5),
+  );
+  const angleTerms = normalizeAngleText(angle.angle)
+    .split(" ")
+    .filter((word) => word.length >= 5);
+
+  if (angleTerms.length < 6) return true;
+  const shared = angleTerms.filter((word) => storyTerms.has(word)).length;
+  return shared / angleTerms.length >= 0.68;
+}
+
+function angleHasInterpretation(angle: Angle) {
+  const text = `${angle.angle} ${angle.why}`.toLowerCase();
+  return [
+    "but", "yet", "instead", "because", "means", "reveals", "shows",
+    "depends", "changes", "shifts", "trade-off", "tradeoff", "boundary",
+    "gap", "constraint", "cost", "risk", "tension", "unlike", "while",
+    "rather than", "not just", "more than",
+  ].some((marker) => text.includes(marker));
+}
+
+function isWeakAngle(angle: Angle, story?: Story) {
   const words = normalizeAngleText(angle.angle).split(" ").filter(Boolean);
   const text = angle.angle.toLowerCase() + " " + angle.why.toLowerCase();
   if (words.length < 7) return true;
   return [
-    "indicating a shift",
-    "need for a different approach",
-    "need for a new approach",
-    "highlights the importance",
-    "importance of",
-    "need to survive",
-    "need to prepare",
-    "need to adapt",
-    "changing nature",
-    "raises an important",
-  ].some((phrase) => text.includes(phrase));
+    "indicating a shift", "need for a different approach", "need for a new approach",
+    "highlights the importance", "importance of", "need to survive", "need to prepare",
+    "need to adapt", "changing nature", "changing the nature", "raises an important",
+    "raises questions", "raises a question", "future of work", "future of ai",
+    "ai is changing", "technology is changing", "people need to adapt",
+    "companies need to adapt", "organizations need to adapt", "need to upskill",
+    "need to reskill", "improve efficiency", "drive efficiency",
+    "responsible innovation", "strike a balance", "broader implications",
+    "profound implications",
+    "the useful point",
+    "specific change described",
+    "rather than a broader claim",
+    "rather than a broad claim",
+    "specific development to examine",
+    "the strongest angle",
+  ].some((phrase) => text.includes(phrase)) ||
+    (story ? angleLooksLikeSummary(angle, story) : false) ||
+    !angleHasInterpretation(angle);
+}
+
+function getAngleSpecificTerms(angle: Angle, story: Story) {
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should", "technology",
+    "business", "people", "future", "question", "need", "important",
+    "specific", "change", "changing", "thing", "things",
+  ]);
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/)
+      .filter((word) => word.length >= 5 && !stopWords.has(word));
+  const storyTerms = new Set(normalize(story.headline + " " + story.summary));
+  const angleTerms = new Set(normalize(angle.angle + " " + angle.evidence));
+  return Array.from(angleTerms).filter((term) => storyTerms.has(term));
+}
+function angleHasConcreteGrounding(angle: Angle, story: Story) {
+  const terms = getAngleSpecificTerms(
+    { ...angle, evidence: "" },
+    story,
+  );
+  return terms.length >= 2;
 }
 
 function scoreAngle(angle: Angle, story: Story): RankedAngle {
@@ -191,7 +251,7 @@ function scoreAngle(angle: Angle, story: Story): RankedAngle {
 }
 
 function rankAngles(angles: Angle[], story: Story): RankedAngle[] {
-  return angles.filter((angle) => !isWeakAngle(angle)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
+  return angles.filter((angle) => !isWeakAngle(angle, story)).filter((angle) => angleHasConcreteGrounding(angle, story)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
 }
 
 function selectSafeAngles(angles: Angle[]) {
@@ -229,45 +289,18 @@ function selectSafeAngles(angles: Angle[]) {
   return unique;
 }
 
-function buildGroundedFallback(story: Story): { evidence: Evidence[]; angles: Angle[] } {
-  const summary = story.summary.trim();
-  const headline = story.headline.trim();
-  if (!summary || summary.length < 40) return { evidence: [], angles: [] };
-
-  const firstSentence =
-    summary.split(/(?<=[.!?])\s+/).find((sentence) => sentence.trim().length >= 40)?.trim() ||
-    summary;
-
-  const support = firstSentence.slice(0, 420);
-  const apprenticeshipTheme = /junior|entry[- ]level|young|apprenticeship|routine|bottom rungs|trade/i.test(summary);
-
-  const claim = apprenticeshipTheme
-    ? "AI may be removing the routine junior tasks that traditionally helped people learn their trade."
-    : headline;
-
-  const angle = apprenticeshipTheme
-    ? "The AI disruption may begin by removing the routine work that once served as an apprenticeship for younger workers."
-    : "The useful question in this story is what changes when " + headline.replace(/[.]+$/, "") + ".";
-
-  return {
-    evidence: [
-      {
-        claim,
-        support,
-        type: "fact",
-      },
-    ],
-    angles: [
-      {
-        angle,
-        why: "This stays close to a concrete detail in the supplied story rather than adding outside assumptions.",
-        evidence: support,
-      },
-    ],
-  };
+function buildGroundedFallback(_story: Story): { evidence: Evidence[]; angles: Angle[] } {
+  return { evidence: [], angles: [] };
 }
-
 async function buildEditorialPass(story: Story) {
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
   const prompt = `You are PostCraft AI, an editorial thinking partner. Generate the strongest useful response from the selected story below.
 
 Do not search the internet. Do not fetch another article. Work only from the story information provided here.
@@ -278,9 +311,17 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Find the most interesting thing to say about THIS story. Do not merely summarize the headline. Look for a specific tension, contrast, implication, affected group, trade-off, mechanism, timeline, decision, constraint, or unresolved point contained in the story information.
+Find the most interesting thing to say about THIS story. Do not merely summarize it and do not produce a broad theme about AI, technology, work, leadership, or society.
 
-Return up to 3 genuinely different angles. They should differ in thesis, not just wording. Prefer one strong angle over three weak or repetitive ones. Do not manufacture diversity by rewriting the same claim three ways.
+First identify the concrete detail that makes this story unusual or consequential. Then identify the editorial tension created by that detail: a trade-off, contradiction, mechanism, incentive, boundary, affected group, or decision.
+
+Return up to 3 genuinely different theses. Each thesis must make an observation a reader would not get by simply reading the headline or summary. A thesis that mostly restates the summary is invalid.
+
+For each angle, the "angle" is an interpretation, not a topic and not a rewritten sentence from the source. The "why" must explain what the concrete details reveal, change, constrain, or complicate. Use at least one explicit relationship such as a trade-off, contrast, mechanism, boundary, dependency, or consequence.
+
+Also return one "discoveryInsight": a single sentence of 20-35 words explaining why THIS story is interesting to a professional reader. It must contain at least two concrete story terms and one interpretation. Never use generic wording such as "the interesting part", "this raises questions", "the story highlights", or "what it means in practice". Prefer one strong thesis over three weak ones. Do not manufacture diversity by rewriting the same claim three ways.
+
+A good thesis should still make sense only because of THIS story. If it could be pasted onto ten unrelated AI stories without changing its meaning, reject it.
 
 Every angle must be directly supported by the supplied headline or summary. Do not infer motives, cover-ups, awareness, deception, self-awareness, autonomous control, causation, or consequences that the supplied information does not establish. Do not turn a possibility into a fact. If evidence is limited, make that limitation part of the angle.
 
@@ -295,7 +336,9 @@ Do not use generic angles such as:
 - the need to strike a balance
 - the implications are profound
 
-The evidence field must quote or closely paraphrase a concrete detail from the supplied story. The why field must explain why that specific detail creates a useful point of view; it must not introduce a new factual claim.
+The evidence field must quote or closely paraphrase at least two concrete details from the supplied story when the source contains them. The why field must explain the tension created by those details; it must not introduce a new factual claim.
+
+Do not write theses such as "AI is changing work", "companies need to adapt", "this raises questions", "the future of work", or "AI will improve efficiency". Those are themes, not editorial insight.
 
 Return ONLY valid JSON. Do not use Markdown fences or explanatory text.
 
@@ -314,7 +357,8 @@ Use exactly this structure:
       "why": "why this specific thesis is worth considering",
       "evidence": "the story detail that supports this angle"
     }
-  ]
+  ],
+  "discoveryInsight": "20-35 word, story-specific explanation of why this story is interesting to a professional reader"
 }`;
 
   const parsed = parseJson(
@@ -327,6 +371,10 @@ Use exactly this structure:
 
   let evidence = parseEvidence(parsed?.evidence);
   const angles = selectSafeAngles(parseAngles(parsed?.angles));
+  const discoveryInsight =
+    typeof parsed?.discoveryInsight === "string"
+      ? normalizeGeneratedText(parsed.discoveryInsight, { plainPunctuation: true })
+      : "";
 
   // Small local models sometimes return usable angles but omit the separate
   // evidence array. Reconstruct the evidence ledger from each angle's own
@@ -343,16 +391,7 @@ Use exactly this structure:
       }));
   }
 
-  // Small local models can occasionally return valid JSON with no usable
-  // angles even when the supplied story contains enough evidence. Keep the
-  // editorial pipeline grounded by falling back to a deterministic angle
-  // derived only from the supplied headline and summary.
-  if (!angles.length) {
-    const fallback = buildGroundedFallback(story);
-    if (fallback.angles.length) return fallback;
-  }
-
-  return { evidence, angles };
+  return { evidence, angles, discoveryInsight };
 }
 
 
@@ -361,45 +400,80 @@ export async function generateEditorialDraft(
   onPostToken?: (token: string) => void,
 ) {
   const startedAt = Date.now();
-  const editorial = await buildEditorialPass(story);
-  const ranked = rankAngles(editorial.angles, story);
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
+
+  const editorial = await buildEditorialPass(normalizedStory);
+  const ranked = rankAngles(editorial.angles, normalizedStory);
 
   if (!ranked.length) {
-    const fallback = buildGroundedFallback(story);
-    if (!fallback.angles.length) throw new Error("This story did not contain enough specific evidence for a strong editorial angle. Try another story.");
-    const selected = {
-      ...fallback.angles[0],
-      score: 6,
-      criteria: { readerInterest: 7, discussionPotential: 7, relevance: 6, clarity: 8, specificity: 8, linkedinFit: 7, evidenceStrength: 9 },
-    };
-    const post = await generateEditorialPost(
-      story,
-      selected.angle,
-      selected.why,
-      "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
-      fallback.evidence,
-      onPostToken,
-    );
-    return { angles: [selected], evidence: fallback.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
+    throw new Error("This story did not contain enough concrete evidence for a genuinely story-specific editorial angle. PostCraft will not manufacture a generic AI post.");
   }
 
-  const selected = ranked[0];
-  const post = await generateEditorialPost(
-    story,
-    selected.angle,
-    selected.why,
-    "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
-    editorial.evidence,
-    onPostToken,
-  );
+  const candidates = ranked.slice(0, 2);
+  let lastError: unknown = null;
 
-  console.info("[PostCraft] editorial_pipeline_ms=" + (Date.now() - startedAt) + " candidates=" + editorial.angles.length + " ranked=" + ranked.length + " selected_score=" + selected.score);
-  return { angles: ranked.slice(0, 3), evidence: editorial.evidence, selectedAngle: selected, post, editorialMs: Date.now() - startedAt };
+  for (const selected of candidates) {
+    try {
+      const post = await generateEditorialPost(
+        normalizedStory,
+        selected.angle,
+        selected.why,
+        "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+        editorial.evidence,
+        onPostToken,
+      );
+
+      console.info(
+        "[PostCraft] editorial_pipeline_ms=" +
+          (Date.now() - startedAt) +
+          " candidates=" +
+          editorial.angles.length +
+          " ranked=" +
+          ranked.length +
+          " selected_score=" +
+          selected.score,
+      );
+
+      return {
+        angles: ranked.slice(0, 3),
+        evidence: editorial.evidence,
+        selectedAngle: selected,
+        post,
+        discoveryInsight: editorial.discoveryInsight,
+        editorialMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      lastError = error;
+      console.warn("[PostCraft] editorial_angle_rejected", {
+        angle: selected.angle,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("PostCraft could not produce a validated editorial draft from the selected story.");
 }
 
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
-  const editorial = await buildEditorialPass(story);
+  const normalizedStory: Story = {
+    ...story,
+    topic: decodeHtmlEntities(story.topic),
+    headline: decodeHtmlEntities(story.headline),
+    source: decodeHtmlEntities(story.source),
+    summary: decodeHtmlEntities(story.summary),
+    url: story.url,
+  };
+  const editorial = await buildEditorialPass(normalizedStory);
 
   console.info(
     `[PostCraft] editorial_ms=${Date.now() - startedAt} model_only=true evidence=${editorial.evidence.length} angles=${editorial.angles.length}`
@@ -412,11 +486,14 @@ export async function generateEditorialAngles(story: Story) {
   return {
     angles: editorial.angles,
     evidence: editorial.evidence,
+    discoveryInsight: editorial.discoveryInsight,
   };
 }
 
+export { decodeHtmlEntities as decodeEditorialEntities };
+
 export function sanitizeLinkedInPost(value: string) {
-  return value
+  return normalizeGeneratedText(value, { plainPunctuation: true })
     .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
     .replace(/\bhttps?:\/\/\S+/gi, "")
@@ -432,6 +509,10 @@ function validateEvidence(value: unknown): Evidence[] {
 
 function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   const words = post.trim().split(/\s+/).filter(Boolean);
+
+  // LinkedIn copy is intentionally short: the infographic carries the visual
+  // depth, while the text below it delivers a fast hook and concise context.
+  if (words.length < 60 || words.length > 120) return false;
 
   // Anchor validation should follow the actual story, not a fixed topic list.
   // This prevents valid posts about new companies, products, people, or domains
@@ -462,10 +543,83 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
     if (postTerms.has(term)) sharedTerms += 1;
   }
 
-  // LinkedIn copy is intentionally concise because the infographic carries
-  // the visual depth. The text should stand on its own without becoming an
-  // article-length summary.
-  return words.length >= 60 && words.length <= 120 && sharedTerms >= 2;
+  return sharedTerms >= 2;
+}
+
+function getConcreteEvidenceTerms(
+  story: Story,
+  evidence: Evidence[],
+  angle: string,
+) {
+  const stopWords = new Set([
+    "about", "after", "again", "also", "among", "been", "being", "could",
+    "does", "from", "have", "into", "just", "more", "most", "only", "over",
+    "said", "same", "some", "than", "that", "their", "them", "then", "there",
+    "these", "they", "this", "those", "through", "under", "very", "what",
+    "when", "where", "which", "while", "with", "would", "your", "story",
+    "report", "reports", "according", "because", "should", "article",
+    "source", "selected", "interesting", "important", "today", "people",
+    "company", "companies", "technology", "technologies", "business",
+    "development", "question", "future", "need", "could", "might",
+    "would", "thing", "things", "really", "simply", "specific",
+  ]);
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 5 && !stopWords.has(word));
+
+  const sourceText = [
+    story.headline,
+    story.summary,
+    angle,
+    ...evidence.flatMap((item) => [item.claim, item.support]),
+  ].join(" ");
+
+  return Array.from(new Set(normalize(sourceText)));
+}
+
+function postHasConcreteEvidenceDensity(
+  post: string,
+  story: Story,
+  evidence: Evidence[],
+  angle: string,
+) {
+  const anchors = getConcreteEvidenceTerms(story, evidence, angle);
+  const lowerPost = post.toLowerCase();
+
+  const matchedAnchors = anchors.filter((term) =>
+    lowerPost.includes(term),
+  );
+
+  const paragraphs = post
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    // The first three blocks are the headline and the two deliberate hook
+    // lines. Evidence-density validation applies to the explanatory body.
+    .slice(3);
+
+  const substantiveParagraphs = paragraphs.filter(
+    (paragraph) => paragraph.split(/\s+/).filter(Boolean).length >= 15,
+  );
+
+  const paragraphsWithEvidence = substantiveParagraphs.filter((paragraph) => {
+    const lowerParagraph = paragraph.toLowerCase();
+    return anchors.some((term) => lowerParagraph.includes(term));
+  });
+
+  return {
+    ok:
+      matchedAnchors.length >= 2 &&
+      substantiveParagraphs.length > 0 &&
+      paragraphsWithEvidence.length === substantiveParagraphs.length,
+    matchedAnchors: matchedAnchors.slice(0, 8),
+    substantiveParagraphs: substantiveParagraphs.length,
+    paragraphsWithEvidence: paragraphsWithEvidence.length,
+  };
 }
 
 function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[], angle: string) {
@@ -502,22 +656,76 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
   return titleMatches >= 1 && supportMatches >= 2;
 }
 
-function postHasGenericFiller(post: string) {
-  return [
-    "the useful point in this story is",
-    "the specific change described in the source",
-    "rather than a broader claim about ai",
+function getMetaEditorialPhrases(post: string) {
+  // Only flag unmistakable generation/section labels. Phrases such as
+  // "this angle" or "this perspective" can be perfectly natural in a human
+  // LinkedIn post and must not cause a false rejection.
+  const phrases = [
+    "### linkedin post",
+    "## linkedin post",
+    "linkedin post:",
+    "the strongest supported tension in this angle",
+    "another strong implication in this angle",
+    "the strongest angle is",
+    "the key takeaway is",
+    "here is the repaired post",
+    "here's the repaired post",
+    "validation failure",
+    "evidence ledger",
+    "editorial repair",
     "the concrete tension is",
+    "the useful point is",
+    "the practical question is",
+  ];
+
+  const lower = post.toLowerCase();
+  return phrases.filter((phrase) => lower.includes(phrase));
+}
+
+function getGenericFillerPhrases(post: string) {
+  const phrases = [
     "it's crucial to recognize",
     "not evenly distributed",
     "highlights the need",
     "raises a crucial question",
     "strike a balance",
     "in today's rapidly changing world",
+    "in today's rapidly evolving business landscape",
+    "in today's evolving business landscape",
+    "in the modern business landscape",
+    "in the rapidly evolving business landscape",
+    "driving the business forward",
+    "drives the business forward",
+    "highlights the importance",
+    "future of leadership",
+    "effective leadership fosters",
+    "discover how",
     "the future of work",
     "what do you think",
     "agree or disagree",
-  ].some((phrase) => post.toLowerCase().includes(phrase));
+  ];
+
+  const lower = post.toLowerCase();
+  return phrases.filter((phrase) => lower.includes(phrase));
+}
+
+function postHasGenericFiller(post: string) {
+  return getGenericFillerPhrases(post).length > 0;
+}
+
+function postHasEditorialInsight(post: string, story: Story, angle: string) {
+  const blocks = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const bodyBlocks = blocks.slice(3);
+  const body = bodyBlocks.join(" ");
+  const conclusion = bodyBlocks.at(-1) || "";
+  if (body.split(/\s+/).filter(Boolean).length < 30) return false;
+  if (conclusion.split(/\s+/).filter(Boolean).length < 10) return false;
+  if (!/[.!?]$/.test(conclusion.trim())) return false;
+  const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story);
+  const bodyLower = body.toLowerCase();
+  const anchoredTerms = angleTerms.filter((term) => bodyLower.includes(term));
+  const markers = ["but","yet","instead","rather","because","means","reveals","shows","leaves","forces","changes","shifts","depends","trade-off","tradeoff","boundary","gap","constraint","cost","risk","advantage","disadvantage","tension","unlike","while"];
+  return anchoredTerms.length >= 2 && markers.some((value) => bodyLower.includes(value));
 }
 
 export async function generateEditorialPost(
@@ -538,27 +746,185 @@ export async function generateEditorialPost(
     .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
     .join("\n");
 
-  const prompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
+  type ValidationResult = {
+    ok: boolean;
+    reasons: string[];
+    wordCount: number;
+    characterCount: number;
+    hasHook: boolean;
+    hasConcreteAnchor: boolean;
+    hasSourceGrounding: boolean;
+    hasEditorialInsight: boolean;
+    hasGenericFiller: boolean;
+    genericFillerPhrases: string[];
+    metaEditorialPhrases: string[];
+    hasNoSourceLeak: boolean;
+    evidenceDensity: {
+      ok: boolean;
+      matchedAnchors: string[];
+      substantiveParagraphs: number;
+      paragraphsWithEvidence: number;
+    };
+  };
+
+  function normalizeGeneratedPost(rawResult: string) {
+    const parsedResult = parseJson(rawResult);
+    const rawPost =
+      typeof parsedResult?.post === "string"
+        ? parsedResult.post.trim()
+        : rawResult.trim();
+
+    const decodedPost = decodeHtmlEntities(
+      rawPost
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\n"),
+    );
+
+    const normalizedPost = sanitizeLinkedInPost(decodedPost);
+    const headline = story.headline.trim();
+    const normalizedHeadline = headline
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+    const normalizedLines = normalizedPost
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const withoutDuplicateHeadline = normalizedLines.filter((line, index) => {
+      if (index === 0) return true;
+
+      const normalizedLine = line
+        .replace(/^\*\*(?:headline|title|post):\*\*\s*/i, "")
+        .replace(/^(?:headline|title|post):\s*/i, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+      return !(
+        normalizedLine === normalizedHeadline ||
+        normalizedLine.startsWith(normalizedHeadline + " ")
+      );
+    });
+
+    const body = withoutDuplicateHeadline.join("\n\n");
+    const normalizedStart = body
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+    const finalPost = normalizedStart.startsWith(normalizedHeadline)
+      ? body
+      : headline + "\n\n" + body;
+
+    return sanitizeLinkedInPost(finalPost);
+  }
+
+  function validatePost(post: string): ValidationResult {
+    const wordCount = post.split(/\s+/).filter(Boolean).length;
+    const characterCount = post.length;
+    const lines = post.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const headline = story.headline.trim();
+    const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const firstLineNormalized = (lines[0] || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const hookLines = lines.slice(1, 3);
+    const hasHook =
+      firstLineNormalized === normalizedHeadline &&
+      hookLines.length === 2 &&
+      hookLines.every((line) => line.length >= 12 && line.length <= 110) &&
+      !/^(?:the key takeaway|in conclusion|what do you think|agree or disagree)[:.!]?$/i.test(hookLines.join(" "));
+    const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
+    const hasSourceGrounding = postHasSourceGrounding(
+      post,
+      story,
+      evidence,
+      angle,
+    );
+    const hasEditorialInsight = postHasEditorialInsight(post, story, angle);
+    const genericFillerPhrases = getGenericFillerPhrases(post);
+    const hasGenericFiller = genericFillerPhrases.length > 0;
+    const metaEditorialPhrases = getMetaEditorialPhrases(post);
+    const evidenceDensity = postHasConcreteEvidenceDensity(
+      post,
+      story,
+      evidence,
+      angle,
+    );
+    const hasNoSourceLeak =
+      !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(
+        post,
+      );
+
+    const reasons: string[] = [];
+
+    if (!hasHook) {
+      reasons.push("The draft must start with the exact headline followed by two short, story-specific hook lines.");
+    }
+    if (wordCount < 60 || wordCount > 120) {
+      reasons.push(`The draft must be 60-120 words; it is ${wordCount} words.`);
+    }
+    if (characterCount < 320) {
+      reasons.push(`The draft is too short at ${characterCount} characters.`);
+    }
+    if (characterCount > 950) {
+      reasons.push(`The draft is too long at ${characterCount} characters.`);
+    }
+    if (!hasConcreteAnchor) {
+      reasons.push("The draft is not sufficiently anchored to concrete story-specific terms.");
+    }
+    if (!hasSourceGrounding) {
+      reasons.push(
+        "The draft does not contain enough distinctive evidence from the selected story.",
+      );
+    }
+    if (!hasEditorialInsight) {
+      reasons.push("The draft lacks a clear story-specific editorial insight. Connect concrete story details to a distinct tension, mechanism, trade-off, or consequence.");
+    }
+    if (hasGenericFiller) {
+      reasons.push("The draft contains generic LinkedIn or AI filler language.");
+    }
+    if (metaEditorialPhrases.length) {
+      reasons.push("The draft contains editorial-generation or section-label language instead of a finished LinkedIn post.");
+    }
+    if (!evidenceDensity.ok) {
+      reasons.push(
+        "The draft is too generic: use at least two concrete story-specific details and keep the explanatory paragraphs anchored to the supplied evidence.",
+      );
+    }
+    if (!hasNoSourceLeak) {
+      reasons.push("The draft contains a source URL or source footer.");
+    }
+
+    return {
+      ok: reasons.length === 0,
+      reasons,
+      wordCount,
+      characterCount,
+      hasHook,
+      hasConcreteAnchor,
+      hasSourceGrounding,
+      hasEditorialInsight,
+      hasGenericFiller,
+      hasNoSourceLeak,
+      genericFillerPhrases,
+      metaEditorialPhrases,
+      evidenceDensity,
+    };
+  }
+
+  const basePrompt = `You are PostCraft AI's final LinkedIn editor. Write the post directly from the selected story and the user's chosen angle.
 
 Do not search the internet. Do not add outside facts. Do not invent statistics, examples, quotes, or context. If the supplied story information is limited, make the argument from what is actually there rather than pretending you know more.
 
-Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English that a non-specialist can understand on the first reading.
+Write like a thoughtful human professional, not like an AI news summarizer. Use plain, natural English.
 
-The post MUST add an editorial proposition, not merely rewrite the source. Think in this order:
-1. Identify the concrete fact or development in the story.
-2. Find the strongest tension, trade-off, contradiction, unanswered question, or second-order implication that is actually supported by the story and selected angle.
-3. State that insight clearly in your own words.
-4. Explain why the tension matters using only the supplied evidence.
-5. END WITH A CONCLUSION that resolves the tension and tells the reader what the concrete details reveal. Do not leave the thought unfinished and do not end by merely naming the tension.
-6. Do not end with a discussion question; the post should conclude with the editorial insight.
+The post MUST add one specific editorial observation that emerges from the story's concrete details. The angle itself must name the concrete subjects, actions, products, people, jobs, decisions, places, numbers, or other distinctive details that make this story different from other stories in the same topic area. Do not merely rewrite the source. Connect at least two story details and explain the tension, trade-off, mechanism, boundary, or consequence between them. If you cannot make a genuinely story-specific observation from the supplied evidence, do not manufacture one. Do not use editorial-process language such as "strongest angle", "strongest supported tension", "editorial proposition", "key takeaway", "the story reports", "the story highlights", "the practical question is", "the useful point is", "the specific change described", or "rather than a broader claim" in the finished post.
 
-A useful test: if the post could be created by copying the source summary and replacing a few words, it has failed. The reader should come away with a distinct idea about the story, not a recap of it.
+Every factual claim must be supported by the supplied story evidence. Preserve uncertainty where the story is uncertain.
 
-Prefer structures such as "The interesting part is not X. It is Y." or "That creates a less obvious problem: ..." when they fit naturally. Do not force a template. Never end with "The concrete tension is..." or another unfinished setup.
-
-For stories about AI monitoring, AI safety, AI agents, or AI systems supervising other AI systems, examine the concrete tension between capability and oversight, including who watches the monitoring system, without inventing facts that are not in the story.
-
-Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, excessive headings, forced rhetorical questions, and phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note". Vary sentence length, keep paragraphs short, and make one clear point. Do not pretend to have personal experiences or emotions.
+Avoid corporate clichés, generic openings, inflated language, repetitive phrasing, forced rhetorical questions, and generic phrases such as "in today's rapidly changing world", "this marks a significant milestone", "the implications are profound", and "it is important to note".
 
 STORY
 Headline: ${story.headline}
@@ -577,99 +943,139 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a concise LinkedIn post of 60-120 words in 4-6 short paragraphs, aiming for 70-100 words and 320-950 characters. The infographic carries the visual depth, so the written copy should make one clear editorial point rather than become a long summary.
+Write a concise LinkedIn post of 65-105 words. Aim for 80-95 words so you stay safely below the 120-word hard limit. The infographic will appear ABOVE this text on LinkedIn, so the written copy must complement the visual rather than repeat it.
 
-IMPORTANT TITLE RULE:
-Start the post itself with the exact story headline as a standalone first line. Do not hide the headline in metadata or leave it only in the source card. After the title, continue with the editorial point of view in natural language.
+LINKEDIN STRUCTURE:
+Line 1: the exact story headline as a standalone line.
+Line 2: a short, punchy hook that creates curiosity using a concrete detail or tension from this story.
+Line 3: a second short hook line that deepens the tension or tells the reader why the detail matters.
+Then use 2-3 very short paragraphs to explain the story-specific point.
 
-The first 1-2 lines after the title must earn the "see more" click with a specific fact, tension, result, or surprising implication from the story. Do not start with a greeting or a generic statement about AI, technology, business, or change.
-Do not include the source URL, "Read the original article", a source-link footer, or any other URL anywhere in the post.
+The FINAL paragraph MUST conclude the argument. It must answer: "So what does this concrete tension reveal?" or "What should the professional reader understand from these details?" The conclusion must be a complete, specific sentence grounded in the story — never "The concrete tension is...", "The key takeaway is...", "This raises questions...", or a fragment ending with "..". Do not introduce a new topic in the conclusion.
 
-Make the relationship between the story and the user's take clear. Preserve uncertainty where the story is uncertain. Avoid corporate jargon and generic motivational language. Write like a thoughtful professional who has actually read the source: use natural contractions where they fit, vary sentence length, prefer concrete nouns and verbs, and allow a little personality without pretending to have personal experience. Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", or formulaic hook language. Use no hashtags unless one is genuinely useful; never add a block of generic hashtags.
+The first three lines must feel like a deliberate LinkedIn hook, not a summary label. Avoid generic hooks such as "AI is changing everything", "The future is here", "This is a game changer", or "We need to adapt".
 
-End with ONE specific discussion question only when the story and the user's take contain a genuine tension, trade-off, disagreement, or unresolved issue worth discussing. Never use generic questions such as "What do you think?", "Agree or disagree?", or "Thoughts?".
+Do not repeat the infographic word-for-word. Let the infographic carry the key visual facts; let the text provide the sharp interpretation and context.
 
-Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
+Do not include the source URL, source footer, or any other URL.
+Do not use emojis, numbered-list filler, "here's the thing", "let's dive in", "What do you think?", "Agree or disagree?", or "Thoughts?".
 
-  // Keep the final post generation as plain text rather than JSON. The
-  // production model is intentionally small (qwen2.5:1.5b), and asking it to
-  // produce a 110-160 word post plus strict JSON structure can occasionally
-  // yield valid model output that is not parseable as JSON. The editorial pass
-  // still uses JSON because its structured evidence/angle output is needed.
-  const finalPrompt = prompt.replace(
-    `Return ONLY JSON: {"post":"the finished LinkedIn post"}`,
-    "Return ONLY the finished LinkedIn post. Do not wrap it in JSON, Markdown fences, or quotation marks."
-  );
+Return ONLY the finished LinkedIn post.`;
 
-  const rawResult = onPostToken
-    ? await provider().generateTextStream(
-        finalPrompt,
-        { temperature: 0.3, numPredict: 110 },
-        onPostToken,
-      )
-    : await provider().generateText(finalPrompt, {
-        temperature: 0.3,
-        numPredict: 180,
-      });
-
-  const parsedResult = parseJson(rawResult);
-  const rawPost =
-    typeof parsedResult?.post === "string"
-      ? parsedResult.post.trim()
-      : rawResult.trim();
-
-  const stripSourceFooter = (value: string) =>
-    value
-      .replace(/\n+\s*(?:read the original article|source|original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
-      .replace(/\n+\s*https?:\/\/\S+\s*$/i, "")
-      .replace(/\bhttps?:\/\/\S+/gi, "")
-      .replace(/[ \t]+\n/g, "\n")
-      .trim();
-
-  const normalizedPost = sanitizeLinkedInPost(rawPost);
-  const headline = story.headline.trim();
-  const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const normalizedStart = normalizedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const post = sanitizeLinkedInPost(normalizedStart.startsWith(normalizedHeadline)
-    ? normalizedPost
-    : `${headline}\n\n${normalizedPost}`);
-
-  if (!post) {
-    throw new Error("PostCraft could not produce a post from the selected angle.");
+  async function generateRaw(prompt: string) {
+    return provider().generateText(prompt, {
+      temperature: 0.3,
+      numPredict: 120,
+    });
   }
 
-  const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
-  const hasSourceGrounding = postHasSourceGrounding(post, story, evidence, angle);
-  const hasGenericFiller = postHasGenericFiller(post);
-  const hasNoSourceLeak = !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(post);
-  const blocks = post.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-  const conclusion = blocks.at(-1) || "";
-  const hasCompleteConclusion =
-    conclusion.split(/\s+/).filter(Boolean).length >= 10 &&
-    /[.!?]$/.test(conclusion) &&
-    !/^(?:the concrete tension is|the useful point is|the practical question is|this means)\b/i.test(conclusion);
-  const characterCount = post.length;
+  async function repairRaw(rejectedPost: string, validation: ValidationResult) {
+    const repairPrompt = `You are PostCraft AI's senior editorial rewrite editor.
+
+The rejected draft failed because it was structurally or editorially weak. Rewrite it from scratch if necessary. Do not preserve weak wording merely to make the validator pass.
+
+Before writing, silently answer:
+1. What actually happened in this story?
+2. Which two concrete details create the most interesting tension?
+3. What is the one useful interpretation a professional reader can take from those details?
+Then write only that interpretation, grounded in the supplied evidence. Make the final paragraph a complete conclusion that resolves the interpretation. Do not stop after naming "the concrete tension".
+
+Do not replace the story with invented information.
+
+Work ONLY from the supplied story, selected angle, and evidence.
+Do not search the internet.
+Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
+Preserve the exact headline as the first standalone line.
+Preserve the central editorial angle.
+Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
+Fix EVERY validation failure listed below.
+The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
+Strengthen concrete story-specific grounding.
+Remove generic AI/LinkedIn filler.
+At least two concrete story-specific details must appear in the repaired post.
+The body must contain a distinct interpretation or consequence tied to those details. A sentence that would fit almost any AI story is not acceptable. The final paragraph must explicitly resolve that interpretation into a concrete conclusion supported by the story.
+Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
+
+Most importantly, do not merely name the tension. Explain it and CONCLUDE it. For example, if the story shows AI-generated code or decisions being trusted over experienced workers, the post should explain what that mismatch means for how work is judged or who is trusted — using only what the supplied story supports.
+The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
+Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
+The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
+Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
+Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
+The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
+Do not include URLs or source footers.
+Return ONLY the repaired LinkedIn post.
+
+STORY
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
+
+SELECTED ANGLE
+${angle}
+
+WHY THIS ANGLE WORKS
+${angleWhy}
+
+STORY EVIDENCE
+${ledger}
+
+VALIDATION FAILURES
+${validation.reasons.map((reason) => `- ${reason}`).join("\\n")}
+
+DETECTED GENERIC PHRASES
+${validation.genericFillerPhrases.length ? validation.genericFillerPhrases.map((phrase) => `- ${phrase}`).join("\\n") : "- none"}
+
+EVIDENCE DENSITY
+Concrete anchors detected: ${validation.evidenceDensity.matchedAnchors.join(", ") || "none"}
+Substantive paragraphs: ${validation.evidenceDensity.substantiveParagraphs}
+Paragraphs containing evidence: ${validation.evidenceDensity.paragraphsWithEvidence}
+
+REJECTED DRAFT
+${rejectedPost}`;
+
+    return generateRaw(repairPrompt);
+  }
+
+  const firstRaw = await generateRaw(basePrompt);
+  const firstPost = normalizeGeneratedPost(firstRaw);
+  const firstValidation = validatePost(firstPost);
 
   console.info("[PostCraft] post_validation", {
-    wordCount: post.split(/\s+/).filter(Boolean).length,
-    hasConcreteAnchor,
-    hasSourceGrounding,
-    hasGenericFiller,
-    hasNoSourceLeak,
-    characterCount,
+    attempt: "initial",
+    ...firstValidation,
   });
 
-  if (!hasConcreteAnchor || !hasSourceGrounding || hasGenericFiller || !hasNoSourceLeak || !hasCompleteConclusion || characterCount < 320 || characterCount > 950) {
-    console.warn("[PostCraft] post_rejected", {
-      hasConcreteAnchor,
-      hasSourceGrounding,
-      hasGenericFiller,
-      hasNoSourceLeak,
-      hasCompleteConclusion,
-      characterCount,
-    });
-    throw new Error("PostCraft rejected the generated draft because it did not meet the editorial quality gate. The draft must remain grounded in the selected source and contain enough substance for LinkedIn.");
+  if (firstValidation.ok) {
+    console.info("[PostCraft] editorial_quality_gate=first_pass");
+    if (onPostToken) onPostToken(firstPost);
+    return firstPost;
   }
 
-  return post;
+  console.warn("[PostCraft] post_rejected_first_attempt", {
+    reasons: firstValidation.reasons,
+  });
+
+
+  const repairedRaw = await repairRaw(firstPost, firstValidation);
+  const repairedPost = normalizeGeneratedPost(repairedRaw);
+  const repairedValidation = validatePost(repairedPost);
+
+  console.info("[PostCraft] post_validation", {
+    attempt: "repair",
+    ...repairedValidation,
+  });
+
+  if (!repairedValidation.ok) {
+    console.error("[PostCraft] post_rejected_after_repair", {
+      reasons: repairedValidation.reasons,
+    });
+    throw new Error(
+      `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
+    );
+  }
+
+  console.info("[PostCraft] editorial_quality_gate=repaired");
+  if (onPostToken) onPostToken(repairedPost);
+  return repairedPost;
 }
