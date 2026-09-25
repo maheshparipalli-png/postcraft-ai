@@ -1,6 +1,7 @@
 "use client";
 
 import { decodeHtmlEntities } from "@/lib/text/decode-html";
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -52,9 +53,7 @@ function formatPublishedAtIST(value: string) {
 
 
 function cleanGeneratedPost(value: string) {
-  return value
-    .replace(/^\`\`\`(?:text|markdown|json)?\s*/i, "")
-    .replace(/\s*\`\`\`$/i, "")
+  return normalizeGeneratedText(value, { plainPunctuation: true })
     .replace(/^\s*(LinkedIn post|Post):\s*/i, "")
     .replace(/\n+\s*Source\s*:\s*[^\n]*$/i, "")
     .replace(/\n+\s*(?:Read the original article|Original article)\s*:?\s*https?:\/\/\S+\s*$/i, "")
