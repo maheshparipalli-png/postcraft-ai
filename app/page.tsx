@@ -751,8 +751,10 @@ function resetFromStory() {
           commentary: publishablePost,
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
-          imageUrl: publishFormat === "text" ? null : (selectedIdea?.imageUrl || null),
-          imageDataUrl: publishFormat === "text" ? undefined : (postCardImage || undefined),
+          // PostCraft's LinkedIn format is intentionally fixed:
+          // infographic first, concise text immediately below it.
+          imageUrl: null,
+          imageDataUrl: postCardImage || undefined,
           includeSourceImage: false,
         }),
       });
@@ -1159,20 +1161,11 @@ function resetFromStory() {
 
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-300/80 py-5">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Publishing format</div>
-                    <p className="mt-1 text-xs text-neutral-500">Choose what will be sent to LinkedIn.</p>
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">LinkedIn publishing format</div>
+                    <p className="mt-1 text-xs text-neutral-500">Infographic first, then the concise LinkedIn content below it.</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {([["combined", "Text + visual"], ["text", "Text only"], ["image", "Visual only"]] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setPublishFormat(value)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium ${publishFormat === value ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-600 hover:border-neutral-600"}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                  <div className="rounded-full border border-neutral-900 bg-neutral-900 px-3 py-2 text-xs font-medium text-white">
+                    Infographic + text
                   </div>
                 </div>
 
@@ -1209,7 +1202,7 @@ function resetFromStory() {
                       {post.trim() || "Your final LinkedIn post will appear here."}
                     </div>
                     <div className="mt-6 border-t border-neutral-200 pt-4 text-[11px] leading-5 text-neutral-500">
-                      No additional AI generation or editorial rewriting happens between this preview and publishing.
+                      No additional AI generation or editorial rewriting happens between this preview and publishing. LinkedIn will receive the infographic first, followed by this exact text.
                     </div>
                   </div>
                 </div>
