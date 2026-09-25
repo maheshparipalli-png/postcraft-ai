@@ -902,7 +902,9 @@ LINKEDIN STRUCTURE:
 Line 1: the exact story headline as a standalone line.
 Line 2: a short, punchy hook that creates curiosity using a concrete detail or tension from this story.
 Line 3: a second short hook line that deepens the tension or tells the reader why the detail matters.
-Then use 2-3 very short paragraphs to explain the story-specific point and finish with one concise takeaway.
+Then use 2-3 very short paragraphs to explain the story-specific point.
+
+The FINAL paragraph MUST conclude the argument. It must answer: "So what does this concrete tension reveal?" or "What should the professional reader understand from these details?" The conclusion must be a complete, specific sentence grounded in the story — never "The concrete tension is...", "The key takeaway is...", "This raises questions...", or a fragment ending with "..". Do not introduce a new topic in the conclusion.
 
 The first three lines must feel like a deliberate LinkedIn hook, not a summary label. Avoid generic hooks such as "AI is changing everything", "The future is here", "This is a game changer", or "We need to adapt".
 
@@ -929,7 +931,7 @@ Before writing, silently answer:
 1. What actually happened in this story?
 2. Which two concrete details create the most interesting tension?
 3. What is the one useful interpretation a professional reader can take from those details?
-Then write only that interpretation, grounded in the supplied evidence.
+Then write only that interpretation, grounded in the supplied evidence. Make the final paragraph a complete conclusion that resolves the interpretation. Do not stop after naming "the concrete tension".
 
 Do not replace the story with invented information.
 
@@ -944,10 +946,13 @@ The exact generic filler and meta-editorial phrases detected by the validator ar
 Strengthen concrete story-specific grounding.
 Remove generic AI/LinkedIn filler.
 At least two concrete story-specific details must appear in the repaired post.
-The body must contain a distinct interpretation or consequence tied to those details. A sentence that would fit almost any AI story is not acceptable.
+The body must contain a distinct interpretation or consequence tied to those details. A sentence that would fit almost any AI story is not acceptable. The final paragraph must explicitly resolve that interpretation into a concrete conclusion supported by the story.
 Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
+
+Most importantly, do not merely name the tension. Explain it and CONCLUDE it. For example, if the story shows AI-generated code or decisions being trusted over experienced workers, the post should explain what that mismatch means for how work is judged or who is trusted — using only what the supplied story supports.
 The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
 Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
+The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
 Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
 The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
