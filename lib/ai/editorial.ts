@@ -321,7 +321,7 @@ Use exactly this structure:
     await provider().generateText(prompt, {
       format: "json",
       temperature: 0.2,
-      numPredict: 220,
+      numPredict: 120,
     })
   );
 
@@ -604,7 +604,7 @@ Return ONLY JSON: {"post":"the finished LinkedIn post"}`;
   const rawResult = onPostToken
     ? await provider().generateTextStream(
         finalPrompt,
-        { temperature: 0.3, numPredict: 180 },
+        { temperature: 0.3, numPredict: 110 },
         onPostToken,
       )
     : await provider().generateText(finalPrompt, {
