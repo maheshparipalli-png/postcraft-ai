@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     // Never display a discovery story unless PostCraft can actually produce
     // a validated editorial post for it.
     const candidatesForDisplay = usableResearch.slice(0, Math.min(8, usableResearch.length));
-    const editorialReady: typeof candidatesForDisplay = [];
+    const editorialReady: Array<{ item: (typeof candidatesForDisplay)[number]; draft: Awaited<ReturnType<typeof generateEditorialDraft>> }> = [];
     const concurrency = 2;
 
     for (let start = 0; start < candidatesForDisplay.length; start += concurrency) {
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
               url: item.url,
             });
 
-            return draft.post.trim() ? item : null;
+            return draft.post.trim() ? { item, draft } : null;
           } catch (error) {
             console.warn("[PostCraft] discovery_editorial_preflight_rejected", {
               url: item.url,
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
 
       editorialReady.push(
         ...results.filter(
-          (item): item is (typeof candidatesForDisplay)[number] => Boolean(item),
+          (result): result is NonNullable<typeof result> => Boolean(result),
         ),
       );
     }
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const ideas = editorialReady.map((item, index) => {
+    const ideas = editorialReady.map(({ item, draft }, index) => {
       const title = decodeHtmlEntities(item.title);
       const description = decodeHtmlEntities(item.snippet);
       const source = decodeHtmlEntities(item.source);
@@ -216,7 +216,10 @@ export async function POST(request: Request) {
       return {
         title,
         description,
-        whyItMatters: getWhyItStandsOut(title, description, item.interest),
+        whyItMatters:
+          draft.discoveryInsight ||
+          draft.selectedAngle?.why ||
+          getWhyItStandsOut(title, description, item.interest),
         sourceIndexes: [index],
         interest: item.interest,
         source,
