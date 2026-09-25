@@ -416,7 +416,11 @@ export async function generateEditorialDraft(
     throw new Error("This story did not contain enough concrete evidence for a genuinely story-specific editorial angle. PostCraft will not manufacture a generic AI post.");
   }
 
-  const candidates = ranked.slice(0, 2);
+  // Keep production generation bounded. A remote Ollama model can be slow,
+  // and retrying multiple editorial angles multiplies the latency. The ranked
+  // top angle is already grounded and quality-scored, while generateEditorialPost
+  // itself retains one repair pass when the first draft fails validation.
+  const candidates = ranked.slice(0, 1);
   let lastError: unknown = null;
 
   for (const selected of candidates) {
