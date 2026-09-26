@@ -1038,7 +1038,7 @@ Every substantive paragraph after the opening must contain at least one concrete
 The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
 Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
-The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
+The first 1-2 non-empty lines must be original, story-specific LinkedIn hooks. Never put the exact source headline, or a close paraphrase of it, in the opening. Keep the opening concise so there is enough room for the explanatory paragraphs within the word limit.
 Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
 
