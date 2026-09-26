@@ -160,17 +160,23 @@ type RankedAngle = Angle & {
 
 function angleLooksLikeSummary(angle: Angle, story: Story) {
   const storyTerms = new Set(
-    normalizeAngleText(story.summary)
+    normalizeAngleText(story.headline + " " + story.summary)
       .split(" ")
       .filter((word) => word.length >= 5),
   );
+
   const angleTerms = normalizeAngleText(angle.angle)
     .split(" ")
     .filter((word) => word.length >= 5);
 
-  if (angleTerms.length < 6) return true;
+  // Descriptive stories naturally reuse concrete terminology from the source.
+  // Reject only near-verbatim copies, not grounded editorial interpretations.
+  if (angleTerms.length < 8) return false;
+
   const shared = angleTerms.filter((word) => storyTerms.has(word)).length;
-  return shared / angleTerms.length >= 0.68;
+  const overlap = shared / angleTerms.length;
+
+  return angleTerms.length >= 16 && overlap >= 0.90;
 }
 
 function angleHasInterpretation(angle: Angle) {
@@ -301,48 +307,53 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Return ONE concrete editorial angle, not a summary and not a broad AI/technology theme.
+Create ONE concise editorial thesis that explains what the combination of facts in this story means.
 
-The angle must:
-- use at least two distinctive story details;
-- explain a specific tension, trade-off, mechanism, boundary, dependency, or consequence;
-- be understandable only because of THIS story;
-- avoid invented motives, causation, statistics, examples, quotes, or outside context;
-- avoid generic themes such as "AI is changing work", "people need to adapt", "future of work", "responsible innovation", "improve efficiency", or "raises questions".
+Use at least two concrete details from the headline or summary.
+Create a clear contrast, tension, consequence, trade-off, mechanism, or relationship.
+A descriptive story is valid. Do not require a dramatic controversy.
+The thesis must explain the story, not give generic advice.
 
-Return ONLY valid JSON in this exact shape:
-{
-  "evidence": [
-    {"claim": "short concrete fact from the story", "support": "supporting headline or summary detail", "type": "fact"}
-  ],
-  "angle": {
-    "angle": "one specific editorial thesis",
-    "why": "one short explanation of the story-specific tension",
-    "evidence": "two concrete story details supporting the thesis"
-  }
-}`;
+Never end with generic advice such as strategic planning, strategic preparedness, risk management, the need to adapt, policy action, or preparedness.
+Do not invent facts, motives, statistics, quotes, examples, or outside context.
 
-  const parsed = parseJson(
-    await provider().generateText(prompt, {
-      format: "json",
-      temperature: 0.2,
-      numPredict: 64,
-    }),
-  );
+For example, if the story says India's economy remains resilient while geopolitical tensions and weather risks are significant, focus on the tension between current resilience and the external risks that could test that resilience.
 
-  let evidence = parseEvidence(parsed?.evidence);
-  const parsedAngles = parseAngles(
-    parsed?.angle ? [parsed.angle] : parsed?.angles,
-  );
-  const angles = selectSafeAngles(parsedAngles);
+Return ONLY valid JSON:
+{"angle":"one concise story-specific editorial thesis"}`;
 
-  if (!evidence.length && angles.length) {
-    evidence = angles.slice(0, 1).map((angle) => ({
-      claim: angle.angle,
-      support: angle.evidence.trim(),
-      type: "fact" as const,
-    }));
-  }
+  const plannerRaw = await provider().generateText(prompt, {
+    format: "json",
+    temperature: 0.2,
+    numPredict: 80,
+  });
+
+  const parsed = parseJson(plannerRaw);
+
+  const angleText =
+    typeof parsed?.angle === "string"
+      ? normalizeGeneratedText(parsed.angle, { plainPunctuation: true })
+      : "";
+
+  const angles = angleText
+    ? selectSafeAngles([
+        {
+          angle: angleText,
+          why: "This connects concrete details from the selected story.",
+          evidence: story.summary,
+        },
+      ])
+    : [];
+
+  const evidence = angles.length
+    ? [
+        {
+          claim: angles[0].angle,
+          support: angles[0].evidence.trim(),
+          type: "fact" as const,
+        },
+      ]
+    : [];
 
   return {
     evidence,
@@ -874,19 +885,21 @@ export async function generateEditorialPost(
     };
   }
 
-  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, angle, and evidence.
+  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, selected editorial thesis, and evidence.
 
 Rules:
-- Use ONLY the supplied story. No web search, outside facts, invented numbers, examples, quotes, motives, or causation.
-- Write like a thoughtful human professional in plain English.
+- Use ONLY the supplied story, thesis, and evidence. No outside facts, invented numbers, examples, quotes, motives, or causation.
+- The selected angle is the CENTRAL THESIS of the post. Do not replace it with generic advice.
 - First three non-empty lines MUST be:
   1) the exact story headline
-  2) a short story-specific hook
-  3) a second short story-specific hook
-- Then write 2-3 short paragraphs.
-- The body must connect at least two concrete story details and explain one specific tension, trade-off, mechanism, boundary, or consequence.
-- The final paragraph must complete the thought with a specific conclusion grounded in the story.
-- Avoid generic AI/LinkedIn filler, broad themes, rhetorical engagement bait, and editorial-process language.
+  2) a short hook using one concrete story detail
+  3) a second short hook using another concrete story detail or the central tension
+- Then write 2-3 short explanatory paragraphs.
+- The body must explain the relationship between at least two concrete story details.
+- Make the central tension, trade-off, mechanism, or consequence explicit.
+- End with a complete, specific conclusion that resolves the thesis using the supplied evidence.
+- Do not use generic advice such as strategic planning, preparedness, risk management, the need to adapt, or broad calls for policy action unless the supplied story explicitly supports it.
+- Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
 - Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
 - The infographic appears above the text, so complement it rather than repeat it.
 - Length: 65-105 words; target 80-95 words; hard maximum 120 words and 950 characters.
@@ -897,7 +910,7 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-SELECTED ANGLE
+SELECTED ANGLE / CENTRAL THESIS
 ${angle}
 
 WHY THIS ANGLE WORKS
@@ -907,9 +920,9 @@ STORY EVIDENCE
 ${ledger}
 
 USER'S TAKE
-${modeInstruction}`;
+${modeInstruction}
 
-
+`;
 
   async function generateRaw(prompt: string) {
     return provider().generateText(prompt, {
