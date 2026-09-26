@@ -316,17 +316,19 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Create ONE concise editorial thesis that explains what the combination of facts in this story means.
+Create ONE concise editorial thesis that adds interpretation without adding facts.
 
 Use at least two concrete details from the headline or summary.
-Create a clear contrast, tension, consequence, trade-off, mechanism, or relationship.
+Identify the most important relationship between those details: a contrast, tension, consequence, trade-off, mechanism, or condition.
+Prefer an insight that explains WHY the details matter together, rather than simply restating them.
 A descriptive story is valid. Do not require a dramatic controversy.
-The thesis must explain the story, not give generic advice.
 
-Never end with generic advice such as strategic planning, strategic preparedness, risk management, the need to adapt, policy action, or preparedness.
+Avoid generic advice or abstract conclusions such as strategic planning, preparedness, risk management, balanced approaches, mitigating risks, maintaining stability, the need to adapt, or policy action.
 Do not invent facts, motives, statistics, quotes, examples, or outside context.
+Do not use phrases such as "highlighting the need", "balanced approach", "mitigate risks", or "maintain stability".
 
-For example, if the story says India's economy remains resilient while geopolitical tensions and weather risks are significant, focus on the tension between current resilience and the external risks that could test that resilience.
+For this kind of story, "India is resilient but that resilience is being tested by geopolitical and weather risks" is a useful interpretation; "India remains resilient despite risks" is only a summary.
+The thesis should be specific enough that a writer can build the whole post around it.
 
 Return ONLY valid JSON:
 {"angle":"one concise story-specific editorial thesis"}`;
