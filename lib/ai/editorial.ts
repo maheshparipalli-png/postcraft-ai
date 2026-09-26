@@ -750,9 +750,8 @@ function buildGroundedPostFallback(story: Story, angle: string) {
     `${bodyEvidence} That makes the story more than a simple resilience update: the financial and external position is holding firm today, while geopolitical tensions and weather risks could test how durable that resilience remains.`,
   ].join("\n\n");
 
-  const originalHook = angle.trim() || hookOne;
   return sanitizeLinkedInPost(
-    [originalHook, hookOne, hookTwo, body]
+    [story.headline.trim(), hookOne, hookTwo, body]
       .filter(Boolean)
       .join("\n\n"),
   );
@@ -839,20 +838,17 @@ export async function generateEditorialPost(
       );
     });
 
-    // The source headline is context, not copy. Never force it into the LinkedIn post.
-    // If the model repeats the exact headline as an opening line, remove that line
-    // rather than reinforcing the repetition.
-    const bodyLines = withoutDuplicateHeadline.filter((line, index) => {
-      if (index !== 0) return true;
-      const normalizedLine = line
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-      return normalizedLine !== normalizedHeadline &&
-        !normalizedLine.startsWith(normalizedHeadline + " ");
-    });
+    const body = withoutDuplicateHeadline.join("\n\n");
+    const normalizedStart = body
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
 
-    return sanitizeLinkedInPost(bodyLines.join("\n\n"));
+    const finalPost = normalizedStart.startsWith(normalizedHeadline)
+      ? body
+      : headline + "\n\n" + body;
+
+    return sanitizeLinkedInPost(finalPost);
   }
 
   function validatePost(post: string): ValidationResult {
@@ -862,15 +858,11 @@ export async function generateEditorialPost(
     const headline = story.headline.trim();
     const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     const firstLineNormalized = (lines[0] || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const headlineSimilarity = angleSimilarity(firstLineNormalized, normalizedHeadline);
-    const hasSourceHeadlineOpening =
-      firstLineNormalized === normalizedHeadline ||
-      headlineSimilarity >= 0.82;
-    const hookLines = lines.slice(0, 2);
+    const hookLines = lines.slice(1, 3);
     const hasHook =
-      hookLines.length >= 1 &&
-      hookLines.every((line) => line.length >= 20 && line.length <= 180) &&
-      !hasSourceHeadlineOpening &&
+      firstLineNormalized === normalizedHeadline &&
+      hookLines.length === 2 &&
+      hookLines.every((line) => line.length >= 12 && line.length <= 110) &&
       !/^(?:the key takeaway|in conclusion|what do you think|agree or disagree)[:.!]?$/i.test(hookLines.join(" "));
     const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
     const hasSourceGrounding = postHasSourceGrounding(
@@ -896,10 +888,8 @@ export async function generateEditorialPost(
 
     const reasons: string[] = [];
 
-    // Hook structure is advisory. The post can still pass when a small local
-    // model produces a natural opening that does not match the exact 3-block shape.
     if (!hasHook) {
-      reasons.push("The opening must be an original story-specific hook, not the source headline.");
+      console.info("[PostCraft] quality_warning=hook_structure");
     }
     if (wordCount < 50 || wordCount > 120) {
       reasons.push(`The draft must be 50-120 words; it is ${wordCount} words.`);
@@ -964,10 +954,10 @@ export async function generateEditorialPost(
 Rules:
 - Use ONLY the supplied story, thesis, and evidence. No outside facts, invented numbers, examples, quotes, motives, or causation.
 - The selected angle is the CENTRAL THESIS of the post. Do not replace it with generic advice.
-- The opening MUST be original LinkedIn copy. Do NOT use the source headline as the first line.
-- Start with a strong, story-specific hook built from the selected editorial thesis.
-- The first 1-2 lines should create curiosity or state the central tension using concrete story details.
-- Do not reproduce the source headline with minor wording changes.
+- First three non-empty lines MUST be:
+  1) the exact story headline
+  2) a short hook using one concrete story detail
+  3) a second short hook using another concrete story detail or the central tension
 - Then write 2-3 short explanatory paragraphs.
 - The body must explain the relationship between at least two concrete story details.
 - Make the central tension, trade-off, mechanism, or consequence explicit.
@@ -1021,8 +1011,8 @@ Do not replace the story with invented information.
 Work ONLY from the supplied story, selected angle, and evidence.
 Do not search the internet.
 Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
-Do NOT copy or reproduce the source headline as the opening.
-Preserve the central editorial angle and make the opening original.
+Preserve the exact headline as the first standalone line.
+Preserve the central editorial angle.
 Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
 Fix EVERY validation failure listed below.
 The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
@@ -1033,12 +1023,12 @@ The body must contain a distinct interpretation or consequence tied to those det
 Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
 
 Most importantly, do not merely name the tension. Explain it and CONCLUDE it. For example, if the story shows AI-generated code or decisions being trusted over experienced workers, the post should explain what that mismatch means for how work is judged or who is trusted — using only what the supplied story supports.
-The opening must be an original, punchy story-specific hook. Never use the exact source headline or a close paraphrase as the opening.
-Every substantive paragraph after the opening must contain at least one concrete detail from the supplied evidence.
+The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
+Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
 Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
-The first 1-2 non-empty lines must be original, story-specific LinkedIn hooks. Never put the exact source headline, or a close paraphrase of it, in the opening. Keep the opening concise so there is enough room for the explanatory paragraphs within the word limit.
+The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
 Do not include URLs or source footers.
 Return ONLY the repaired LinkedIn post.
 
