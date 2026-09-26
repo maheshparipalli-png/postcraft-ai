@@ -718,6 +718,37 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
   return anchoredTerms.length >= 2 && markers.some((value) => bodyLower.includes(value));
 }
 
+function buildGroundedPostFallback(story: Story, angle: string) {
+  const summarySentences = story.summary
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const primarySentence = summarySentences[0] || story.summary.trim();
+  const clauses = primarySentence
+    .split(/,\s+(?=(?:while|but|and|yet|as|because)\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const hookOne = clauses[0] || primarySentence;
+  const hookTwo =
+    clauses[1] ||
+    summarySentences[1] ||
+    "The reported risks sit alongside that current resilience.";
+
+  const bodyEvidence = summarySentences.join(" ");
+  const body = [
+    `${angle} This contrast is the central point: the story describes resilience while also identifying specific pressures that could test it.`,
+    `${bodyEvidence} That makes the current picture more nuanced than either a simple growth story or a warning story. The evidence points to strength today alongside risks that could shape how durable that strength proves to be.`,
+  ].join("\n\n");
+
+  return sanitizeLinkedInPost(
+    [story.headline.trim(), hookOne, hookTwo, body]
+      .filter(Boolean)
+      .join("\n\n"),
+  );
+}
+
 export async function generateEditorialPost(
   story: Story,
   angle: string,
@@ -1047,16 +1078,31 @@ ${rejectedPost}`;
     ...repairedValidation,
   });
 
-  if (!repairedValidation.ok) {
-    console.warn("[PostCraft] post_rejected_after_repair", {
-      reasons: repairedValidation.reasons,
-    });
-    throw new Error(
-      `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
-    );
+  if (repairedValidation.ok) {
+    console.info("[PostCraft] editorial_quality_gate=repaired");
+    if (onPostToken) onPostToken(repairedPost);
+    return repairedPost;
   }
 
-  console.info("[PostCraft] editorial_quality_gate=repaired");
-  if (onPostToken) onPostToken(repairedPost);
-  return repairedPost;
+  const fallbackPost = buildGroundedPostFallback(story, angle);
+  const fallbackValidation = validatePost(fallbackPost);
+
+  console.warn("[PostCraft] post_validation", {
+    attempt: "grounded_fallback",
+    ...fallbackValidation,
+  });
+
+  if (fallbackValidation.ok) {
+    console.info("[PostCraft] editorial_quality_gate=grounded_fallback");
+    if (onPostToken) onPostToken(fallbackPost);
+    return fallbackPost;
+  }
+
+  console.warn("[PostCraft] post_rejected_after_grounded_fallback", {
+    reasons: fallbackValidation.reasons,
+  });
+
+  throw new Error(
+    `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
+  );
 }
