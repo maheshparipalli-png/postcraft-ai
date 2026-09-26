@@ -42,29 +42,26 @@ function trimToCompleteSentences(value: string, maxLength: number) {
   return text.slice(0, maxLength).replace(/\s+\S*$/, "").trim() + "…";
 }
 
-function createVisualCopy(generated: string, angle: string) {
-  const cleaned = generated
-    .replace(/^\s*(this post|based on|read the original)[^\n]*\n?/i, "")
-    .replace(/\n+Read the original article:[\s\S]*$/i, "")
-    .trim();
-  const paragraphs = cleaned.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
-  const body = (paragraphs[0] || cleaned).replace(/\s+/g, " ").trim();
-  const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
-  const sentence = sentences[0] || body;
-  const headline = sentence.length >= 35 && sentence.length <= 115
-    ? sentence
-    : angle.trim() || "A considered point of view on the latest development.";
-  const remaining = sentences.filter((item) => item !== sentence);
-  const points = remaining.slice(0, 3).map((item) => trimToCompleteSentences(item, 150).replace(/[.!?]+$/, ""));
-  const takeaway = (sentences[sentences.length - 1] || remaining[remaining.length - 1] || "")
-    .replace(/[.!?]+$/, "")
-    .trim();
-  const supportingBody = body === sentence ? (paragraphs[1] || "") : body;
+function createVisualCopy(
+  generated: string,
+  angle: string,
+  sourceSummary: string,
+  sourceTitle: string,
+) {
+  // Keep the LinkedIn post and the infographic complementary:
+  // the post carries the editorial interpretation, while the visual carries
+  // source-grounded facts. Do not copy the generated post or angle into the card.
+  const summarySentences =
+    sourceSummary.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
+  const points = summarySentences
+    .slice(0, 3)
+    .map((item) => trimToCompleteSentences(item, 150).replace(/[.!?]+$/, ""));
+
   return {
-    headline: headline.replace(/[.!?]+$/, ""),
-    body: trimToCompleteSentences(supportingBody, 220),
+    headline: sourceTitle.trim(),
+    body: "",
     points,
-    takeaway,
+    takeaway: "",
   };
 }
 
@@ -170,7 +167,7 @@ async function buildDraft(interests: ContentInterest[]) {
           const sourcePublication = story.source.trim() || "the original publisher";
           const sourceDate = formatDate(verified.publishedAt || candidate.publishedAt);
           const attribution = `Based on a ${sourcePublication} article, ${sourceDate}`;
-          const visual = createVisualCopy(generated.trim(), bestAngle.angle);
+          const visual = createVisualCopy(generated.trim(), bestAngle.angle, story.summary, sourceTitle);
 
           return {
             ok: true as const,
