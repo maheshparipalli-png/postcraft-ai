@@ -18,25 +18,14 @@ type AutoRunFailure = { error?: string; attempts?: number; details?: string[] };
 const STORAGE_KEY = "postcraft-active-daily-draft";
 
 function fallbackVisual(preview: Preview): VisualCopy {
-  const text = preview.post
-    .replace(/^This post is based on[^\n]*\n*/i, "")
-    .replace(/\n+Read the original article:[\s\S]*$/i, "")
-    .replace(/\bhttps?:\/\/\S+/gi, "")
-    .trim();
-
-  const paragraphs = text.split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
-  const bodyText = paragraphs.length > 1 ? paragraphs.slice(1).join(" ") : text;
-  const sentences = bodyText.match(/[^.!?]+[.!?]+/g)?.map((item) => item.trim()).filter(Boolean) ?? [];
-  const points = sentences.slice(0, 3).map((item) => item.replace(/[.!?]+$/, ""));
-  const takeaway = sentences.length > 3
-    ? sentences[sentences.length - 1].replace(/[.!?]+$/, "")
-    : (preview.angle?.angle || "").replace(/[.!?]+$/, "");
-
+  // Persisted drafts created before the source-grounded infographic change do
+  // not contain a visual payload. Never reconstruct that visual from the
+  // LinkedIn post or editorial angle, because that duplicates the post.
   return {
     headline: preview.article.title.trim(),
-    body: preview.angle?.angle?.trim() || "",
-    points,
-    takeaway,
+    body: "",
+    points: [],
+    takeaway: "",
     attribution: preview.article.source ? `Source: ${preview.article.source}` : "",
   };
 }
