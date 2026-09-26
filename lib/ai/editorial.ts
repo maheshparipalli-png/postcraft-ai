@@ -124,6 +124,11 @@ function isForbiddenAngle(angle: Angle) {
     "raises questions",
     "raises a question",
     "highlights the need",
+    "strategic planning",
+    "strategic preparedness",
+    "risk management",
+    "risk mitigation",
+    "need for preparedness",
     "could exacerbate",
     "may exacerbate",
     "winner-takes-all",
@@ -1027,17 +1032,3 @@ ${rejectedPost}`;
     attempt: "repair",
     ...repairedValidation,
   });
-
-  if (!repairedValidation.ok) {
-    console.error("[PostCraft] post_rejected_after_repair", {
-      reasons: repairedValidation.reasons,
-    });
-    throw new Error(
-      `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
-    );
-  }
-
-  console.info("[PostCraft] editorial_quality_gate=repaired");
-  if (onPostToken) onPostToken(repairedPost);
-  return repairedPost;
-}
