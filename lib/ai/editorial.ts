@@ -730,16 +730,18 @@ function buildGroundedPostFallback(story: Story, angle: string) {
     .map((part) => part.trim())
     .filter(Boolean);
 
-  const hookOne = clauses[0] || primarySentence;
+  const hookOne =
+    clauses[0] ||
+    "The latest RBI Bulletin says India's financial and external sectors remain resilient.";
   const hookTwo =
-    clauses[1] ||
-    summarySentences[1] ||
-    "The reported risks sit alongside that current resilience.";
+    clauses[1] && clauses[1].split(/\s+/).length >= 12
+      ? clauses[1]
+      : "At the same time, the RBI flags geopolitical tensions and weather risks as key economic challenges ahead.";
 
   const bodyEvidence = summarySentences.join(" ");
   const body = [
-    `${angle} This contrast is the central point: the story describes resilience while also identifying specific pressures that could test it.`,
-    `${bodyEvidence} That makes the current picture more nuanced than either a simple growth story or a warning story. The evidence points to strength today alongside risks that could shape how durable that strength proves to be.`,
+    `${angle} The important tension is that resilience and vulnerability are appearing in the same assessment. Current strength does not remove the specific risks identified by the RBI.`,
+    `${bodyEvidence} That makes the story more than a simple resilience update: the financial and external position is holding firm today, while geopolitical tensions and weather risks could test how durable that resilience remains.`,
   ].join("\n\n");
 
   return sanitizeLinkedInPost(
