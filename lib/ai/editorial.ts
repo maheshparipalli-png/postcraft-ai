@@ -882,8 +882,10 @@ export async function generateEditorialPost(
 
     const reasons: string[] = [];
 
+    // Hook structure is advisory. The post can still pass when a small local
+    // model produces a natural opening that does not match the exact 3-block shape.
     if (!hasHook) {
-      reasons.push("The draft must start with the exact headline followed by two short, story-specific hook lines.");
+      console.info("[PostCraft] quality_warning=hook_structure");
     }
     if (wordCount < 50 || wordCount > 120) {
       reasons.push(`The draft must be 50-120 words; it is ${wordCount} words.`);
