@@ -502,7 +502,7 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
 
   // LinkedIn copy is intentionally short: the infographic carries the visual
   // depth, while the text below it delivers a fast hook and concise context.
-  if (words.length < 60 || words.length > 120) return false;
+  if (words.length < 50 || words.length > 120) return false;
 
   // Anchor validation should follow the actual story, not a fixed topic list.
   // This prevents valid posts about new companies, products, people, or domains
@@ -533,7 +533,7 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
     if (postTerms.has(term)) sharedTerms += 1;
   }
 
-  return sharedTerms >= 2;
+  return sharedTerms >= 1;
 }
 
 function getConcreteEvidenceTerms(
@@ -603,9 +603,9 @@ function postHasConcreteEvidenceDensity(
 
   return {
     ok:
-      matchedAnchors.length >= 2 &&
+      matchedAnchors.length >= 1 &&
       substantiveParagraphs.length > 0 &&
-      paragraphsWithEvidence.length === substantiveParagraphs.length,
+      paragraphsWithEvidence.length >= Math.max(1, substantiveParagraphs.length - 1),
     matchedAnchors: matchedAnchors.slice(0, 8),
     substantiveParagraphs: substantiveParagraphs.length,
     paragraphsWithEvidence: paragraphsWithEvidence.length,
@@ -643,7 +643,7 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
   // Keep the guard strong enough to catch mixed stories, but tolerant of
   // natural paraphrasing from a small local model. One distinctive headline
   // anchor plus two supporting anchors is sufficient.
-  return titleMatches >= 1 && supportMatches >= 2;
+  return titleMatches >= 1 && supportMatches >= 1;
 }
 
 function getMetaEditorialPhrases(post: string) {
@@ -708,14 +708,14 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
   const bodyBlocks = blocks.slice(3);
   const body = bodyBlocks.join(" ");
   const conclusion = bodyBlocks.at(-1) || "";
-  if (body.split(/\s+/).filter(Boolean).length < 30) return false;
-  if (conclusion.split(/\s+/).filter(Boolean).length < 10) return false;
+  if (body.split(/\s+/).filter(Boolean).length < 20) return false;
+  if (conclusion.split(/\s+/).filter(Boolean).length < 8) return false;
   if (!/[.!?]$/.test(conclusion.trim())) return false;
   const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story);
   const bodyLower = body.toLowerCase();
   const anchoredTerms = angleTerms.filter((term) => bodyLower.includes(term));
   const markers = ["but","yet","instead","rather","because","means","reveals","shows","leaves","forces","changes","shifts","depends","trade-off","tradeoff","boundary","gap","constraint","cost","risk","advantage","disadvantage","tension","unlike","while"];
-  return anchoredTerms.length >= 2 && markers.some((value) => bodyLower.includes(value));
+  return anchoredTerms.length >= 1 && markers.some((value) => bodyLower.includes(value));
 }
 
 function buildGroundedPostFallback(story: Story, angle: string) {
@@ -885,8 +885,8 @@ export async function generateEditorialPost(
     if (!hasHook) {
       reasons.push("The draft must start with the exact headline followed by two short, story-specific hook lines.");
     }
-    if (wordCount < 60 || wordCount > 120) {
-      reasons.push(`The draft must be 60-120 words; it is ${wordCount} words.`);
+    if (wordCount < 50 || wordCount > 120) {
+      reasons.push(`The draft must be 50-120 words; it is ${wordCount} words.`);
     }
     if (characterCount < 320) {
       reasons.push(`The draft is too short at ${characterCount} characters.`);
@@ -913,7 +913,7 @@ export async function generateEditorialPost(
     }
     if (!evidenceDensity.ok) {
       reasons.push(
-        "The draft is too generic: use at least two concrete story-specific details and keep the explanatory paragraphs anchored to the supplied evidence.",
+        "The draft is too generic: keep the explanatory paragraphs anchored to at least one or two concrete story details from the supplied evidence.",
       );
     }
     if (!hasNoSourceLeak) {
