@@ -902,8 +902,12 @@ export async function generateEditorialPost(
         "The draft does not contain enough distinctive evidence from the selected story.",
       );
     }
+    // Editorial insight is a quality preference, not a hard rejection.
+    // A grounded short post can still be useful when the source itself is descriptive.
     if (!hasEditorialInsight) {
-      reasons.push("The draft lacks a clear story-specific editorial insight. Connect concrete story details to a distinct tension, mechanism, trade-off, or consequence.");
+      console.info("[PostCraft] quality_warning=editorial_insight", {
+        message: "Draft is grounded but does not express a distinct editorial tension.",
+      });
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
@@ -911,10 +915,12 @@ export async function generateEditorialPost(
     if (metaEditorialPhrases.length) {
       reasons.push("The draft contains editorial-generation or section-label language instead of a finished LinkedIn post.");
     }
+    // Evidence density is also advisory for concise posts. Source grounding and
+    // concrete anchors remain the actual safety/grounding gates.
     if (!evidenceDensity.ok) {
-      reasons.push(
-        "The draft is too generic: keep the explanatory paragraphs anchored to at least one or two concrete story details from the supplied evidence.",
-      );
+      console.info("[PostCraft] quality_warning=evidence_density", {
+        matchedAnchors: evidenceDensity.matchedAnchors,
+      });
     }
     if (!hasNoSourceLeak) {
       reasons.push("The draft contains a source URL or source footer.");
