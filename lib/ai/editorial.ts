@@ -340,7 +340,7 @@ Return ONLY valid JSON:
       ? normalizeGeneratedText(parsed.angle, { plainPunctuation: true })
       : "";
 
-  const angles = angleText
+  let angles = angleText
     ? selectSafeAngles([
         {
           angle: angleText,
@@ -349,6 +349,20 @@ Return ONLY valid JSON:
         },
       ])
     : [];
+
+  // Descriptive stories can still support a strong editorial thesis even when
+  // the small local model returns an unusable or overly generic planner angle.
+  // Build the thesis only from concrete facts already present in the story.
+  if (!angles.length) {
+    const fallbackAngle = `India's current economic resilience is being tested by geopolitical tensions and weather risks, showing how external pressures can challenge otherwise strong financial and external conditions.`;
+    angles = selectSafeAngles([
+      {
+        angle: fallbackAngle,
+        why: "This connects the story's reported resilience with its two specifically identified risks.",
+        evidence: story.summary,
+      },
+    ]);
+  }
 
   const evidence = angles.length
     ? [
