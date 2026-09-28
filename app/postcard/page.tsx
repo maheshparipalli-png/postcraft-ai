@@ -783,6 +783,26 @@ export default function PostCardPage() {
               </div>
             </div>
 
+            {template === "story" && (
+              <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Choose a story</span>
+                  <select
+                    value={storyCategory || "resilience"}
+                    onChange={(e) => setStoryCategory(e.target.value)}
+                    className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
+                  >
+                    {["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"].map((field) => (
+                      <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
+                    ))}
+                  </select>
+                  <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
+                    Choose the type of story you want PostCard to create.
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="mt-5">
               <button
                 type="button"
@@ -812,18 +832,6 @@ export default function PostCardPage() {
                 </div>
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
-                  <label className="block">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Story field</span>
-                    <select
-                      value={storyCategory || "resilience"}
-                      onChange={(e) => setStoryCategory(e.target.value)}
-                      className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
-                    >
-                      {["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"].map((field) => (
-                        <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
-                      ))}
-                    </select>
-                  </label>
                   <Field label="Story title" value={headline} onChange={setHeadline} />
                   <Field label="Story" value={body} onChange={setBody} textarea />
                   <Field label="Lesson" value={closing} onChange={setClosing} textarea />
