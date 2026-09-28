@@ -3,12 +3,16 @@ const RESEND_API = "https://api.resend.com/emails";
 function getConfig() {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
+  const cc = (process.env.RESEND_CC_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
 
   if (!apiKey || !from) {
     throw new Error("Resend is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.");
   }
 
-  return { apiKey, from };
+  return { apiKey, from, cc };
 }
 
 export async function sendTrialExtendedEmail({
@@ -20,7 +24,7 @@ export async function sendTrialExtendedEmail({
   name?: string | null;
   trialEndsAt: string;
 }) {
-  const { apiKey, from } = getConfig();
+  const { apiKey, from, cc } = getConfig();
   const displayName = name?.trim() || "there";
   const endDate = new Intl.DateTimeFormat("en-IN", {
     dateStyle: "long",
@@ -36,6 +40,7 @@ export async function sendTrialExtendedEmail({
     body: JSON.stringify({
       from,
       to: [to],
+      ...(cc.length > 0 ? { cc } : {}),
       subject: "Your PostCraft Pro trial has been extended",
       html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#222">
         <p>Hi ${escapeHtml(displayName)},</p>
