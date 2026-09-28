@@ -10,6 +10,8 @@ type Subscription = {
   grace_ends_at: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
+  cancel_at_cycle_end: boolean;
+  cancellation_requested_at: string | null;
 };
 
 type BillingResponse = {
@@ -54,6 +56,7 @@ export default function BillingPage() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [subscribing, setSubscribing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   async function loadBilling() {
     try {
@@ -105,6 +108,41 @@ export default function BillingPage() {
 
   const status = billing?.status ?? "loading";
   const trialActive = status === "trialing" && remaining !== null && remaining > 0;
+  const cancellationPending =
+    billing?.subscription?.cancel_at_cycle_end === true &&
+    status === "active";
+
+  async function cancelSubscription() {
+    const confirmed = window.confirm(
+      "Cancel auto-renewal at the end of your current billing period? You will keep paid access until then.",
+    );
+    if (!confirmed) return;
+
+    setCancelling(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/billing/cancel-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelAtCycleEnd: true }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error ?? "Unable to cancel your subscription.");
+        return;
+      }
+
+      setMessage(
+        "Your subscription is scheduled to cancel at the end of the current billing period.",
+      );
+      await loadBilling();
+    } catch {
+      setMessage("Unable to cancel your subscription. Please try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   async function subscribe() {
     setSubscribing(true);
     setMessage("");
@@ -265,7 +303,9 @@ export default function BillingPage() {
           </div>
 
           <div className="border border-neutral-300 bg-white/50 p-6 sm:p-8">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Free trial</div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              {status === "active" ? "Subscription" : "Free trial"}
+            </div>
             {loading ? (
               <p className="mt-5 text-sm text-neutral-600">Checking your trial status…</p>
             ) : status === "unauthenticated" ? (
@@ -304,6 +344,27 @@ export default function BillingPage() {
                 <div className="font-medium">Your free trial has ended</div>
                 <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft when paid checkout is enabled to continue using your workspace.</p>
                 <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe with Razorpay →"}</button>
+              </div>
+            ) : status === "active" ? (
+              <div className="mt-5 space-y-5">
+                {cancellationPending ? (
+                  <div className="border border-amber-200 bg-amber-50 p-5">
+                    <div className="font-medium text-amber-900">Cancellation scheduled</div>
+                    <p className="mt-2 text-sm leading-6 text-amber-900/80">
+                      Auto-renewal is off. Your paid access remains available until the end of the current billing period.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="font-medium text-emerald-700">PostCraft Pro is active</div>
+                      <p className="mt-2 text-sm leading-6 text-neutral-600">Your subscription is active and your workspace has full Pro access.</p>
+                    </div>
+                    <button type="button" onClick={cancelSubscription} disabled={cancelling} className="border border-red-300 px-4 py-2 text-sm text-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      {cancelling ? "Cancelling…" : "Cancel at period end"}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <p className="mt-5 text-sm leading-6 text-neutral-600">{billing?.error ?? "Billing information is unavailable."}</p>
