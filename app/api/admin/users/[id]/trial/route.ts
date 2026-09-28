@@ -31,6 +31,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (existing) {
+    const existingTrialEnd = existing.trial_ends_at ? new Date(existing.trial_ends_at) : null;
+    const baseTrialEnd =
+      existingTrialEnd && Number.isFinite(existingTrialEnd.getTime()) && existingTrialEnd > now
+        ? existingTrialEnd
+        : now;
+    const trialEnds = new Date(baseTrialEnd.getTime() + days * 86400000);
+    const graceEnds = new Date(trialEnds.getTime() + 3 * 86400000);
+
     let razorpayStatus: string | null = null;
     let cancelledRazorpaySubscription = false;
 
@@ -141,9 +149,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       user_id: id,
       plan_key: "pro_monthly",
       status: "trialing",
-      trial_started_at: now.toISOString(),
+      trial_started_at: existing.trial_started_at ?? now.toISOString(),
       trial_ends_at: trialEnds.toISOString(),
-      grace_ends_at: graceEnds.toISOString(),
+      grace_ends_at: new Date(now.getTime() + (days + 3) * 86400000).toISOString(),
+      cancel_at_cycle_end: false,
+      cancellation_requested_at: null,
       trial_reset_count: 1,
       last_trial_reset_at: now.toISOString(),
       last_trial_reset_reason: reason,
