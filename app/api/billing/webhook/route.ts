@@ -140,7 +140,13 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
 
-  if (nextStatus) updates.status = nextStatus;
+  if (nextStatus) {
+    updates.status = nextStatus;
+    if (["cancelled", "completed", "expired"].includes(nextStatus)) {
+      updates.cancel_at_cycle_end = false;
+      updates.cancellation_requested_at = null;
+    }
+  }
   if (subscriptionEntity.customer_id) updates.razorpay_customer_id = subscriptionEntity.customer_id;
   if (paymentId) updates.razorpay_payment_id = paymentId;
   if (currentStart) updates.current_period_start = currentStart;
