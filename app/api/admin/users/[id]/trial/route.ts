@@ -143,13 +143,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ subscription: data, emailSent, emailError });
   }
 
+  const trialEnds = new Date(now.getTime() + days * 86400000);
+  const graceEnds = new Date(trialEnds.getTime() + 3 * 86400000);
+
   const { data, error } = await admin
     .from("billing_subscriptions")
     .insert({
       user_id: id,
       plan_key: "pro_monthly",
       status: "trialing",
-      trial_started_at: existing.trial_started_at ?? now.toISOString(),
+      trial_started_at: now.toISOString(),
       trial_ends_at: trialEnds.toISOString(),
       grace_ends_at: new Date(now.getTime() + (days + 3) * 86400000).toISOString(),
       cancel_at_cycle_end: false,
