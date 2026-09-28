@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Template = "quote" | "story" | "success" | "person" | "history" | "thought" | "mindful";
+type Template = "quote" | "story" | "success" | "person" | "history" | "thought";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
 const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
@@ -16,7 +16,6 @@ const templates: { id: Template; name: string; description: string }[] = [
   { id: "person", name: "Person of the Day", description: "An inspiring person and their lesson" },
   { id: "history", name: "Historical Moment", description: "A moment from history with a modern lesson" },
   { id: "thought", name: "Thought Experiment", description: "A question that makes people think" },
-  { id: "mindful", name: "Mindful Movement", description: "A small action to slow down and reset" },
 ];
 
 const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
@@ -373,7 +372,6 @@ export default function PostCardPage() {
         person: "PERSON OF THE DAY",
         history: "A MOMENT IN HISTORY",
         thought: "THOUGHT EXPERIMENT",
-        mindful: "MINDFUL MOVEMENT",
       } as Record<string, string>)[template] || "POSTCARD";
       const headlineY = 285;
       const headlineEnd = headlineY + Math.max(1, headlineFit.lines.length - 1) * headlineFit.gap + headlineFit.size;
@@ -515,7 +513,6 @@ export default function PostCardPage() {
       person: "an inspiring person, their journey, and one useful lesson from their life or work",
       history: "a historical moment, what happened, and why it still matters today",
       thought: "a thought experiment built around a surprising but useful question",
-      mindful: "a small mindful movement or reset practice that someone can do today",
     };
     const direction = directions[template as Exclude<Template, "quote" | "story">] || "a practical life lesson";
     const seed = Math.random().toString(36).slice(2, 10);
@@ -685,7 +682,7 @@ export default function PostCardPage() {
               Turn ideas into visuals.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">
-              Create clean, professional social cards from a quote, story, success, person, historical moment, thought experiment, or mindful movement.
+              Create clean, professional social cards from a quote, story, success, person, historical moment, or thought experiment.
             </p>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
@@ -843,7 +840,7 @@ export default function PostCardPage() {
               ) : (
                 <div className="mt-5 space-y-5">
                   <Field
-                    label={template === "success" ? "Story title" : template === "person" ? "Person" : template === "history" ? "Historical moment" : template === "thought" ? "Thought experiment" : "Mindful movement"}
+                    label={template === "success" ? "Story title" : template === "person" ? "Person" : template === "history" ? "Historical moment" : template === "thought" ? "Thought experiment" : "PostCard"}
                     value={headline}
                     onChange={setHeadline}
                   />
