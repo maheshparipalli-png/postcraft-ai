@@ -23,6 +23,8 @@ export async function GET() {
         grace_ends_at: access.subscription.grace_ends_at ?? null,
         current_period_start: access.subscription.current_period_start ?? null,
         current_period_end: access.subscription.current_period_end ?? null,
+        cancel_at_cycle_end: access.subscription.cancel_at_cycle_end ?? false,
+        cancellation_requested_at: access.subscription.cancellation_requested_at ?? null,
       }
     : null;
 
