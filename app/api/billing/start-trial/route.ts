@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cancelRazorpaySubscription, getRazorpaySubscription } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,26 @@ export async function POST() {
       );
     }
 
+    if (existing.razorpay_subscription_id) {
+      try {
+        const razorpaySubscription = await getRazorpaySubscription(existing.razorpay_subscription_id);
+        if (razorpaySubscription.status === "created") {
+          await cancelRazorpaySubscription(existing.razorpay_subscription_id, false);
+        } else if (["active", "authenticated", "pending", "halted"].includes(razorpaySubscription.status)) {
+          return NextResponse.json(
+            { error: "A paid Razorpay subscription is already in progress. Please complete or cancel it before starting the free trial." },
+            { status: 409 },
+          );
+        }
+      } catch (error) {
+        console.error("Could not verify existing Razorpay subscription before trial:", error);
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : "Unable to verify your existing subscription." },
+          { status: 502 },
+        );
+      }
+    }
+
     const { data: subscription, error: updateError } = await admin
       .from("billing_subscriptions")
       .update({
@@ -78,6 +99,15 @@ export async function POST() {
         trial_started_at: startedAt.toISOString(),
         trial_ends_at: endsAt.toISOString(),
         grace_ends_at: graceEndsAt.toISOString(),
+        cancel_at_cycle_end: false,
+        cancellation_requested_at: null,
+        razorpay_subscription_id: null,
+        razorpay_customer_id: null,
+        razorpay_payment_id: null,
+        razorpay_signature_verified_at: null,
+        payment_verified_at: null,
+        current_period_start: null,
+        current_period_end: null,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id)
