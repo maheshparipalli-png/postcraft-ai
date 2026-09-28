@@ -331,20 +331,23 @@ export default function PostCardPage() {
       `;
     } else if (template === "story") {
       const titleFit = fitText(headline || "Your motivational story title.", {
-        maxWidth: 900, maxLines: 3, startSize: 58, minSize: 40, weight: 600, lineHeight: 62,
+        maxWidth: 900, maxLines: 3, startSize: 54, minSize: 38, weight: 600, lineHeight: 58,
       });
       const bodyFit = fitText(body || "Generate a short story with a turning point and a lesson.", {
-        maxWidth: 900, maxLines: 11, startSize: 29, minSize: 22, weight: 400, lineHeight: 35,
+        maxWidth: 900, maxLines: 10, startSize: 27, minSize: 21, weight: 400, lineHeight: 32,
       });
       const lessonFit = fitText(closing || "The lesson stays with you.", {
-        maxWidth: 900, maxLines: 3, startSize: 31, minSize: 25, weight: 600, lineHeight: 38,
+        maxWidth: 900, maxLines: 3, startSize: 30, minSize: 24, weight: 600, lineHeight: 36,
       });
-      const titleY = 255;
+
+      // Keep the story label visually separated from the title, then let the
+      // content flow naturally so longer stories do not crowd the lesson.
+      const titleY = 285;
       const titleEnd = titleY + Math.max(1, titleFit.lines.length - 1) * titleFit.gap + titleFit.size;
-      const bodyY = titleEnd + 42;
+      const bodyY = titleEnd + 36;
       const bodyEnd = bodyY + Math.max(1, bodyFit.lines.length - 1) * bodyFit.gap + bodyFit.size;
-      const dividerY = bodyEnd + 28;
-      const lessonY = dividerY + 52;
+      const dividerY = bodyEnd + 30;
+      const lessonY = dividerY + 50;
 
       content = `
         <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">A SHORT STORY</text>
