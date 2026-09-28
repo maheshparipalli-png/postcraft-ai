@@ -102,14 +102,17 @@ export async function POST(request: Request) {
     const { candidates, failedInterests } = await discoverAcrossInterests(interests);
     const research = selectInterestAwareCandidates(candidates, 12);
 
-    const normalizeUrl = (value: string) => {
+    const normalizeUrl = (value: unknown) => {
+      if (typeof value !== "string" || !value.trim()) return "";
       try {
         const url = new URL(value);
         url.hash = "";
         ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid"].forEach((key) => url.searchParams.delete(key));
         url.search = url.searchParams.toString();
         return url.toString().replace(/\/$/, "");
-      } catch { return value.trim().replace(/\/$/, ""); }
+      } catch {
+        return value.trim().replace(/\/$/, "");
+      }
     };
     let publishedUrls = new Set<string>();
     if (user) {
