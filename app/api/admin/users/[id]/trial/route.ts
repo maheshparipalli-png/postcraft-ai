@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminAccess } from "@/lib/admin/access";
+import { cancelRazorpaySubscription, getRazorpaySubscription } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +32,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (existing) {
+    let razorpayStatus: string | null = null;
+    let cancelledRazorpaySubscription = false;
+
     if (existing.razorpay_subscription_id) {
-      return NextResponse.json(
-        { error: "Cannot reset a trial while a Razorpay subscription is linked to this account." },
-        { status: 409 },
-      );
+      try {
+        const razorpaySubscription = await getRazorpaySubscription(existing.razorpay_subscription_id);
+        razorpayStatus = razorpaySubscription.status;
+
+        if (razorpayStatus === "active" || razorpayStatus === "authenticated" || razorpayStatus === "pending" || razorpayStatus === "halted") {
+          return NextResponse.json(
+            {
+              error:
+                "Cannot reset the trial while the linked Razorpay subscription is " +
+                razorpayStatus +
+                ". Cancel or resolve the paid subscription first.",
+            },
+            { status: 409 },
+          );
+        }
+
+        if (razorpayStatus === "created") {
+          await cancelRazorpaySubscription(existing.razorpay_subscription_id, false);
+          cancelledRazorpaySubscription = true;
+        } else if (!["cancelled", "completed", "expired"].includes(razorpayStatus)) {
+          return NextResponse.json(
+            { error: "Cannot reset the trial while the linked Razorpay subscription is " + razorpayStatus + "." },
+            { status: 409 },
+          );
+        }
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : "Could not verify the linked Razorpay subscription." },
+          { status: 502 },
+        );
+      }
     }
 
     const { data, error } = await admin
@@ -72,6 +103,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         previous_status: existing.status,
         previous_trial_ends_at: existing.trial_ends_at,
         previous_razorpay_subscription_id: existing.razorpay_subscription_id,
+        razorpay_status: razorpayStatus,
+        cancelled_razorpay_subscription: cancelledRazorpaySubscription,
       },
     });
 
