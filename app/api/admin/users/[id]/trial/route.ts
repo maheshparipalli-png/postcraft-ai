@@ -23,8 +23,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const now = new Date();
-  const trialEnds = new Date(now.getTime() + days * 86400000);
-  const graceEnds = new Date(trialEnds.getTime() + 3 * 86400000);
 
   const { data: existing } = await admin
     .from("billing_subscriptions")
