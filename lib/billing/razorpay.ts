@@ -98,6 +98,21 @@ export async function getRazorpaySubscription(subscriptionId: string) {
   return razorpayRequest<RazorpaySubscription>(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
+export async function cancelRazorpaySubscription(
+  subscriptionId: string,
+  cancelAtCycleEnd = true,
+) {
+  if (!subscriptionId.trim()) throw new Error("Razorpay subscription ID is required.");
+
+  return razorpayRequest<RazorpaySubscription>(
+    `/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify({ cancel_at_cycle_end: cancelAtCycleEnd }),
+    },
+  );
+}
+
 export function getSafeRazorpayError(error: unknown) {
   if (error instanceof Error) {
     return error.message.replace(/\b(sk|rzp|key|secret)_[A-Za-z0-9_-]+\b/gi, "[redacted]");
