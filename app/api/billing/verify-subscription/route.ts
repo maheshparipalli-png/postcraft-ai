@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!["authenticated", "active"].includes(razorpaySubscription.status)) {
+  if (razorpaySubscription.status !== "active") {
     return NextResponse.json({ error: "Payment was verified, but Razorpay has not activated the subscription yet. We will update your account automatically when the subscription becomes active.", paymentVerified: true, status: subscription.status }, { status: 202 });
   }
 
