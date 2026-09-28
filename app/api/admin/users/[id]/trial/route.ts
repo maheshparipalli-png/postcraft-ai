@@ -117,7 +117,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       try {
         await sendTrialExtendedEmail({
           to: targetUser.user.email,
-          name: targetUser.user.user_metadata?.full_name ?? targetUser.user.user_metadata?.name,
+          name:
+            targetUser.user.user_metadata?.full_name ??
+            targetUser.user.user_metadata?.name ??
+            targetUser.user.email.split("@")[0],
           trialEndsAt: data.trial_ends_at,
         });
         emailSent = true;
@@ -158,5 +161,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     metadata: { days },
   });
 
-  return NextResponse.json({ subscription: data });
+  let emailSent = false;
+  let emailError: string | null = null;
+  const { data: targetUser } = await admin.auth.admin.getUserById(id);
+
+  if (targetUser?.user?.email) {
+    try {
+      await sendTrialExtendedEmail({
+        to: targetUser.user.email,
+        name:
+          targetUser.user.user_metadata?.full_name ??
+          targetUser.user.user_metadata?.name ??
+          targetUser.user.email.split("@")[0],
+        trialEndsAt: data.trial_ends_at,
+      });
+      emailSent = true;
+    } catch (error) {
+      emailError = error instanceof Error ? error.message : "Trial extension email failed.";
+      console.error("Trial extension email failed:", error);
+    }
+  } else {
+    emailError = "The user does not have an email address.";
+  }
+
+  return NextResponse.json({ subscription: data, emailSent, emailError });
 }
