@@ -71,12 +71,34 @@ export async function discoverAcrossInterests(
   discoveryResults.forEach((result, index) => {
     if (result.status !== "fulfilled") return;
 
-    for (const item of result.value) {
-      const key = item.url.trim().toLowerCase().replace(/\/$/, "");
-      if (!key) continue;
+    for (const rawItem of result.value) {
+      // Search providers are external inputs. Runtime data can contain null or
+      // non-string fields even though the internal ResearchItem type is strict.
+      // Normalize at this boundary so one malformed result cannot crash the
+      // entire Discover request.
+      if (!rawItem || typeof rawItem !== "object") continue;
 
-      const tagged = {
-        ...item,
+      const title = typeof rawItem.title === "string" ? rawItem.title.trim() : "";
+      const source = typeof rawItem.source === "string" ? rawItem.source.trim() : "";
+      const url = typeof rawItem.url === "string" ? rawItem.url.trim() : "";
+      const publishedAt = typeof rawItem.publishedAt === "string" ? rawItem.publishedAt : "";
+      const snippet = typeof rawItem.snippet === "string" ? rawItem.snippet.trim() : "";
+      const imageUrl = typeof rawItem.imageUrl === "string" && rawItem.imageUrl.trim()
+        ? rawItem.imageUrl.trim()
+        : undefined;
+
+      if (!title || !source || !url || !snippet) continue;
+
+      const key = url.toLowerCase().replace(/\/$/, "");
+
+      const tagged: InterestResearchItem = {
+        ...rawItem,
+        title,
+        source,
+        url,
+        publishedAt,
+        snippet,
+        imageUrl,
         interest: interests[index],
       };
 
