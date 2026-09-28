@@ -525,7 +525,7 @@ export default function PostCardPage() {
           action: "postcard",
           template,
           idea: "",
-          category: direction,
+          category: `${direction} Focus the content on the ${quoteField} field.`,
           variationSeed: seed,
           previousHeadline: headline,
           previousBody: body,
@@ -783,45 +783,27 @@ export default function PostCardPage() {
               </div>
             </div>
 
-            {template === "quote" && (
-              <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
-                <label className="block">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Choose a field</span>
-                  <select
-                    value={quoteField}
-                    onChange={(e) => setQuoteField(e.target.value as (typeof quoteFields)[number])}
-                    className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
-                  >
-                    {quoteFields.map((field) => (
-                      <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
-                    ))}
-                  </select>
-                  <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
-                    Choose the theme for the motivational quote PostCard.
-                  </span>
-                </label>
-              </div>
-            )}
-
-            {template === "story" && (
-              <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
-                <label className="block">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Choose a story</span>
-                  <select
-                    value={storyCategory || "resilience"}
-                    onChange={(e) => setStoryCategory(e.target.value)}
-                    className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
-                  >
-                    {["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"].map((field) => (
-                      <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
-                    ))}
-                  </select>
-                  <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
-                    Choose the type of story you want PostCard to create.
-                  </span>
-                </label>
-              </div>
-            )}
+            <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
+              <label className="block">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Choose a field</span>
+                <select
+                  value={quoteField}
+                  onChange={(e) => {
+                    const field = e.target.value as (typeof quoteFields)[number];
+                    setQuoteField(field);
+                    if (template === "story") setStoryCategory(field);
+                  }}
+                  className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
+                >
+                  {quoteFields.map((field) => (
+                    <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
+                  ))}
+                </select>
+                <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
+                  Choose the theme or subject area for your PostCard.
+                </span>
+              </label>
+            </div>
 
             <div className="mt-5">
               <button
