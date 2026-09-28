@@ -783,6 +783,26 @@ export default function PostCardPage() {
               </div>
             </div>
 
+            {template === "quote" && (
+              <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">2 / Choose a field</span>
+                  <select
+                    value={quoteField}
+                    onChange={(e) => setQuoteField(e.target.value as (typeof quoteFields)[number])}
+                    className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
+                  >
+                    {quoteFields.map((field) => (
+                      <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
+                    ))}
+                  </select>
+                  <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
+                    Choose the theme for the motivational quote PostCard.
+                  </span>
+                </label>
+              </div>
+            )}
+
             {template === "story" && (
               <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
                 <label className="block">
@@ -820,12 +840,6 @@ export default function PostCardPage() {
 
               {template === "quote" ? (
                 <div className="mt-5 space-y-5">
-                  <label className="block">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Motivational field</span>
-                    <select value={quoteField} onChange={(e) => setQuoteField(e.target.value as (typeof quoteFields)[number])} className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900">
-                      {quoteFields.map((field) => <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>)}
-                    </select>
-                  </label>
                   <Field label="Quote" value={headline} onChange={setHeadline} textarea />
                   <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); }} />
                   <p className="text-[11px] leading-5 text-neutral-500">Quotes come from an external feed. Once you save or publish one, it is excluded from your future selections for 90 days.</p>
