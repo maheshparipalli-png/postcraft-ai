@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeInterests } from "@/lib/content-interests";
 
-function isAggregatorStory(source: string, url: string) {
-  if (/^(google news|bing news|yahoo news)$/i.test(source.trim())) return true;
+function isAggregatorStory(source: string | null | undefined, url: string | null | undefined) {
+  if (typeof source === "string" && /^(google news|bing news|yahoo news)$/i.test(source.trim())) return true;
+  if (typeof url !== "string" || !url.trim()) return true;
+
   try {
     const hostname = new URL(url).hostname.toLowerCase().replace(/^www\\./, "");
     return new Set(["news.google.com", "bing.com", "news.yahoo.com"]).has(hostname);
@@ -130,15 +132,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const usableResearch = research.filter((item) =>
-      !publishedUrls.has(normalizeUrl(item.url)) &&
-      !isAggregatorStory(item.source, item.url) &&
-      Boolean(item.title?.trim()) &&
-      Boolean(item.source?.trim()) &&
-      Boolean(item.url?.trim()) &&
-      Boolean(item.snippet?.trim()) &&
-      item.snippet.trim().length >= 80
-    );
+    const usableResearch = research.filter((item) => {
+      const title = typeof item.title === "string" ? item.title.trim() : "";
+      const source = typeof item.source === "string" ? item.source.trim() : "";
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      const snippet = typeof item.snippet === "string" ? item.snippet.trim() : "";
+
+      if (!title || !source || !url || !snippet || snippet.length < 80) {
+        return false;
+      }
+
+      if (publishedUrls.has(normalizeUrl(url))) {
+        return false;
+      }
+
+      if (isAggregatorStory(source, url)) {
+        return false;
+      }
+
+      return true;
+    });
 
     if (!usableResearch.length) {
       return NextResponse.json(
