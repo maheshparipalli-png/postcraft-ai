@@ -85,6 +85,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         trial_reset_count: (existing.trial_reset_count ?? 0) + 1,
         last_trial_reset_at: now.toISOString(),
         last_trial_reset_reason: reason,
+        cancel_at_cycle_end: false,
+        cancellation_requested_at: null,
       })
       .eq("user_id", id)
       .select("*")
