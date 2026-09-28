@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminAccess } from "@/lib/admin/access";
 import { cancelRazorpaySubscription, getRazorpaySubscription } from "@/lib/billing/razorpay";
+import { sendTrialExtendedEmail } from "@/lib/email/resend";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     });
 
-    return NextResponse.json({ subscription: data });
+    let emailSent = false;
+    let emailError: string | null = null;
+    const { data: targetUser } = await admin.auth.admin.getUserById(id);
+
+    if (targetUser?.user?.email) {
+      try {
+        await sendTrialExtendedEmail({
+          to: targetUser.user.email,
+          name: targetUser.user.user_metadata?.full_name ?? targetUser.user.user_metadata?.name,
+          trialEndsAt: data.trial_ends_at,
+        });
+        emailSent = true;
+      } catch (error) {
+        emailError = error instanceof Error ? error.message : "Trial extension email failed.";
+        console.error("Trial extension email failed:", error);
+      }
+    } else {
+      emailError = "The user does not have an email address.";
+    }
+
+    return NextResponse.json({ subscription: data, emailSent, emailError });
   }
 
   const { data, error } = await admin
