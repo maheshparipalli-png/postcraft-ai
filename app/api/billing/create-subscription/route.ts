@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createRazorpaySubscription, getRazorpayPublicKey, getRazorpaySubscription, getSafeRazorpayError } from "@/lib/billing/razorpay";
+import { cancelRazorpaySubscription, createRazorpaySubscription, getRazorpayPublicKey, getRazorpaySubscription, getSafeRazorpayError } from "@/lib/billing/razorpay";
 
 export const dynamic = "force-dynamic";
 
@@ -129,12 +129,19 @@ export async function POST() {
       payment_verified_at: null,
       current_period_start: null,
       current_period_end: null,
+      cancel_at_cycle_end: false,
+      cancellation_requested_at: null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id);
 
   if (updateError) {
     console.error("Failed to persist Razorpay subscription:", updateError);
+    try {
+      await cancelRazorpaySubscription(subscription.id, false);
+    } catch (cleanupError) {
+      console.error("Failed to clean up orphaned Razorpay subscription:", cleanupError);
+    }
     await releaseCheckoutLock();
     return NextResponse.json({ error: "Unable to prepare your subscription. Please try again." }, { status: 500 });
   }
