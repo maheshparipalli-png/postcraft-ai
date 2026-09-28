@@ -28,27 +28,71 @@ export async function POST() {
     return NextResponse.json({ error: "Unable to check trial eligibility" }, { status: 500 });
   }
 
-  if (existing) {
-    const trialEndsAt = existing.trial_ends_at ? new Date(existing.trial_ends_at).getTime() : NaN;
-    const graceEndsAt = existing.grace_ends_at ? new Date(existing.grace_ends_at).getTime() : NaN;
-    const stillActive = existing.status === "trialing" && Number.isFinite(trialEndsAt) && trialEndsAt > Date.now();
-    const stillInGrace = existing.status === "grace" && Number.isFinite(graceEndsAt) && graceEndsAt > Date.now();
-
-    return NextResponse.json(
-      {
-        error: stillActive || stillInGrace
-          ? "Your free trial is already active."
-          : "Your free trial has already been used. Please subscribe or contact support.",
-        status: existing.status,
-        subscription: existing,
-      },
-      { status: 409 },
-    );
-  }
-
   const startedAt = new Date();
   const endsAt = new Date(startedAt.getTime() + TRIAL_DAYS * 86400000);
   const graceEndsAt = new Date(endsAt.getTime() + GRACE_DAYS * 86400000);
+
+  if (existing) {
+    const trialEndsAt = existing.trial_ends_at ? new Date(existing.trial_ends_at).getTime() : NaN;
+    const graceEndsAtValue = existing.grace_ends_at ? new Date(existing.grace_ends_at).getTime() : NaN;
+    const stillActive = existing.status === "trialing" && Number.isFinite(trialEndsAt) && trialEndsAt > Date.now();
+    const stillInGrace = existing.status === "grace" && Number.isFinite(graceEndsAtValue) && graceEndsAtValue > Date.now();
+
+    if (stillActive || stillInGrace) {
+      return NextResponse.json(
+        {
+          error: "Your free trial is already active.",
+          status: existing.status,
+          subscription: existing,
+        },
+        { status: 409 },
+      );
+    }
+
+    // A not_started row is a pre-checkout marker created by the paid
+    // subscription flow. It does not mean the user has consumed the trial.
+    const trialAlreadyUsed =
+      Boolean(existing.trial_started_at) ||
+      existing.status === "expired" ||
+      existing.status === "cancelled" ||
+      existing.status === "past_due" ||
+      existing.status === "suspended" ||
+      existing.status === "active";
+
+    if (trialAlreadyUsed) {
+      return NextResponse.json(
+        {
+          error: "Your free trial has already been used. Please subscribe or contact support.",
+          status: existing.status,
+          subscription: existing,
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: subscription, error: updateError } = await admin
+      .from("billing_subscriptions")
+      .update({
+        plan_key: existing.plan_key || "pro_monthly",
+        status: "trialing",
+        trial_started_at: startedAt.toISOString(),
+        trial_ends_at: endsAt.toISOString(),
+        grace_ends_at: graceEndsAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("status", "not_started")
+      .is("trial_started_at", null)
+      .select("*")
+      .single();
+
+    if (updateError || !subscription) {
+      console.error("Trial activation error:", updateError);
+      return NextResponse.json({ error: "Unable to start your free trial. Please try again." }, { status: 500 });
+    }
+
+    return NextResponse.json({ status: "trialing", subscription });
+  }
 
   const { data: subscription, error: insertError } = await admin
     .from("billing_subscriptions")
