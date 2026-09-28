@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!["active", "past_due", "suspended"].includes(subscription.status)) {
+  if (subscription.status !== "active") {
     return NextResponse.json(
       { error: "There is no paid subscription available to cancel." },
       { status: 409 },
