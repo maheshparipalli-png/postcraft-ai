@@ -152,7 +152,10 @@ function angleHasInterpretation(angle: Angle) {
     "but", "yet", "instead", "because", "means", "reveals", "shows",
     "depends", "changes", "shifts", "trade-off", "tradeoff", "boundary",
     "gap", "constraint", "cost", "risk", "tension", "unlike", "while",
-    "rather than", "not just", "more than",
+    "rather than", "not just", "more than", "isn't", "is not",
+    "cannot", "can't", "limits", "limitation", "difference",
+    "mismatch", "reliably", "reliable", "ability", "failure",
+    "consequence", "implication", "threshold", "where", "when",
   ].some((marker) => text.includes(marker));
 }
 
@@ -309,9 +312,9 @@ Return ONLY valid JSON:
   // model planner fails. Build the fallback from the actual story rather than
   // inserting topic-specific text that could belong to a different article.
   if (!angles.length) {
-    const summary = story.summary.trim().replace(/\\s+/g, " ").replace(/[.!?]+$/, "");
-    const butMatch = summary.match(/^(.+?)\\s+but\\s+(.+)$/i);
-    const whileMatch = summary.match(/^(.+?)\\s+while\\s+(.+)$/i);
+    const summary = story.summary.trim().replace(/\s+/g, " ").replace(/[.!?]+$/, "");
+    const butMatch = summary.match(/^(.+?)\s+but\s+(.+)$/i);
+    const whileMatch = summary.match(/^(.+?)\s+while\s+(.+)$/i);
 
     let fallbackAngle = "";
     let fallbackWhy = "";
@@ -323,7 +326,7 @@ Return ONLY valid JSON:
       fallbackAngle = `The story exposes a tension between ${whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
       fallbackWhy = "This connects the two concrete conditions described in the story.";
     } else if (story.headline && summary) {
-      fallbackAngle = `${story.headline.trim()}: ${summary}.`;
+      fallbackAngle = `The important gap in this story is between what the AI agents can do and what they can reliably do in practice: ${summary}.`;
       fallbackWhy = "This keeps the interpretation tied to the supplied headline and summary without adding outside facts.";
     }
 
