@@ -8,16 +8,8 @@ import SignOutButton from "./SignOutButton";
 import MarketingHome from "./ui/marketing-home";
 
 type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string; interest?: string };
-type Evidence = { claim: string; support: string; type: "fact" | "interpretation" | "uncertainty" };
-type AngleSuggestion = { text: string; why: string; evidence: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
 type PublishFormat = "combined" | "text" | "image";
-const perspectives: { id: Perspective; label: string; description: string }[] = [
-  { id: "agree", label: "I agree", description: "Build on the argument." },
-  { id: "disagree", label: "I disagree", description: "Challenge the argument." },
-  { id: "mixed", label: "It is more complicated", description: "Add a missing distinction." },
-  { id: "curious", label: "I am not sure yet", description: "Explore the unresolved question." },
-];
 
 function formatDateInput(value: string) {
   if (!value) return "";
@@ -26,12 +18,6 @@ function formatDateInput(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toISOString().slice(0, 10);
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
 function formatPublishedAtIST(value: string) {
@@ -168,34 +154,6 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
   return canvas.toDataURL("image/png");
 }
 
-function isUnsupportedAngle(item: AngleSuggestion) {
-  const text = `${item.text} ${item.why}`.toLowerCase();
-  return [
-    "cover-up",
-    "cover up",
-    "downplaying",
-    "concealing",
-    "deception",
-    "self-aware",
-    "self aware",
-    "take control",
-    "taking control",
-    "took control",
-    "becoming self-aware",
-    "becoming self aware",
-    "out-of-control",
-    "out of control",
-    "may have been aware",
-    "was aware",
-    "lack of transparency",
-    "not transparent",
-    "intentional",
-    "deliberately",
-    "secretly",
-    "rogue ai",
-  ].some((phrase) => text.includes(phrase));
-}
-
 export default function Home() {
   const router = useRouter();
   const [topic, setTopic] = useState("AI & Technology");
@@ -210,12 +168,8 @@ export default function Home() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [newsTitle, setNewsTitle] = useState("");
   const [newsSource, setNewsSource] = useState("");
-  const [newsDate, setNewsDate] = useState("");
   const [verifiedSummary, setVerifiedSummary] = useState("");
-  const [suggestedAngles, setSuggestedAngles] = useState<AngleSuggestion[]>([]);
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [perspective, setPerspective] = useState<Perspective>("mixed");
-  const [perspectiveNote, setPerspectiveNote] = useState("");
   const [post, setPost] = useState("");
   const [postCardImage, setPostCardImage] = useState("");
   const [postCardRendering, setPostCardRendering] = useState(false);
@@ -225,9 +179,7 @@ export default function Home() {
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinDisconnecting, setLinkedinDisconnecting] = useState(false);
-  const [originalityStatus, setOriginalityStatus] = useState<"idle" | "checking" | "clear" | "duplicate">("idle");
   const [originalityMessage, setOriginalityMessage] = useState("");
-  const [loading, setLoading] = useState(false);
   const [angleLoading, setAngleLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState("");
   const [error, setError] = useState("");
@@ -527,22 +479,6 @@ function resetFromStory() {
         const selectedText = selected.angle.trim();
         const generatedPost = cleanGeneratedPost(data.post);
 
-        const generatedAngles: AngleSuggestion[] = Array.isArray(data.angles)
-          ? data.angles
-              .map((item: unknown): AngleSuggestion | null => {
-                if (!item || typeof item !== "object") return null;
-                const value = item as { angle?: unknown; why?: unknown; evidence?: unknown };
-                const text = typeof value.angle === "string" ? value.angle.trim() : "";
-                if (!text) return null;
-                return {
-                  text,
-                  why: typeof value.why === "string" ? value.why.trim() : "",
-                  evidence: typeof value.evidence === "string" ? value.evidence.trim() : "",
-                };
-              })
-              .filter((item: AngleSuggestion | null): item is AngleSuggestion => Boolean(item))
-            : [];
-
         const verifiedArticle = data.article;
         const verifiedTitle = decodeHtmlEntities(
           verifiedArticle?.title?.trim() || idea.title,
@@ -556,27 +492,9 @@ function resetFromStory() {
 
         setNewsTitle(verifiedTitle);
         setNewsSource(verifiedSource);
-        setNewsDate(verifiedDate);
         setSourceUrl(verifiedUrl);
         setVerifiedSummary(verifiedContent);
 
-        const generatedEvidence: Evidence[] = Array.isArray(data.evidence)
-          ? data.evidence
-              .map((item: unknown): Evidence | null => {
-                if (!item || typeof item !== "object") return null;
-                const value = item as { claim?: unknown; support?: unknown; type?: unknown };
-                const claim = typeof value.claim === "string" ? value.claim.trim() : "";
-                const support = typeof value.support === "string" ? value.support.trim() : "";
-                const type =
-                  value.type === "fact" || value.type === "interpretation" || value.type === "uncertainty"
-                    ? value.type
-                    : "fact";
-                return claim && support ? { claim, support, type } : null;
-              })
-              .filter((item: Evidence | null): item is Evidence => Boolean(item))
-            : [];
-
-        setEvidence(generatedEvidence);
         setSuggestedAngles(generatedAngles);
         setAngle(selectedText);
 
@@ -588,8 +506,7 @@ function resetFromStory() {
           : `${storyTitle}\n\n${generatedPost}`;
 
         setPost(postWithTitle);
-        setOriginalityStatus("idle");
-        setOriginalityMessage("");
+          setOriginalityMessage("");
         setGenerationStatus("");
         completed = true;
       };
@@ -705,33 +622,6 @@ function resetFromStory() {
       setLinkedinMessage(err instanceof Error ? err.message : "Could not disconnect LinkedIn.");
     } finally {
       setLinkedinDisconnecting(false);
-    }
-  }
-
-  async function checkOriginality(text = post) {
-    if (!text.trim()) {
-      setOriginalityStatus("idle");
-      setOriginalityMessage("");
-      return false;
-    }
-    setOriginalityStatus("checking");
-    setOriginalityMessage("Checking against previously published content...");
-    try {
-      const response = await fetch("/api/linkedin/check-duplicate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentary: text.trim(), sourceUrl: selectedIdea?.url || sourceUrl || null }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Could not complete the originality check.");
-      const duplicate = Boolean(data?.duplicate);
-      setOriginalityStatus(duplicate ? "duplicate" : "clear");
-      setOriginalityMessage(duplicate ? (data.message || "Similar content has already been published.") : "No matching published article or identical post was found.");
-      return !duplicate;
-    } catch (err) {
-      setOriginalityStatus("idle");
-      setOriginalityMessage(err instanceof Error ? err.message : "Could not complete the originality check.");
-      return false;
     }
   }
 
@@ -1096,8 +986,7 @@ function resetFromStory() {
                 type="button"
                 onClick={() => {
                   setSelectedIdea(null);
-                  setSuggestedAngles([]);
-                  setAngle("");
+                            setAngle("");
                   setPost("");
                 }}
                 className="mb-8 text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
