@@ -9,7 +9,7 @@ import {
 } from "@/lib/ai/config";
 import { createOpenAICompatibleProvider } from "@/lib/ai/openai-compatible";
 import { createAnthropicProvider } from "@/lib/ai/anthropic";
-import { ollamaProvider } from "@/lib/ai/ollama";
+import { createOllamaProvider } from "@/lib/ai/ollama";
 
 const providers: AIProviderName[] = ["ollama", "freellmapi", "openai", "anthropic", "google", "custom"];
 
@@ -91,7 +91,7 @@ export async function PUT(request: Request) {
 
     let provider;
     if (input.provider === "ollama") {
-      provider = ollamaProvider;
+      provider = createOllamaProvider({ baseUrl: input.baseUrl || undefined, model: input.model });
     } else {
       const runtime = await getRuntimeAIConfig();
       const apiKey = input.apiKey || runtime?.apiKey || "";
