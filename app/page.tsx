@@ -180,7 +180,6 @@ export default function Home() {
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinDisconnecting, setLinkedinDisconnecting] = useState(false);
-  const [originalityMessage, setOriginalityMessage] = useState("");
   const [angleLoading, setAngleLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState("");
   const [error, setError] = useState("");
@@ -488,7 +487,6 @@ function resetFromStory() {
           verifiedArticle?.source?.trim() || idea.source,
         );
         const verifiedUrl = verifiedArticle?.url?.trim() || idea.url;
-        const verifiedDate = formatDateInput(verifiedArticle?.publishedAt || idea.publishedAt);
         const verifiedContent = verifiedArticle?.content?.trim() || idea.description || "";
 
         setNewsTitle(verifiedTitle);
