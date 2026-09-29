@@ -748,7 +748,7 @@ export async function generateEditorialPost(
     return sanitizeLinkedInPost(decodedPost);
   }
 
-  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, selected editorial thesis, and available evidence.
+  const basePrompt = `Create a finished LinkedIn post from the supplied story, selected editorial thesis, and available evidence.
 
 STORY
 Headline: ${story.headline}
@@ -767,14 +767,39 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-Write a clear, natural LinkedIn post based on the supplied material.
-Use the story details accurately. Do not invent facts, numbers, quotes, motives, examples, or outside information.
-The selected angle is guidance, not a validation requirement. If the angle or evidence is weak, still produce the best post possible from the available story.
-Do not reject the request because evidence is missing, an angle is weak, the post is short or long, or the wording does not satisfy a stylistic rule.
-Do not perform a repair pass or fallback generation.
-Return the generated post directly.
-Do not include URLs, source footers, hashtags, emojis, or questions to the reader unless the user's supplied material explicitly requires them.
-Return ONLY the finished LinkedIn post.`;
+POST STRUCTURE
+1. HOOK
+Start with a strong, attention-grabbing opening. It should capture the central idea without using a generic template headline.
+
+2. CONTEXT
+Briefly explain what happened or what the story is about and why it matters.
+
+3. KEY INSIGHTS
+Highlight 2–3 important and distinct insights grounded in the supplied story.
+Each insight must add new information or reasoning.
+
+4. TAKEAWAY
+End the main content with one clear takeaway or lesson only if it adds something new.
+
+5. CTA
+End with ONE natural question or clear call to action directly related to the topic.
+
+IMPORTANT WRITING RULES
+- Focus on ONE central idea.
+- Use short, readable paragraphs and natural LinkedIn formatting.
+- Sound professional, conversational, and human.
+- Use simple English. Avoid corporate jargon and generic motivational filler.
+- Use the story details accurately.
+- Do not invent facts, numbers, quotes, motives, examples, or outside information.
+- The selected angle is guidance for the central thesis, not a reason to reject the request.
+- Do not reject the request because evidence is missing, the angle is weak, or the post does not satisfy an arbitrary stylistic rule.
+- NEVER repeat the same idea simply because it appears in multiple fields. If the headline, angle, insight, takeaway, or CTA communicates the same idea, combine it rather than restating it.
+- Do not restate the selected angle as a separate section or heading inside the post.
+- Do not create a separate "Key Insights" or "Takeaway" heading unless it reads naturally in the finished post.
+- The CTA must add a new invitation to discuss the topic; it must not repeat the takeaway.
+- Do not use URLs, source footers, hashtags, or emojis.
+- Do not perform a repair pass or fallback generation.
+- Return ONLY the finished LinkedIn post.`;
 
   const aiProvider = await provider();
   const raw = await aiProvider.generateText(basePrompt, {
