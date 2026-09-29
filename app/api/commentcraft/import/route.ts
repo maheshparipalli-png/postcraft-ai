@@ -130,7 +130,8 @@ ${summary || "No separate summary was provided."}
 POST:
 ${postText}`;
 
-    const raw = await getAIProvider().generateText(prompt);
+    const provider = await getAIProvider();
+    const raw = await provider.generateText(prompt);
     console.info("[commentcraft/import] Raw AI response:", raw);
 
     const generated = normalizeGenerated(raw);
