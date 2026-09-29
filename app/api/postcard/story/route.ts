@@ -214,10 +214,13 @@ Return ONLY valid JSON:
 Do not add hashtags, emojis, citations, or markdown.`;
 
     const provider = await getAIProvider();
+    // Do not force the OpenAI-compatible response_format here. FreeLLMAPI may
+    // route gpt-oss models to providers such as Groq that can reject otherwise
+    // valid prompts with structured-output validation errors. The prompt still
+    // requires JSON, and the parser below safely extracts and validates it.
     const raw = await provider.generateText(prompt, {
       temperature: 0.82,
       numPredict: 420,
-      format: "json",
     });
 
     let generated: Record<string, unknown>;
