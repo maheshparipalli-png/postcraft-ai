@@ -217,16 +217,29 @@ Do not add hashtags, emojis, citations, or markdown.`;
     const raw = await provider.generateText(prompt, {
       temperature: 0.82,
       numPredict: 420,
+      format: "json",
     });
 
     let generated: Record<string, unknown>;
     try {
       const cleaned = raw
-        .replace(/^\s*```(?:json)?\s*/i, "")
-        .replace(/\s*```\s*$/i, "")
+        .replace(/^\s*\`\`\`(?:json)?\s*/i, "")
+        .replace(/\s*\`\`\`\s*$/i, "")
         .trim();
-      const parsed = JSON.parse(cleaned);
-      if (!parsed || typeof parsed !== "object") throw new Error("invalid");
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        // Some OpenAI-compatible models may still surround valid JSON with a
+        // short explanation. Recover the outermost JSON object when possible.
+        const objectStart = cleaned.indexOf("{");
+        const objectEnd = cleaned.lastIndexOf("}");
+        if (objectStart < 0 || objectEnd <= objectStart) throw new Error("invalid");
+        parsed = JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
+      }
+
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
       generated = parsed as Record<string, unknown>;
     } catch {
       throw new Error("PostCard story generation returned an invalid response. Please try again.");
