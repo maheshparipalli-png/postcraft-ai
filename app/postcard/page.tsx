@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { POSTCARD_FIELDS } from "@/lib/postcard/categories";
 
 type Template = "quote" | "story" | "success" | "person" | "history" | "thought";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
 
-const quoteFields = ["resilience", "leadership", "entrepreneurship", "discipline", "creativity", "learning", "courage", "success", "life", "sports"] as const;
+const quoteFields = POSTCARD_FIELDS;
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
@@ -25,7 +26,7 @@ const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
   { id: "minimal", name: "Minimal", className: "bg-[#f7f5ef]" },
   { id: "abstract", name: "Abstract", className: "bg-[linear-gradient(160deg,#e8edf5,#d6dce7)]" },
   { id: "nature", name: "Nature", className: "bg-[linear-gradient(145deg,#edf0df,#cbd8c0)]" },
-  { id: "photo", name: "Photo", className: "bg-[linear-gradient(160deg,#d7e9f2,#8caec1)]" },
+  { id: "photo", name: "Landscape", className: "bg-[linear-gradient(160deg,#d7e9f2,#8caec1)]" },
 ];
 
 function escapeXml(value: string) {
@@ -418,8 +419,7 @@ export default function PostCardPage() {
       ${avatar}
       <text x="188" y="105" font-family="Arial,sans-serif" font-size="36" font-weight="700" fill="${textColor}">${safeName}</text>
       <text x="188" y="145" font-family="Arial,sans-serif" font-size="28" fill="${mutedColor}">${safeHandle}</text>
-      <circle cx="510" cy="96" r="14" fill="#24a8e8"/>
-      <path d="M503 96l5 5 9-11" fill="none" stroke="white" stroke-width="4"/>
+
       ${content}
       <text x="68" y="1020" font-family="Arial,sans-serif" font-size="18" fill="${mutedColor}">${safeSource}</text>
     </svg>`;
@@ -495,7 +495,7 @@ export default function PostCardPage() {
         setStorySourceTitle(data.story.sourceTitle || "");
         setStorySourceUrl(data.story.sourceUrl || "");
         setStoryCategory(data.story.category || category);
-        setSource(data.story.sourceName ? `Inspired by: ${data.story.sourceName}` : "Source: PostCard");
+        setSource(data.story.sourceName ? `Source: ${data.story.sourceName}` : "Source: PostCard");
         setQuoteHash(null);
         setQuoteAuthor("");
         setGenerationCount(nextCount);
@@ -818,7 +818,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">2 / Write the card</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Write the card</div>
 
               {template === "quote" ? (
                 <div className="mt-5 space-y-5">
@@ -837,6 +837,7 @@ export default function PostCardPage() {
                   {storySourceName && (
                     <p className="text-[11px] leading-5 text-neutral-500">
                       Source material: <span className="font-medium text-neutral-700">{storySourceName}</span>
+                      {storySourceTitle ? <> · {storySourceTitle}</> : null}
                       {storySourceUrl ? <> · <a href={storySourceUrl} target="_blank" rel="noreferrer" className="underline">open source</a></> : null}
                     </p>
                   )}
@@ -874,7 +875,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Choose a background</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">4 / Choose a background</div>
               <div className="mt-4 grid grid-cols-4 gap-3">
                 {backgrounds.map((item) => (
                   <button key={item.id} type="button" onClick={() => setBackground(item.id)} className="group text-left">
@@ -921,7 +922,7 @@ export default function PostCardPage() {
           <div className="lg:sticky lg:top-8">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Live preview</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">5 / Live preview</div>
                 <p className="mt-1 text-sm text-neutral-500">Choose a background on the left to update this preview.</p>
               </div>
               <div className="text-xs text-neutral-400">1080 × 1080</div>
