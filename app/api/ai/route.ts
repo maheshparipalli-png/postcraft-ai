@@ -112,8 +112,7 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
       const provider = await getAIProvider();
       const raw = await provider.generateText(prompt, {
         temperature: 0.72,
-        numPredict: 220,
-        format: "json",
+        // GPT-OSS models can spend part of their output budget on reasoning before producing the JSON.\n        // 220 tokens is too tight for the requested card content and can truncate the JSON.\n        numPredict: 500,\n        format: "json",
       });
 
       const generated = parseJsonObject(raw, "PostCard AI");
