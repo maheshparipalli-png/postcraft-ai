@@ -725,34 +725,11 @@ export async function generateEditorialPost(
 ) {
   const evidence = validateEvidence(suppliedEvidence);
 
-  if (evidence.length < 1) {
-    throw new Error("Evidence is required before post generation.");
-  }
-
-  const ledger = evidence
-    .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
-    .join("\n");
-
-  type ValidationResult = {
-    ok: boolean;
-    reasons: string[];
-    wordCount: number;
-    characterCount: number;
-    hasHook: boolean;
-    hasConcreteAnchor: boolean;
-    hasSourceGrounding: boolean;
-    hasEditorialInsight: boolean;
-    hasGenericFiller: boolean;
-    genericFillerPhrases: string[];
-    metaEditorialPhrases: string[];
-    hasNoSourceLeak: boolean;
-    evidenceDensity: {
-      ok: boolean;
-      matchedAnchors: string[];
-      substantiveParagraphs: number;
-      paragraphsWithEvidence: number;
-    };
-  };
+  const ledger = evidence.length
+    ? evidence
+        .map((e, i) => `${i}. ${e.claim} [${e.type}] — ${e.support}`)
+        .join("\n")
+    : "No separate evidence ledger was supplied. Use only the story headline and summary.";
 
   function normalizeGeneratedPost(rawResult: string) {
     const parsedResult = parseJson(rawResult);
@@ -768,165 +745,10 @@ export async function generateEditorialPost(
         .replace(/\\r/g, "\n"),
     );
 
-    const normalizedPost = sanitizeLinkedInPost(decodedPost);
-    const headline = story.headline.trim();
-    const normalizedHeadline = headline
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-
-    const normalizedLines = normalizedPost
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const withoutDuplicateHeadline = normalizedLines.filter((line, index) => {
-      if (index === 0) return true;
-
-      const normalizedLine = line
-        .replace(/^\*\*(?:headline|title|post):\*\*\s*/i, "")
-        .replace(/^(?:headline|title|post):\s*/i, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-
-      return !(
-        normalizedLine === normalizedHeadline ||
-        normalizedLine.startsWith(normalizedHeadline + " ")
-      );
-    });
-
-    const body = withoutDuplicateHeadline.join("\n\n");
-    const normalizedStart = body
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-
-    const finalPost = normalizedStart.startsWith(normalizedHeadline)
-      ? body
-      : headline + "\n\n" + body;
-
-    return sanitizeLinkedInPost(finalPost);
+    return sanitizeLinkedInPost(decodedPost);
   }
 
-  function validatePost(post: string): ValidationResult {
-    const wordCount = post.split(/\s+/).filter(Boolean).length;
-    const characterCount = post.length;
-    const lines = post.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-    const headline = story.headline.trim();
-    const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const firstLineNormalized = (lines[0] || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const hookLines = lines.slice(1, 3);
-    const hasHook =
-      firstLineNormalized === normalizedHeadline &&
-      hookLines.length === 2 &&
-      hookLines.every((line) => line.length >= 12 && line.length <= 110) &&
-      !/^(?:the key takeaway|in conclusion|what do you think|agree or disagree)[:.!]?$/i.test(hookLines.join(" "));
-    const hasConcreteAnchor = postHasConcreteAnchor(post, story, angle);
-    const hasSourceGrounding = postHasSourceGrounding(
-      post,
-      story,
-      evidence,
-      angle,
-    );
-    const hasEditorialInsight = postHasEditorialInsight(post, story, angle);
-    const genericFillerPhrases = getGenericFillerPhrases(post);
-    const hasGenericFiller = genericFillerPhrases.length > 0;
-    const metaEditorialPhrases = getMetaEditorialPhrases(post);
-    const evidenceDensity = postHasConcreteEvidenceDensity(
-      post,
-      story,
-      evidence,
-      angle,
-    );
-    const hasNoSourceLeak =
-      !/https?:\/\/|(?:^|\n)\s*(?:source|original source|article source)\s*:/im.test(
-        post,
-      );
-
-    const reasons: string[] = [];
-
-    if (!hasHook) {
-      console.info("[PostCraft] quality_warning=hook_structure");
-    }
-    if (wordCount < 45 || wordCount > 120) {
-      reasons.push(`The draft must be 45-120 words; it is ${wordCount} words.`);
-    }
-    if (characterCount < 320) {
-      reasons.push(`The draft is too short at ${characterCount} characters.`);
-    }
-    if (characterCount > 900) {
-      reasons.push(`The draft is too long at ${characterCount} characters.`);
-    }
-    if (!hasConcreteAnchor) {
-      reasons.push("The draft is not sufficiently anchored to concrete story-specific terms.");
-    }
-    if (!hasSourceGrounding) {
-      reasons.push(
-        "The draft does not contain enough distinctive evidence from the selected story.",
-      );
-    }
-    if (!hasEditorialInsight) {
-      console.info("[PostCraft] quality_warning=editorial_insight");
-    }
-    if (hasGenericFiller) {
-      reasons.push("The draft contains generic LinkedIn or AI filler language.");
-    }
-    if (metaEditorialPhrases.length) {
-      reasons.push("The draft contains editorial-generation or section-label language instead of a finished LinkedIn post.");
-    }
-    // Evidence density is also advisory for concise posts. Source grounding and
-    // concrete anchors remain the actual safety/grounding gates.
-    if (!evidenceDensity.ok) {
-      console.info("[PostCraft] quality_warning=evidence_density", {
-        matchedAnchors: evidenceDensity.matchedAnchors,
-      });
-    }
-    if (!hasNoSourceLeak) {
-      reasons.push("The draft contains a source URL or source footer.");
-    }
-
-    return {
-      ok: reasons.length === 0,
-      reasons,
-      wordCount,
-      characterCount,
-      hasHook,
-      hasConcreteAnchor,
-      hasSourceGrounding,
-      hasEditorialInsight,
-      hasGenericFiller,
-      hasNoSourceLeak,
-      genericFillerPhrases,
-      metaEditorialPhrases,
-      evidenceDensity,
-    };
-  }
-
-  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, selected editorial thesis, and evidence.
-This is NOT an article summary. Build: HOOK -> EVIDENCE -> INTERPRETATION -> CONCLUSION. The thesis is the central idea; source details support it. Write with a clear professional point of view.
-
-Rules:
-- Use ONLY the supplied story, thesis, and evidence. No outside facts, invented numbers, examples, quotes, motives, or causation.
-- The selected angle is the CENTRAL THESIS of the post. Do not replace it with generic advice.
-- First three non-empty lines MUST be:
-  1) the exact story headline
-  2) a short hook using one concrete story detail
-  3) a second short hook using another concrete story detail or the central tension
-- Then write 2-3 short paragraphs developing the thesis, not retelling the article.
-- Use two concrete story details as evidence. Explain what they mean together, not just what happened.
-- Make the central tension, trade-off, mechanism, or consequence explicit.
-- End with a specific conclusion resolving the thesis from the evidence, not repeating the summary.
-- Do not use generic advice such as strategic planning, preparedness, risk management, the need to adapt, or broad calls for policy action unless the supplied story explicitly supports it.
-- Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
-- Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
-- The infographic appears above the text, so complement it rather than repeat it.
-- Length: 55-100 words; target 65-85 words.
-- HARD LIMIT: 120 words and 900 characters. Never exceed either limit.
-- The headline counts toward the word and character limits.
-- Keep the two hook lines very short so the explanatory paragraphs fit inside the limits.
-- Before returning, silently count the words and characters and shorten the draft if necessary.
-- Return ONLY the finished LinkedIn post.
+  const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, selected editorial thesis, and available evidence.
 
 STORY
 Headline: ${story.headline}
@@ -945,140 +767,23 @@ ${ledger}
 USER'S TAKE
 ${modeInstruction}
 
-`;
+Write a clear, natural LinkedIn post based on the supplied material.
+Use the story details accurately. Do not invent facts, numbers, quotes, motives, examples, or outside information.
+The selected angle is guidance, not a validation requirement. If the angle or evidence is weak, still produce the best post possible from the available story.
+Do not reject the request because evidence is missing, an angle is weak, the post is short or long, or the wording does not satisfy a stylistic rule.
+Do not perform a repair pass or fallback generation.
+Return the generated post directly.
+Do not include URLs, source footers, hashtags, emojis, or questions to the reader unless the user's supplied material explicitly requires them.
+Return ONLY the finished LinkedIn post.`;
 
-  async function generateRaw(prompt: string) {
-    const aiProvider = await provider();
-    return aiProvider.generateText(prompt, {
-      temperature: 0.25,
-      // Keep enough output budget for GPT-OSS reasoning, but avoid encouraging long drafts.
-      numPredict: 420,
-    });
-  }
-
-  async function repairRaw(rejectedPost: string, validation: ValidationResult) {
-    const repairPrompt = `You are PostCraft AI's senior editorial rewrite editor.
-
-The rejected draft failed because it was structurally or editorially weak. Treat it as disposable and rewrite from scratch rather than expanding or lightly editing it. Do not preserve weak wording merely to make the validator pass.
-
-Before writing, silently answer:
-1. What actually happened in this story?
-2. Which two concrete details create the most interesting tension?
-3. What is the one useful interpretation a professional reader can take from those details?
-Then write only that interpretation, grounded in the supplied evidence. Make the final paragraph a complete conclusion that resolves the interpretation. Do not stop after naming "the concrete tension".
-
-Do not replace the story with invented information.
-
-Work ONLY from the supplied story, selected angle, and evidence.
-Do not search the internet.
-Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
-Preserve the exact headline as the first standalone line.
-Preserve the central editorial angle. The central angle should guide the post, but accurate source-grounded content is more important than forcing an interpretation.
-Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
-Fix EVERY validation failure listed below.
-The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
-Strengthen concrete story-specific grounding.
-Remove generic AI/LinkedIn filler.
-At least two concrete story-specific details must appear in the repaired post.
-The body must contain a distinct interpretation or consequence tied to those details. A sentence that would fit almost any AI story is not acceptable. The final paragraph must explicitly resolve that interpretation into a concrete conclusion supported by the story.
-Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
-
-Most importantly, do not merely name the tension. Explain it and CONCLUDE it. For example, if the story shows AI-generated code or decisions being trusted over experienced workers, the post should explain what that mismatch means for how work is judged or who is trusted — using only what the supplied story supports.
-The first three lines must be the exact headline followed by two very short, story-specific hook lines.
-Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
-The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
-Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
-Keep 55-100 words and 280-900 characters. Aim for 65-85 words. 120 words and 900 characters are hard limits, not targets. The headline counts toward both limits. Count the words and characters before returning the draft.
-The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook to one short sentence. Then use exactly 2 short explanatory paragraphs. Do not add a third explanatory paragraph.
-Do not include URLs or source footers.
-If the rejected draft is longer than 120 words, do not summarize it paragraph-by-paragraph. Extract only the two strongest story-specific details and the selected thesis.
-Return ONLY the repaired LinkedIn post.
-
-STORY
-Headline: ${story.headline}
-Source: ${story.source}
-Summary: ${story.summary}
-
-SELECTED ANGLE
-${angle}
-
-WHY THIS ANGLE WORKS
-${angleWhy}
-
-STORY EVIDENCE
-${ledger}
-
-VALIDATION FAILURES
-${validation.reasons.map((reason) => `- ${reason}`).join("\\n")}
-
-DETECTED GENERIC PHRASES
-${validation.genericFillerPhrases.length ? validation.genericFillerPhrases.map((phrase) => `- ${phrase}`).join("\\n") : "- none"}
-
-EVIDENCE DENSITY
-Concrete anchors detected: ${validation.evidenceDensity.matchedAnchors.join(", ") || "none"}
-Substantive paragraphs: ${validation.evidenceDensity.substantiveParagraphs}
-Paragraphs containing evidence: ${validation.evidenceDensity.paragraphsWithEvidence}
-
-REJECTED DRAFT
-${rejectedPost}`;
-
-    return generateRaw(repairPrompt);
-  }
-
-  const firstRaw = await generateRaw(basePrompt);
-  const firstPost = normalizeGeneratedPost(firstRaw);
-  const firstValidation = validatePost(firstPost);
-
-  console.info("[PostCraft] post_validation", {
-    attempt: "initial",
-    ...firstValidation,
+  const aiProvider = await provider();
+  const raw = await aiProvider.generateText(basePrompt, {
+    temperature: 0.25,
+    numPredict: 420,
   });
 
-  if (firstValidation.ok) {
-    console.info("[PostCraft] editorial_quality_gate=first_pass");
-    if (onPostToken) onPostToken(firstPost);
-    return firstPost;
-  }
+  const post = normalizeGeneratedPost(raw);
 
-  console.warn("[PostCraft] post_rejected_first_attempt", {
-    reasons: firstValidation.reasons,
-  });
-
-
-  const repairedRaw = await repairRaw(firstPost, firstValidation);
-  const repairedPost = normalizeGeneratedPost(repairedRaw);
-  const repairedValidation = validatePost(repairedPost);
-
-  console.info("[PostCraft] post_validation", {
-    attempt: "repair",
-    ...repairedValidation,
-  });
-
-  if (repairedValidation.ok) {
-    console.info("[PostCraft] editorial_quality_gate=repaired");
-    if (onPostToken) onPostToken(repairedPost);
-    return repairedPost;
-  }
-
-  const fallbackPost = buildGroundedPostFallback(story, angle);
-  const fallbackValidation = validatePost(fallbackPost);
-
-  console.warn("[PostCraft] post_validation", {
-    attempt: "grounded_fallback",
-    ...fallbackValidation,
-  });
-
-  if (fallbackValidation.ok) {
-    console.info("[PostCraft] editorial_quality_gate=grounded_fallback");
-    if (onPostToken) onPostToken(fallbackPost);
-    return fallbackPost;
-  }
-
-  console.warn("[PostCraft] post_rejected_after_grounded_fallback", {
-    reasons: fallbackValidation.reasons,
-  });
-
-  throw new Error(
-    `PostCraft rejected the draft after generation and repair. ${repairedValidation.reasons.join(" ")}`,
-  );
+  if (onPostToken) onPostToken(post);
+  return post;
 }
