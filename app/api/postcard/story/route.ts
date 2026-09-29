@@ -79,7 +79,7 @@ function hashStory(item: FeedItem) {
 
 function score(
   item: Pick<FeedItem, "title" | "summary"> | { source_title: string; source_summary: string },
-  category: string,
+  category: PostCardField,
 ) {
   const terms = CATEGORY_TERMS[category] ?? CATEGORY_TERMS[DEFAULT_CATEGORY];
   const title = "title" in item ? item.title : item.source_title;
