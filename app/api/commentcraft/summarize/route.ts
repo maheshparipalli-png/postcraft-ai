@@ -17,7 +17,8 @@ Return only the summary text. Use 1-2 sentences and 30-60 words. Use simple, eve
 POST:
 ${postText}`;
 
-    const raw = await getAIProvider().generateText(prompt);
+    const provider = await getAIProvider();
+    const raw = await provider.generateText(prompt);
     const summary = raw
       .replace(/^\s*```(?:text|markdown)?\s*/i, "")
       .replace(/\s*```\s*$/i, "")
