@@ -110,7 +110,13 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
     .replace(/\bhttps?:\/\/\S+/gi, "")
     .trim();
   const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
-  const points = sentences.slice(0, 3);
+  const normalizeSentence = (value: string) =>
+    value.replace(/[.!?]+$/, "").replace(/\\s+/g, " ").trim().toLowerCase();
+
+  const uniqueSentences = sentences.filter((sentence, index, all) =>
+    index === all.findIndex((candidate) => normalizeSentence(candidate) === normalizeSentence(sentence))
+  );
+  const points = uniqueSentences.slice(0, 3);
   points.forEach((point, index) => {
     y += 55;
     ctx.fillStyle = "#a3a3a3";
@@ -124,7 +130,15 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
     y = py;
   });
 
-  const takeaway = sentences.length > 3 ? sentences[sentences.length - 1].replace(/[.!?]+$/, "") : angle;
+  const angleKey = normalizeSentence(angle);
+  const candidateTakeaway = uniqueSentences[uniqueSentences.length - 1] || "";
+  const takeaway =
+    candidateTakeaway &&
+    !points.some((point) => normalizeSentence(point) === normalizeSentence(candidateTakeaway)) &&
+    normalizeSentence(candidateTakeaway) !== angleKey
+      ? candidateTakeaway.replace(/[.!?]+$/, "")
+      : "";
+
   if (takeaway.trim()) {
     y += 32;
     ctx.fillStyle = "#737373";
