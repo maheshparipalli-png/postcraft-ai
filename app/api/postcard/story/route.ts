@@ -219,7 +219,8 @@ Return ONLY valid JSON:
 
 Do not add hashtags, emojis, citations, or markdown.`;
 
-    const raw = await getAIProvider().generateText(prompt, {
+    const provider = await getAIProvider();
+    const raw = await provider.generateText(prompt, {
       temperature: 0.82,
       numPredict: 420,
     });
