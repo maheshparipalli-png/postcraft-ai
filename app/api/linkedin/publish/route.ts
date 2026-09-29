@@ -102,7 +102,7 @@ async function fetchPublicUrl(
 
   throw new Error("The remote image could not be fetched.");
 }
-async function publishImage(accessToken: string, owner: string, imageDataUrl: string, _altText: string) {
+async function publishImage(accessToken: string, owner: string, imageDataUrl: string) {
   const match = imageDataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,(.+)$/);
   if (!match) throw new Error("The visual post image is invalid. Please generate it again.");
   const mimeType = match[1] === "image/jpg" ? "image/jpeg" : match[1];
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     const content: Record<string, unknown> = {};
     if (imageDataUrl) {
-      const imageUrn = await publishImage(session.accessToken, session.personUrn, imageDataUrl, sourceTitle || "PostCraft visual post");
+      const imageUrn = await publishImage(session.accessToken, session.personUrn, imageDataUrl);
       content.media = { altText: sourceTitle || "PostCraft visual LinkedIn post", id: imageUrn };
     }
 
