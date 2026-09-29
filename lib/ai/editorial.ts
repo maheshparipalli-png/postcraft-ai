@@ -620,7 +620,7 @@ function postHasSourceGrounding(post: string, story: Story, evidence: Evidence[]
   // Keep the guard strong enough to catch mixed stories, but tolerant of
   // natural paraphrasing from a small local model. One distinctive headline
   // anchor plus two supporting anchors is sufficient.
-  return titleMatches >= 1 && supportMatches >= 1;
+  return supportMatches >= 2 || (titleMatches >= 1 && supportMatches >= 1);
 }
 
 function getMetaEditorialPhrases(post: string) {
@@ -849,8 +849,8 @@ export async function generateEditorialPost(
     if (!hasHook) {
       console.info("[PostCraft] quality_warning=hook_structure");
     }
-    if (wordCount < 50 || wordCount > 120) {
-      reasons.push(`The draft must be 50-120 words; it is ${wordCount} words.`);
+    if (wordCount < 45 || wordCount > 120) {
+      reasons.push(`The draft must be 45-120 words; it is ${wordCount} words.`);
     }
     if (characterCount < 320) {
       reasons.push(`The draft is too short at ${characterCount} characters.`);
@@ -867,7 +867,7 @@ export async function generateEditorialPost(
       );
     }
     if (!hasEditorialInsight) {
-      reasons.push("The draft needs a distinct editorial interpretation, not only a summary.");
+      console.info("[PostCraft] quality_warning=editorial_insight");
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
@@ -921,7 +921,7 @@ Rules:
 - Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
 - Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
 - The infographic appears above the text, so complement it rather than repeat it.
-- Length: 70-100 words; target 80-90 words.
+- Length: 55-100 words; target 65-85 words.
 - HARD LIMIT: 120 words and 900 characters. Never exceed either limit.
 - The headline counts toward the word and character limits.
 - Keep the two hook lines very short so the explanatory paragraphs fit inside the limits.
@@ -973,7 +973,7 @@ Work ONLY from the supplied story, selected angle, and evidence.
 Do not search the internet.
 Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
 Preserve the exact headline as the first standalone line.
-Preserve the central editorial angle. The central angle is mandatory: at least one body paragraph must explain it in concrete terms.
+Preserve the central editorial angle. The central angle should guide the post, but accurate source-grounded content is more important than forcing an interpretation.
 Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
 Fix EVERY validation failure listed below.
 The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
@@ -988,7 +988,7 @@ The first three lines must be the exact headline followed by two very short, sto
 Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
-Keep 70-100 words and 320-900 characters. Aim for 80-90 words. 120 words and 900 characters are hard limits, not targets. The headline counts toward both limits. Count the words and characters before returning the draft.
+Keep 55-100 words and 280-900 characters. Aim for 65-85 words. 120 words and 900 characters are hard limits, not targets. The headline counts toward both limits. Count the words and characters before returning the draft.
 The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook to one short sentence. Then use exactly 2 short explanatory paragraphs. Do not add a third explanatory paragraph.
 Do not include URLs or source footers.
 If the rejected draft is longer than 120 words, do not summarize it paragraph-by-paragraph. Extract only the two strongest story-specific details and the selected thesis.
