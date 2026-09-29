@@ -33,6 +33,16 @@ function headers(apiKey: string | null) {
   };
 }
 
+function errorMessage(data: JsonRecord | null, fallback: string) {
+  const error = data?.error;
+  if (typeof error === "string" && error.trim()) return error.trim();
+  if (error && typeof error === "object") {
+    const message = (error as JsonRecord).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  }
+  return fallback;
+}
+
 function extractText(data: JsonRecord) {
   const choices = Array.isArray(data.choices) ? data.choices : [];
   const first = choices[0];
@@ -96,11 +106,12 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
       }
 
       if (!response.ok) {
-        const message = data?.error?.message || data?.error || responseText.slice(0, 400);
+        const message = errorMessage(data, responseText.slice(0, 400));
         throw new Error(`${config.providerLabel} request failed (${response.status}): ${message}`);
       }
 
       try {
+        if (!data) throw new Error("empty");
         return extractText(data);
       } catch {
         throw new Error(`${config.providerLabel} returned an empty response.`);
