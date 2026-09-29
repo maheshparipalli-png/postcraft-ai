@@ -1,5 +1,7 @@
 import type { AIGenerateOptions, AIProvider } from "./types";
 
+type JsonRecord = Record<string, unknown>;
+
 type OpenAICompatibleConfig = {
   baseUrl: string;
   apiKey: string | null;
@@ -31,16 +33,22 @@ function headers(apiKey: string | null) {
   };
 }
 
-function extractText(data: any) {
-  const text = data?.choices?.[0]?.message?.content;
+function extractText(data: JsonRecord) {
+  const choices = Array.isArray(data.choices) ? data.choices : [];
+  const first = choices[0];
+  const message = first && typeof first === "object" ? (first as JsonRecord).message : null;
+  const text = message && typeof message === "object" ? (message as JsonRecord).content : null;
   if (typeof text !== "string" || !text.trim()) {
     throw new Error("returned an empty response.");
   }
   return text.trim();
 }
 
-function extractStreamToken(chunk: any) {
-  const token = chunk?.choices?.[0]?.delta?.content;
+function extractStreamToken(chunk: JsonRecord) {
+  const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+  const first = choices[0];
+  const delta = first && typeof first === "object" ? (first as JsonRecord).delta : null;
+  const token = delta && typeof delta === "object" ? (delta as JsonRecord).content : null;
   return typeof token === "string" ? token : "";
 }
 
@@ -78,10 +86,11 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
 
     if (!stream) {
       const responseText = await response.text();
-      let data: any = null;
+      let data: JsonRecord | null = null;
 
       try {
-        data = JSON.parse(responseText);
+        const parsed: unknown = JSON.parse(responseText);
+        data = parsed && typeof parsed === "object" ? parsed as JsonRecord : null;
       } catch {
         // Keep the raw response for a useful error below.
       }
@@ -100,7 +109,7 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
 
     if (!response.ok) {
       const responseText = await response.text();
-      let data: any = null;
+      let data: JsonRecord | null = null;
 
       try {
         data = JSON.parse(responseText);
