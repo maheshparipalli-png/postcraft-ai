@@ -153,7 +153,6 @@ export default function Home() {
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [angle, setAngle] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [openingSavedPost, setOpeningSavedPost] = useState(false);
@@ -246,7 +245,6 @@ export default function Home() {
 
   // URL callback parameters and saved-post hydration are intentionally handled after mount.
 async function discoverIdeas() {
-    setLoading(true);
     setError("");
     setIdeas([]);
     setSelectedIdea(null);
@@ -277,8 +275,7 @@ async function discoverIdeas() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Discovery failed");
     } finally {
-      setLoading(false);
-    }
+      }
   }
 
   useEffect(() => {
