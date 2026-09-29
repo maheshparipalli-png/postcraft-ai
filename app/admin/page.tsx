@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
 
   const admin = createAdminClient();
   const [
-    usersResult, trialResult, paidResult, expiredResult, pastDueResult, suspendedAccountsResult,
+    usersResult, trialResult, paidResult, pastDueResult, suspendedAccountsResult,
     schedulesResult, publicationsResult, draftsResult, commentsResult,
     recentUsersResult, recentAuditResult,
     pastDueUsersResult, suspendedUsersResult, failedDraftsResult,
@@ -26,7 +26,6 @@ export default async function AdminDashboardPage() {
     admin.from("profiles").select("*", { count: "exact", head: true }),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).in("status", ["trialing", "grace"]),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).eq("status", "active"),
-    admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).eq("status", "expired"),
     admin.from("billing_subscriptions").select("*", { count: "exact", head: true }).in("status", ["past_due", "suspended"]),
     admin.from("profiles").select("*", { count: "exact", head: true }).eq("account_status", "suspended"),
     admin.from("postcraft_schedules").select("*", { count: "exact", head: true }).eq("enabled", true),
