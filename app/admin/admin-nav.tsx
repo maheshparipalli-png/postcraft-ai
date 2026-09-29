@@ -7,6 +7,7 @@ const links = [
   ["Control room", "/admin"],
   ["Users", "/admin/users"],
   ["Audit log", "/admin/audit"],
+  ["AI Configuration", "/admin/ai-settings"],
 ];
 
 export default function AdminNav() {
