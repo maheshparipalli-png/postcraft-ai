@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAIProvider } from "@/lib/ai/provider";
+import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 
 type GeneratedComment = { angle: string; comment: string };
 
@@ -132,7 +133,7 @@ ${postText}`;
 
     const provider = await getAIProvider();
     const raw = await provider.generateText(prompt);
-    console.info("[commentcraft/import] Raw AI response:", raw);
+    console.info("[commentcraft/import] AI generation completed", { outputLength: raw.length });
 
     const generated = normalizeGenerated(raw);
     if (!generated.length) {
@@ -180,10 +181,10 @@ ${postText}`;
 
     return NextResponse.json({ post: { ...post } });
   } catch (error) {
-    console.error("[commentcraft/import] Import failed:", error);
+    console.error("[commentcraft/import] Import failed:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Import failed" },
-      { status: 500 },
+      { error: userFacingAIError(error) },
+      { status: httpStatusForAIError(error) },
     );
   }
 }
