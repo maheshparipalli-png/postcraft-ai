@@ -111,7 +111,8 @@ ${idea || "(No separate idea provided.)"}
 Return ONLY valid JSON with keys: headline, body, closing.`;
 
 
-      const raw = await getAIProvider().generateText(prompt, {
+      const provider = await getAIProvider();
+      const raw = await provider.generateText(prompt, {
         temperature: 0.72,
         numPredict: 220,
         format: "json",
@@ -204,7 +205,8 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
       return NextResponse.json({ text });
     }
 
-    const text = await getAIProvider().generateText(prompt);
+    const provider = await getAIProvider();
+    const text = await provider.generateText(prompt);
     return NextResponse.json({ text });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI request failed";
