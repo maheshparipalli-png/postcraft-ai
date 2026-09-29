@@ -42,12 +42,12 @@ export default function AISettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function submit(path: string) {
+  async function submit(path: string, method: "POST" | "PUT") {
     setError("");
     setMessage("");
     const payload = { provider, baseUrl, model, apiKey };
     const response = await fetch(path, {
-      method: path.endsWith("ai-config") ? "POST" : "PUT",
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -59,7 +59,7 @@ export default function AISettingsPage() {
   async function save() {
     try {
       setSaving(true);
-      const data = await submit("/api/admin/ai-config");
+      const data = await submit("/api/admin/ai-config", "POST");
       setConfig(data.config);
       setApiKey("");
       setMessage("AI configuration saved and activated.");
@@ -73,7 +73,7 @@ export default function AISettingsPage() {
   async function test() {
     try {
       setTesting(true);
-      const data = await submit("/api/admin/ai-config/test");
+      const data = await submit("/api/admin/ai-config", "PUT");
       setMessage(`Connection successful · ${data.elapsedMs} ms · ${data.response}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Connection test failed.");
