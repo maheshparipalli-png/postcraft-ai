@@ -105,7 +105,7 @@ function renderPostCardImage(title: string, post: string, _angle: string, source
     .trim();
   const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
   const normalizeSentence = (value: string) =>
-    value.replace(/[.!?]+$/, "").replace(/\\s+/g, " ").trim().toLowerCase();
+    value.replace(/[.!?]+$/, "").replace(/\s+/g, " ").trim().toLowerCase();
 
   const uniqueSentences = sentences.filter((sentence, index, all) =>
     index === all.findIndex((candidate) => normalizeSentence(candidate) === normalizeSentence(sentence))
