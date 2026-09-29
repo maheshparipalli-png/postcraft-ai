@@ -60,11 +60,7 @@ export async function POST(request: Request) {
       const previousHeadline = typeof body?.previousHeadline === "string" ? body.previousHeadline.trim() : "";
       const previousBody = typeof body?.previousBody === "string" ? body.previousBody.trim() : "";
       const previousClosing = typeof body?.previousClosing === "string" ? body.previousClosing.trim() : "";
-      const currentHeadline = typeof body?.headline === "string" ? body.headline.trim() : "";
-      const currentBody = typeof body?.supportingThought === "string" ? body.supportingThought.trim() : "";
-      const currentClosing = typeof body?.closing === "string" ? body.closing.trim() : "";
       const currentStat = typeof body?.stat === "string" ? body.stat.trim() : "";
-      const source = typeof body?.source === "string" ? body.source.trim() : "";
 
       const formatInstructions = ({
         success: `Create a compact success/comeback story. Use an identifiable human situation, a setback or obstacle, a turning point, and a useful lesson. Do not invent a named person or claim a real event unless source material is supplied.`,
