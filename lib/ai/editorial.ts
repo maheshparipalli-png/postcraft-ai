@@ -312,18 +312,37 @@ Return ONLY valid JSON:
       ])
     : [];
 
-  // Descriptive stories can still support a strong editorial thesis even when
-  // the small local model returns an unusable or overly generic planner angle.
-  // Build the thesis only from concrete facts already present in the story.
+  // Descriptive stories can still support a strong editorial thesis when the
+  // model planner fails. Build the fallback from the actual story rather than
+  // inserting topic-specific text that could belong to a different article.
   if (!angles.length) {
-    const fallbackAngle = `India's current economic resilience is being tested by geopolitical tensions and weather risks, showing how external pressures can challenge otherwise strong financial and external conditions.`;
-    angles = selectSafeAngles([
-      {
-        angle: fallbackAngle,
-        why: "This connects the story's reported resilience with its two specifically identified risks.",
-        evidence: story.summary,
-      },
-    ]);
+    const summary = story.summary.trim().replace(/\\s+/g, " ").replace(/[.!?]+$/, "");
+    const butMatch = summary.match(/^(.+?)\\s+but\\s+(.+)$/i);
+    const whileMatch = summary.match(/^(.+?)\\s+while\\s+(.+)$/i);
+
+    let fallbackAngle = "";
+    let fallbackWhy = "";
+
+    if (butMatch) {
+      fallbackAngle = `The story exposes a trade-off: ${butMatch[1].trim()} but ${butMatch[2].trim()}.`;
+      fallbackWhy = "This connects the two concrete conditions described in the story and explains the tension between them.";
+    } else if (whileMatch) {
+      fallbackAngle = `The story exposes a tension between ${butMatch?.[1] ?? whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
+      fallbackWhy = "This connects the two concrete conditions described in the story.";
+    } else if (story.headline && summary) {
+      fallbackAngle = `The story is less about "${story.headline.trim()}" as a headline and more about what the supplied summary says changes when those conditions meet: ${summary}.`;
+      fallbackWhy = "This keeps the interpretation tied to the supplied headline and summary without adding outside facts.";
+    }
+
+    if (fallbackAngle) {
+      angles = selectSafeAngles([
+        {
+          angle: fallbackAngle,
+          why: fallbackWhy,
+          evidence: story.summary,
+        },
+      ]);
+    }
   }
 
   const evidence = angles.length
