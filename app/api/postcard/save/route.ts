@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getBillingAccess } from "@/lib/billing/access";
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+
+    const billing = await getBillingAccess();
+    if (!billing.allowed) return NextResponse.json({ error: "Start your free trial or subscribe to continue." }, { status: 402 });
 
     const body = await request.json();
     const template = typeof body?.template === "string" ? body.template : "editorial";
@@ -29,6 +33,11 @@ export async function POST(request: Request) {
     const storySourceUrl = typeof body?.storySourceUrl === "string" ? body.storySourceUrl.trim() : "";
     const storyCategory = typeof body?.storyCategory === "string" ? body.storyCategory.trim() : "";
 
+    const validTemplates = new Set(["quote", "story", "success", "person", "history", "thought"]);
+    const validBackgrounds = new Set(["gradient", "dark", "photo", "minimal", "abstract", "ink", "nature"]);
+
+    if (!validTemplates.has(template)) return NextResponse.json({ error: "Invalid PostCard format." }, { status: 400 });
+    if (!validBackgrounds.has(background)) return NextResponse.json({ error: "Invalid PostCard background." }, { status: 400 });
     if (!headline && !stat) {
       return NextResponse.json({ error: "There is no card content to save yet." }, { status: 400 });
     }
