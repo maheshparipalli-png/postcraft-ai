@@ -12,12 +12,19 @@ import { createOllamaProvider } from "@/lib/ai/ollama";
 
 const providers: AIProviderName[] = ["ollama", "freellmapi", "openai", "anthropic", "google", "custom"];
 
-function validateInput(body: any) {
-  const provider = body?.provider as AIProviderName;
-  const model = typeof body?.model === "string" ? body.model.trim() : "";
-  const baseUrl = typeof body?.baseUrl === "string" ? body.baseUrl.trim() : "";
+type AIConfigRequest = {
+  provider?: unknown;
+  model?: unknown;
+  baseUrl?: unknown;
+  apiKey?: unknown;
+};
 
-  if (!providers.includes(provider)) throw new Error("Invalid AI provider.");
+function validateInput(body: AIConfigRequest) {
+  const provider = typeof body.provider === "string" ? body.provider as AIProviderName : undefined;
+  const model = typeof body.model === "string" ? body.model.trim() : "";
+  const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+
+  if (!provider || !providers.includes(provider)) throw new Error("Invalid AI provider.");
   if (!model) throw new Error("Model is required.");
 
   if (provider !== "ollama" && !baseUrl && provider !== "anthropic") {
@@ -28,7 +35,7 @@ function validateInput(body: any) {
     provider,
     model,
     baseUrl: baseUrl || null,
-    apiKey: typeof body?.apiKey === "string" ? body.apiKey.trim() : "",
+    apiKey: typeof body.apiKey === "string" ? body.apiKey.trim() : "",
   };
 }
 
@@ -47,8 +54,9 @@ export async function POST(request: Request) {
   if (!access.allowed) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   try {
-    const body = await request.json();
-    const input = validateInput(body);
+    const body = await request.json() as unknown;
+    if (!body || typeof body !== "object") throw new Error("Invalid request body.");
+    const input = validateInput(body as AIConfigRequest);
     const existing = await getRuntimeAIConfig();
 
     if (
