@@ -43,12 +43,28 @@ function errorMessage(data: JsonRecord | null, fallback: string) {
   return fallback;
 }
 
+function contentToText(value: unknown) {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return "";
+
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return "";
+      const text = (item as JsonRecord).text;
+      return typeof text === "string" ? text : "";
+    })
+    .join("");
+}
+
 function extractText(data: JsonRecord) {
   const choices = Array.isArray(data.choices) ? data.choices : [];
   const first = choices[0];
   const message = first && typeof first === "object" ? (first as JsonRecord).message : null;
-  const text = message && typeof message === "object" ? (message as JsonRecord).content : null;
-  if (typeof text !== "string" || !text.trim()) {
+  const text = message && typeof message === "object"
+    ? contentToText((message as JsonRecord).content)
+    : "";
+  if (!text.trim()) {
     throw new Error("returned an empty response.");
   }
   return text.trim();
@@ -58,8 +74,10 @@ function extractStreamToken(chunk: JsonRecord) {
   const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
   const first = choices[0];
   const delta = first && typeof first === "object" ? (first as JsonRecord).delta : null;
-  const token = delta && typeof delta === "object" ? (delta as JsonRecord).content : null;
-  return typeof token === "string" ? token : "";
+  const token = delta && typeof delta === "object"
+    ? contentToText((delta as JsonRecord).content)
+    : "";
+  return token;
 }
 
 export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): AIProvider {
@@ -107,6 +125,11 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
 
       if (!response.ok) {
         const message = errorMessage(data, responseText.slice(0, 400));
+        if (response.status === 530) {
+          throw new Error(
+            `${config.providerLabel} returned Cloudflare HTTP 530. Check the provider hostname, DNS, tunnel, and origin service.`,
+          );
+        }
         throw new Error(`${config.providerLabel} request failed (${response.status}): ${message}`);
       }
 
@@ -129,6 +152,11 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
       }
 
       const message = errorMessage(data, responseText.slice(0, 400));
+      if (response.status === 530) {
+        throw new Error(
+          `${config.providerLabel} returned Cloudflare HTTP 530. Check the provider hostname, DNS, tunnel, and origin service.`,
+        );
+      }
       throw new Error(`${config.providerLabel} request failed (${response.status}): ${message}`);
     }
 
