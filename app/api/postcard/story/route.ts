@@ -5,8 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { getAIProvider } from "@/lib/ai/provider";
 import { POSTCARD_FIELD_TERMS, POSTCARD_FIELDS, type PostCardField } from "@/lib/postcard/categories";
+import { parseJsonObject } from "@/lib/ai/json";
+import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 type FeedItem = {
   title: string;
@@ -223,30 +226,7 @@ Do not add hashtags, emojis, citations, or markdown.`;
       numPredict: 420,
     });
 
-    let generated: Record<string, unknown>;
-    try {
-      const cleaned = raw
-        .replace(/^\s*\`\`\`(?:json)?\s*/i, "")
-        .replace(/\s*\`\`\`\s*$/i, "")
-        .trim();
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch {
-        // Some OpenAI-compatible models may still surround valid JSON with a
-        // short explanation. Recover the outermost JSON object when possible.
-        const objectStart = cleaned.indexOf("{");
-        const objectEnd = cleaned.lastIndexOf("}");
-        if (objectStart < 0 || objectEnd <= objectStart) throw new Error("invalid");
-        parsed = JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
-      }
-
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
-      generated = parsed as Record<string, unknown>;
-    } catch {
-      throw new Error("PostCard story generation returned an invalid response. Please try again.");
-    }
+    const generated = parseJsonObject(raw, "PostCard story AI");
 
     const headline = typeof generated.headline === "string" ? generated.headline.trim() : "";
     const body = typeof generated.body === "string" ? generated.body.trim() : "";
@@ -273,10 +253,13 @@ Do not add hashtags, emojis, citations, or markdown.`;
       },
     });
   } catch (error) {
-    console.error("PostCard story generation failed:", error);
+    console.error("PostCard story generation failed:", {
+      kind: error && typeof error === "object" && "kind" in error ? String((error as { kind?: unknown }).kind) : "unknown",
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not generate a motivational story." },
-      { status: 502 },
+      { error: userFacingAIError(error) },
+      { status: httpStatusForAIError(error) },
     );
   }
 }
