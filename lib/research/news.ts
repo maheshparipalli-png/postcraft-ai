@@ -226,10 +226,6 @@ function isAggregatorSource(source: string) {
   return /^(google news|bing news|yahoo news)$/i.test(source.trim());
 }
 
-function isGoogleNewsUrl(url: string) {
-  return hostnameOf(url) === "news.google.com";
-}
-
 function publisherFromUrl(url: string) {
   const hostname = hostnameOf(url);
   if (!hostname || isAggregatorUrl(url)) return "";
