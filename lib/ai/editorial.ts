@@ -57,48 +57,6 @@ function parseEvidence(value: unknown): Evidence[] {
     .slice(0, 3);
 }
 
-function parseAngles(value: unknown): Angle[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((item): Angle | null => {
-      if (!item || typeof item !== "object") return null;
-
-      const v = item as {
-        angle?: unknown;
-        text?: unknown;
-        why?: unknown;
-        evidence?: unknown;
-      };
-
-      const angleValue =
-        typeof v.angle === "string"
-          ? v.angle
-          : typeof v.text === "string"
-            ? v.text
-            : "";
-
-      const angle = normalizeGeneratedText(angleValue, { plainPunctuation: true });
-      const why = typeof v.why === "string" ? normalizeGeneratedText(v.why, { plainPunctuation: true }) : "";
-      const evidence =
-        typeof v.evidence === "string" && v.evidence.trim()
-          ? normalizeGeneratedText(v.evidence, { plainPunctuation: true })
-          : "Based on the selected story and its supplied summary.";
-
-      return angle
-        ? {
-            angle,
-            why:
-              why ||
-              "This provides a specific, evidence-led point of view on the selected story.",
-            evidence,
-          }
-        : null;
-    })
-    .filter((x): x is Angle => Boolean(x))
-    .slice(0, 3);
-}
-
 function normalizeAngleText(value: string) {
   return value
     .toLowerCase()
@@ -304,9 +262,6 @@ function selectSafeAngles(angles: Angle[]) {
   return unique;
 }
 
-function buildGroundedFallback(_story: Story): { evidence: Evidence[]; angles: Angle[] } {
-  return { evidence: [], angles: [] };
-}
 async function buildEditorialPass(story: Story) {
   const prompt = `You are PostCraft AI's editorial planner. Work ONLY from the supplied story.
 
@@ -704,10 +659,6 @@ function getGenericFillerPhrases(post: string) {
 
   const lower = post.toLowerCase();
   return phrases.filter((phrase) => lower.includes(phrase));
-}
-
-function postHasGenericFiller(post: string) {
-  return getGenericFillerPhrases(post).length > 0;
 }
 
 function postHasEditorialInsight(post: string, story: Story, angle: string) {
