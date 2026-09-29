@@ -12,15 +12,6 @@ type Idea = { title: string; description: string; whyItMatters: string; sourceIn
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
 type PublishFormat = "combined" | "text" | "image";
 
-function formatDateInput(value: string) {
-  if (!value) return "";
-  const match = value.match(/^\d{4}-\d{2}-\d{2}/);
-  if (match) return match[0];
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
-}
-
 function formatPublishedAtIST(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
