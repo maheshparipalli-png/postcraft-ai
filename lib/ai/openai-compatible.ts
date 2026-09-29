@@ -63,7 +63,7 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
       response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: headers(config.apiKey), body: JSON.stringify(getRequestBody(config.model, prompt, options, stream, supportsResponseFormat)), cache: "no-store", signal: controller.signal });
     } catch (error) {
       if (controller.signal.aborted) throw new AIProviderError("timeout", `${provider} request timed out.`, { provider, retryable: false, cause: error });
-      throw new AIProviderError("network", `Could not reach ${provider}. Check the configured Base URL and network connectivity.`, { provider, retryable: true, cause: error });
+      throw new AIProviderError("network", `Could not reach ${provider}. Check the configured Base URL and network connectivity.`, { provider, retryable: false, cause: error });
     }
     if (!stream) {
       const responseText = await response.text(); let data: JsonRecord | null = null;
