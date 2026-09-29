@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -156,8 +157,7 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
-  const [linkedinCaption, setLinkedinCaption] = useState("");
-  const linkedinCommentary = linkedinCaption.trim() || (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
+  const linkedinCommentary = (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const [linkedinNotice, setLinkedinNotice] = useState("");
@@ -298,9 +298,6 @@ export default function PostCardPage() {
   function buildSvg(backgroundId = background) {
     const safeName = escapeXml(name);
     const safeHandle = escapeXml(handle);
-    const safeHeadline = escapeXml(headline);
-    const safeBody = escapeXml(body);
-    const safeClosing = escapeXml(closing);
     const safeSource = escapeXml(source);
     const textColor = backgroundId === "dark" ? "#ffffff" : "#171717";
     const mutedColor = backgroundId === "dark" ? "#b9b9b9" : "#777";
@@ -690,8 +687,8 @@ export default function PostCardPage() {
               {profileLocked && !editingProfile ? (
                 <div className="mt-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-white/60 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                      {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initial(name)}
+                    <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                      {photo ? <Image src={photo} alt="" fill sizes="36px" unoptimized className="object-cover" /> : initial(name)}
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{name}</div>
@@ -715,11 +712,11 @@ export default function PostCardPage() {
                       <button
                         type="button"
                         onClick={() => fileRef.current?.click()}
-                        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-900 text-center text-xs font-semibold text-white transition hover:opacity-90"
+                        className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-900 text-center text-xs font-semibold text-white transition hover:opacity-90"
                         aria-label={photo ? "Change profile photo" : "Upload profile photo"}
                       >
                         {photo ? (
-                          <img src={photo} alt="" className="h-full w-full object-cover" />
+                          <Image src={photo} alt="" fill sizes="96px" unoptimized className="object-cover" />
                         ) : (
                           <span className="px-3">◉<br />Upload photo</span>
                         )}
