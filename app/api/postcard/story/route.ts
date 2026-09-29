@@ -115,7 +115,7 @@ async function refreshPool(admin: ReturnType<typeof createAdminClient>) {
     source_name: item.sourceName,
     source_summary: item.summary,
     source_published_at: item.publishedAt,
-    category: Object.keys(CATEGORY_TERMS)
+    category: POSTCARD_FIELDS
       .map((name) => ({ name, score: score(item, name) }))
       .sort((a, b) => b.score - a.score)[0]?.name || DEFAULT_CATEGORY,
   }));
