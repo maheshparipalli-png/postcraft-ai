@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
+import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 
 export async function POST(request: Request) {
   try {
@@ -31,10 +32,10 @@ ${postText}`;
 
     return NextResponse.json({ summary: summary.slice(0, 1000) });
   } catch (error) {
-    console.error("[commentcraft/summarize] Summary generation failed:", error);
+    console.error("[commentcraft/summarize] Summary generation failed:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Summary generation failed." },
-      { status: 500 },
+      { error: userFacingAIError(error) },
+      { status: httpStatusForAIError(error) },
     );
   }
 }
