@@ -687,7 +687,7 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
   const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story);
   const bodyLower = body.toLowerCase();
   const anchoredTerms = angleTerms.filter((term) => bodyLower.includes(term));
-  const markers = ["but","yet","instead","rather","because","means","reveals","shows","leaves","forces","changes","shifts","depends","trade-off","tradeoff","boundary","gap","constraint","cost","risk","advantage","disadvantage","tension","unlike","while"];
+  const markers = ["but","yet","instead","rather","because","means","reveals","shows","leaves","forces","changes","shifts","depends","trade-off","tradeoff","boundary","gap","constraint","cost","risk","advantage","disadvantage","tension","unlike","while","reliably","reliable","failure","fails","deceive","deception","conceal","conceals","circumvent","autonomy","trust","trusted","control","predict"];
   return anchoredTerms.length >= 1 && markers.some((value) => bodyLower.includes(value));
 }
 
@@ -855,7 +855,7 @@ export async function generateEditorialPost(
     if (characterCount < 320) {
       reasons.push(`The draft is too short at ${characterCount} characters.`);
     }
-    if (characterCount > 950) {
+    if (characterCount > 900) {
       reasons.push(`The draft is too long at ${characterCount} characters.`);
     }
     if (!hasConcreteAnchor) {
@@ -921,7 +921,11 @@ Rules:
 - Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
 - Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
 - The infographic appears above the text, so complement it rather than repeat it.
-- Length: 65-105 words; target 80-95 words; hard maximum 120 words and 950 characters.
+- Length: 70-100 words; target 80-90 words.
+- HARD LIMIT: 120 words and 900 characters. Never exceed either limit.
+- The headline counts toward the word and character limits.
+- Keep the two hook lines very short so the explanatory paragraphs fit inside the limits.
+- Before returning, silently count the words and characters and shorten the draft if necessary.
 - Return ONLY the finished LinkedIn post.
 
 STORY
@@ -946,15 +950,16 @@ ${modeInstruction}
   async function generateRaw(prompt: string) {
     const aiProvider = await provider();
     return aiProvider.generateText(prompt, {
-      temperature: 0.3,
-      numPredict: 600,
+      temperature: 0.25,
+      // Keep enough output budget for GPT-OSS reasoning, but avoid encouraging long drafts.
+      numPredict: 420,
     });
   }
 
   async function repairRaw(rejectedPost: string, validation: ValidationResult) {
     const repairPrompt = `You are PostCraft AI's senior editorial rewrite editor.
 
-The rejected draft failed because it was structurally or editorially weak. Rewrite it from scratch if necessary. Do not preserve weak wording merely to make the validator pass.
+The rejected draft failed because it was structurally or editorially weak. Treat it as disposable and rewrite from scratch rather than expanding or lightly editing it. Do not preserve weak wording merely to make the validator pass.
 
 Before writing, silently answer:
 1. What actually happened in this story?
@@ -968,7 +973,7 @@ Work ONLY from the supplied story, selected angle, and evidence.
 Do not search the internet.
 Do not add outside facts, statistics, examples, quotes, motives, causation, or consequences.
 Preserve the exact headline as the first standalone line.
-Preserve the central editorial angle.
+Preserve the central editorial angle. The central angle is mandatory: at least one body paragraph must explain it in concrete terms.
 Write the finished post as if speaking directly to a professional reader. Never describe the writing process, the angle, the evidence ledger, the validator, or the repair itself.
 Fix EVERY validation failure listed below.
 The exact generic filler and meta-editorial phrases detected by the validator are listed below. A phrase like "the useful point", "the specific change described", or "rather than a broader claim" is not an acceptable substitute for an actual story-specific insight. Do not reuse them or close variants; replace them with concrete statements tied to the supplied story evidence.
@@ -979,13 +984,14 @@ The body must contain a distinct interpretation or consequence tied to those det
 Do not use phrases like "AI is changing work", "the future of work", "companies need to adapt", "this raises questions", or "the implications are profound" unless the exact story evidence makes that statement necessary.
 
 Most importantly, do not merely name the tension. Explain it and CONCLUDE it. For example, if the story shows AI-generated code or decisions being trusted over experienced workers, the post should explain what that mismatch means for how work is judged or who is trusted — using only what the supplied story supports.
-The first three lines must be the exact headline followed by two punchy, story-specific hook lines.
+The first three lines must be the exact headline followed by two very short, story-specific hook lines.
 Every substantive paragraph after the hooks must contain at least one concrete detail from the supplied evidence.
 The final paragraph must provide the conclusion and complete the thought; never leave the argument unfinished or end with a phrase such as "The concrete tension is", "The useful point is", "The practical question is", or "This means".
 Do not replace story-specific reporting with generic commentary about AI safety, governance, ethics, responsible innovation, progress, society, or the future unless that specific idea is explicitly supported by the supplied story.
-Keep 65-105 words and 320-950 characters. Aim for 80-95 words; 120 words is a hard maximum, not a target. Count the words before returning the draft.
-The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook short so there is enough room for the 2-3 explanatory paragraphs within the word limit.
+Keep 70-100 words and 320-900 characters. Aim for 80-90 words. 120 words and 900 characters are hard limits, not targets. The headline counts toward both limits. Count the words and characters before returning the draft.
+The first three non-empty lines must be: exact headline, short hook, short hook. Keep each hook to one short sentence. Then use exactly 2 short explanatory paragraphs. Do not add a third explanatory paragraph.
 Do not include URLs or source footers.
+If the rejected draft is longer than 120 words, do not summarize it paragraph-by-paragraph. Extract only the two strongest story-specific details and the selected thesis.
 Return ONLY the repaired LinkedIn post.
 
 STORY
@@ -1073,6 +1079,6 @@ ${rejectedPost}`;
   });
 
   throw new Error(
-    `PostCraft rejected the draft after two editorial passes. ${repairedValidation.reasons.join(" ")}`,
+    `PostCraft rejected the draft after generation and repair. ${repairedValidation.reasons.join(" ")}`,
   );
 }
