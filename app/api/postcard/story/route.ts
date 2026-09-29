@@ -154,7 +154,7 @@ export async function GET(request: Request) {
       await refreshPool(admin);
       const refreshed = await admin
         .from("postcard_story_pool")
-        .select("story_hash,source_title,source_url,source_name,source_summary,source_published_at,category")
+        .select("story_hash,source_title,source_url,source_name,source_summary,source_published_at,category,fetched_at")
         .order("fetched_at", { ascending: false })
         .limit(120);
       pool = refreshed.data ?? [];
