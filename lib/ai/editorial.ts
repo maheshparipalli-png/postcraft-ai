@@ -208,109 +208,14 @@ function angleHasConcreteGrounding(angle: Angle, story: Story) {
 }
 
 function scoreAngle(angle: Angle, story: Story): RankedAngle {
-  const angleText = (angle.angle + " " + angle.why + " " + angle.evidence).toLowerCase();
-  const summary = story.summary.toLowerCase();
-  const readerInterest = Math.min(10, 5 + (/why|how|instead|rather|but|yet|first|last|shift|trade|tension/.test(angleText) ? 2 : 0) + (angle.angle.length >= 70 ? 2 : 0));
-  const discussionPotential = Math.min(10, 5 + (/trade|tension|whether|instead|but|yet|should|choice|debate|cost|risk/.test(angleText) ? 3 : 0) + (angle.why.length >= 60 ? 1 : 0));
-  const relevance = Math.min(10, 5 + (/(work|worker|workers|career|job|jobs|business|leader|leadership|professional|company|skill|skills|education|manager|customer|market)/.test(angleText) ? 3 : 0) + (story.topic ? 1 : 0));
-  const wordCount = normalizeAngleText(angle.angle).split(" ").filter(Boolean).length;
-  const clarity = Math.max(1, Math.min(10, 10 - Math.max(0, wordCount - 24) * 0.35));
-  const evidencePrefix = angle.evidence.toLowerCase().slice(0, 30);
-  const specificity = Math.min(10, 4 + (angle.evidence.length >= 45 ? 2 : 0) + (evidencePrefix && summary.includes(evidencePrefix) ? 2 : 0) + (angle.angle.length >= 60 ? 2 : 0));
-  const linkedinFit = Math.min(10, 5 + (angle.angle.length >= 55 && angle.angle.length <= 180 ? 2 : 0) + (discussionPotential >= 7 ? 2 : 0) + (clarity >= 7 ? 1 : 0));
-  const evidenceStrength = Math.min(10, 4 + (angle.evidence.length >= 45 ? 3 : 0) + (evidencePrefix && summary.includes(evidencePrefix) ? 3 : 0));
-  const score = readerInterest * 0.20 + discussionPotential * 0.20 + relevance * 0.15 + clarity * 0.15 + specificity * 0.10 + linkedinFit * 0.10 + evidenceStrength * 0.10;
-  return { ...angle, score: Number(score.toFixed(2)), criteria: { readerInterest, discussionPotential, relevance, clarity, specificity, linkedinFit, evidenceStrength } };
-}
-
-function rankAngles(angles: Angle[], story: Story): RankedAngle[] {
-  return angles.filter((angle) => !isWeakAngle(angle, story)).filter((angle) => angleHasConcreteGrounding(angle, story)).map((angle) => scoreAngle(angle, story)).sort((a, b) => b.score - a.score);
-}
-
-function selectSafeAngles(angles: Angle[]) {
-  const unique: Angle[] = [];
-
-  for (const angle of angles) {
-    if (isForbiddenAngle(angle) || isWeakAngle(angle)) continue;
-
-    const normalizedAngle: Angle = {
-      angle: angle.angle.trim(),
-      why:
-        angle.why.trim() ||
-        "This provides a specific, evidence-led point of view on the selected story.",
-      evidence:
-        angle.evidence?.trim() ||
-        "Based on the selected story and its supplied summary.",
-    };
-
-    if (!normalizedAngle.angle) continue;
-
-    if (
-      unique.some(
-        (existing) =>
-          angleSimilarity(existing.angle, normalizedAngle.angle) >= 0.72,
-      )
-    ) {
-      continue;
-    }
-
-    unique.push(normalizedAngle);
-
-    if (unique.length >= 3) break;
-  }
-
-  return unique;
-}
-
-async function buildEditorialPass(story: Story) {
-  const prompt = `You are PostCraft AI's editorial planner. Work ONLY from the supplied story.
-
-STORY
-Topic: ${story.topic}
-Headline: ${story.headline}
-Source: ${story.source}
-Summary: ${story.summary}
-
-Create ONE concise editorial thesis that adds interpretation without adding facts.
-
-Use at least two concrete details from the headline or summary.
-Identify the most important relationship between those details: a contrast, tension, consequence, trade-off, mechanism, or condition.
-Prefer an insight that explains WHY the details matter together, rather than simply restating them.
-A descriptive story is valid. Do not require a dramatic controversy.
-
-Avoid generic advice or abstract conclusions such as strategic planning, preparedness, risk management, balanced approaches, mitigating risks, maintaining stability, the need to adapt, or policy action.
-Do not invent facts, motives, statistics, quotes, examples, or outside context.
-Do not use phrases such as "highlighting the need", "balanced approach", "mitigate risks", or "maintain stability".
-
-For this kind of story, "India is resilient but that resilience is being tested by geopolitical and weather risks" is a useful interpretation; "India remains resilient despite risks" is only a summary.
-The thesis should be specific enough that a writer can build the whole post around it.
-
-Return ONLY valid JSON:
-{"angle":"one concise story-specific editorial thesis"}`;
-
-  const aiProvider = await provider();
-  const plannerRaw = await aiProvider.generateText(prompt, {
-    format: "json",
-    temperature: 0.2,
-    numPredict: 80,
-  });
-
-  const parsed = parseJson(plannerRaw);
-
-  const angleText =
-    typeof parsed?.angle === "string"
-      ? normalizeGeneratedText(parsed.angle, { plainPunctuation: true })
-      : "";
-
-  let angles = angleText
-    ? selectSafeAngles([
-        {
-          angle: angleText,
-          why: "This connects concrete details from the selected story.",
-          evidence: story.summary,
-        },
-      ])
-    : [];
+  const rawAngles = Array.isArray(parsed?.angles) ? parsed.angles : typeof parsed?.angle === "string" ? [parsed.angle] : [];
+  let angles = selectSafeAngles(rawAngles
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => ({
+      angle: normalizeGeneratedText(value, { plainPunctuation: true }),
+      why: "This connects concrete details from the selected story.",
+      evidence: story.summary,
+    })));
 
   // Descriptive stories can still support a strong editorial thesis when the
   // model planner fails. Build the fallback from the actual story rather than
@@ -327,10 +232,10 @@ Return ONLY valid JSON:
       fallbackAngle = `The story exposes a trade-off: ${butMatch[1].trim()} but ${butMatch[2].trim()}.`;
       fallbackWhy = "This connects the two concrete conditions described in the story and explains the tension between them.";
     } else if (whileMatch) {
-      fallbackAngle = `The story exposes a tension between ${butMatch?.[1] ?? whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
+      fallbackAngle = `The story exposes a tension between ${whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
       fallbackWhy = "This connects the two concrete conditions described in the story.";
     } else if (story.headline && summary) {
-      fallbackAngle = `The story is less about "${story.headline.trim()}" as a headline and more about what the supplied summary says changes when those conditions meet: ${summary}.`;
+      fallbackAngle = `${story.headline.trim()}: ${summary}.`;
       fallbackWhy = "This keeps the interpretation tied to the supplied headline and summary without adding outside facts.";
     }
 
@@ -350,7 +255,7 @@ Return ONLY valid JSON:
         {
           claim: angles[0].angle,
           support: angles[0].evidence.trim(),
-          type: "fact" as const,
+          type: "interpretation" as const,
         },
       ]
     : [];
@@ -396,7 +301,7 @@ export async function generateEditorialDraft(
         normalizedStory,
         selected.angle,
         selected.why,
-        "Use a balanced, thoughtful professional perspective. Focus on the concrete tension or implication in the selected angle without adding outside facts.",
+        "Take a clear, thoughtful professional point of view. Do not manufacture controversy or dilute the thesis into a neutral summary. Do not add outside facts.",
         editorial.evidence,
         onPostToken,
       );
@@ -707,18 +612,13 @@ function buildGroundedPostFallback(story: Story, angle: string) {
     .map((part) => part.trim())
     .filter(Boolean);
 
-  const hookOne =
-    clauses[0] ||
-    "The latest RBI Bulletin says India's financial and external sectors remain resilient.";
-  const hookTwo =
-    clauses[1] && clauses[1].split(/\s+/).length >= 12
-      ? clauses[1]
-      : "At the same time, the RBI flags geopolitical tensions and weather risks as key economic challenges ahead.";
+  const hookOne = clauses[0] || story.headline.trim();
+  const hookTwo = clauses[1] || summarySentences[1] || angle;
 
   const bodyEvidence = summarySentences.join(" ");
   const body = [
-    `${angle} The important tension is that resilience and vulnerability are appearing in the same assessment. Current strength does not remove the specific risks identified by the RBI.`,
-    `${bodyEvidence} That makes the story more than a simple resilience update: the financial and external position is holding firm today, while geopolitical tensions and weather risks could test how durable that resilience remains.`,
+    `${bodyEvidence} ${angle}`,
+    `The central implication follows from those details: ${angle}`,
   ].join("\n\n");
 
   return sanitizeLinkedInPost(
@@ -879,12 +779,10 @@ export async function generateEditorialPost(
         "The draft does not contain enough distinctive evidence from the selected story.",
       );
     }
-    // Editorial insight is a quality preference, not a hard rejection.
-    // A grounded short post can still be useful when the source itself is descriptive.
+    // A grounded summary alone is not sufficient for an editorial post.
     if (!hasEditorialInsight) {
-      console.info("[PostCraft] quality_warning=editorial_insight", {
-        message: "Draft is grounded but does not express a distinct editorial tension.",
-      });
+      reasons.push("The draft needs a distinct editorial interpretation, not only a summary.");
+    });
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
@@ -921,6 +819,7 @@ export async function generateEditorialPost(
   }
 
   const basePrompt = `Write the finished PostCraft LinkedIn post from the supplied story, selected editorial thesis, and evidence.
+This is NOT an article summary. Build the post: HOOK -> EVIDENCE -> INTERPRETATION -> CONCLUSION. The thesis is the central idea; source details support it. Write with a clear professional point of view.
 
 Rules:
 - Use ONLY the supplied story, thesis, and evidence. No outside facts, invented numbers, examples, quotes, motives, or causation.
@@ -929,10 +828,10 @@ Rules:
   1) the exact story headline
   2) a short hook using one concrete story detail
   3) a second short hook using another concrete story detail or the central tension
-- Then write 2-3 short explanatory paragraphs.
-- The body must explain the relationship between at least two concrete story details.
+- Then write 2-3 short paragraphs developing the thesis, not retelling the article paragraph by paragraph.
+- Use at least two concrete story details as evidence. Explain what those details mean together, not just what happened.
 - Make the central tension, trade-off, mechanism, or consequence explicit.
-- End with a complete, specific conclusion that resolves the thesis using the supplied evidence.
+- End with a memorable, specific conclusion resolving the thesis from the evidence, not repeating the summary.
 - Do not use generic advice such as strategic planning, preparedness, risk management, the need to adapt, or broad calls for policy action unless the supplied story explicitly supports it.
 - Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
 - Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
@@ -963,7 +862,7 @@ ${modeInstruction}
     const aiProvider = await provider();
     return aiProvider.generateText(prompt, {
       temperature: 0.3,
-      numPredict: 96,
+      numPredict: 600,
     });
   }
 
