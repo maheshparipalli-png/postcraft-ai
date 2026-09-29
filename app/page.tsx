@@ -162,6 +162,7 @@ export default function Home() {
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [angle, setAngle] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [openingSavedPost, setOpeningSavedPost] = useState(false);
@@ -381,15 +382,11 @@ async function discoverIdeas() {
 
 function resetFromStory() {
     setAngle("");
-    setSuggestedAngles([]);
-    setEvidence([]);
     setPerspective("mixed");
-    setPerspectiveNote("");
     setPost("");
     setCopied(false);
     setNewsTitle("");
     setNewsSource("");
-    setNewsDate("");
     setVerifiedSummary("");
     setPublishFormat("combined");
     setPostCardImage("");
@@ -494,7 +491,6 @@ function resetFromStory() {
         setSourceUrl(verifiedUrl);
         setVerifiedSummary(verifiedContent);
 
-        setSuggestedAngles(generatedAngles);
         setAngle(selectedText);
 
         const storyTitle = verifiedTitle;
@@ -505,7 +501,6 @@ function resetFromStory() {
           : `${storyTitle}\n\n${generatedPost}`;
 
         setPost(postWithTitle);
-          setOriginalityMessage("");
         setGenerationStatus("");
         completed = true;
       };
