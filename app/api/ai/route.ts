@@ -35,17 +35,6 @@ function extractMode(prompt: string) {
 
 export async function POST(request: Request) {
   try {
-    const access = await getBillingAccess();
-    if (!access.authenticated) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.status === "billing_unavailable" ? "Unable to verify billing access" : "Start your free trial or subscribe to continue", billingStatus: access.status },
-        { status: access.status === "billing_unavailable" ? 500 : 402 },
-      );
-    }
-
     const body = await request.json();
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const action = typeof body?.action === "string" ? body.action : "";
