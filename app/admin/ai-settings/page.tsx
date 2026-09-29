@@ -13,7 +13,17 @@ const providerOptions = [
 ];
 
 export default function AISettingsPage() {
-  const [config, setConfig] = useState<any>(null);
+  type PublicAIConfig = {
+  id: string;
+  provider: string;
+  baseUrl: string | null;
+  model: string;
+  apiKey: string;
+  isActive: boolean;
+  updatedAt: string;
+};
+
+const [config, setConfig] = useState<PublicAIConfig | null>(null);
   const [provider, setProvider] = useState("ollama");
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
