@@ -3,7 +3,6 @@ import { getAdminAccess } from "@/lib/admin/access";
 import {
   getPublicAIConfig,
   getRuntimeAIConfig,
-  maskApiKey,
   saveAIConfig,
   type AIProviderName,
 } from "@/lib/ai/config";
@@ -52,8 +51,12 @@ export async function POST(request: Request) {
     const input = validateInput(body);
     const existing = await getRuntimeAIConfig();
 
-    if (input.provider !== "ollama" && !input.apiKey && !existing?.apiKey) {
-      throw new Error("API key is required for this provider.");
+    if (
+      input.provider !== "ollama" &&
+      !input.apiKey &&
+      !(existing?.provider === input.provider && existing.apiKey)
+    ) {
+      throw new Error("API key is required when configuring or switching to this provider.");
     }
 
     const saved = await saveAIConfig(input);
@@ -77,7 +80,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to save AI configuration." }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to save AI configuration." },
+      { status: 400 },
+    );
   }
 }
 
@@ -94,28 +100,49 @@ export async function PUT(request: Request) {
       provider = createOllamaProvider({ baseUrl: input.baseUrl || undefined, model: input.model });
     } else {
       const runtime = await getRuntimeAIConfig();
-      const apiKey = input.apiKey || runtime?.apiKey || "";
+      const apiKey = input.apiKey || (runtime?.provider === input.provider ? runtime.apiKey : null) || "";
       if (!apiKey) throw new Error("API key is required to test this provider.");
 
       if (input.provider === "anthropic") {
-        const anthropic = createAnthropicProvider({ baseUrl: input.baseUrl, apiKey, model: input.model });
-        provider = anthropic;
+        provider = createAnthropicProvider({
+          baseUrl: input.baseUrl,
+          apiKey,
+          model: input.model,
+        });
       } else {
         const baseUrl = input.baseUrl!;
         provider = createOpenAICompatibleProvider({
           baseUrl,
           apiKey,
           model: input.model,
-          providerLabel: input.provider === "freellmapi" ? "FreeLLMAPI" : input.provider === "openai" ? "OpenAI" : input.provider === "google" ? "Google" : "Custom provider",
+          providerLabel:
+            input.provider === "freellmapi"
+              ? "FreeLLMAPI"
+              : input.provider === "openai"
+                ? "OpenAI"
+                : input.provider === "google"
+                  ? "Google"
+                  : "Custom provider",
         });
       }
     }
 
     const startedAt = Date.now();
-    const result = await provider.generateText("Reply with exactly: PostCraft AI connection works.", { temperature: 0, numPredict: 40 });
-    return NextResponse.json({ ok: true, response: result, elapsedMs: Date.now() - startedAt });
+    const result = await provider.generateText(
+      "Reply with exactly: PostCraft AI connection works.",
+      { temperature: 0, numPredict: 40 },
+    );
+
+    return NextResponse.json({
+      ok: true,
+      response: result,
+      elapsedMs: Date.now() - startedAt,
+    });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "AI connection test failed." }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "AI connection test failed." },
+      { status: 400 },
+    );
   }
 }
 
