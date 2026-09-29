@@ -52,12 +52,14 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
   const baseUrl = normalizeBaseUrl(config.baseUrl);
   const provider = config.providerLabel;
   const supportsResponseFormat = config.supportsResponseFormat ?? true;
-  const configuredRetries = config.maxRetries ?? Number(process.env.AI_PROVIDER_MAX_RETRIES || 2);\n  const maxRetries = Number.isFinite(configuredRetries) ? Math.min(3, Math.max(0, Math.floor(configuredRetries))) : 2;
+  const configuredRetries = config.maxRetries ?? Number(process.env.AI_PROVIDER_MAX_RETRIES || 2);
+  const maxRetries = Number.isFinite(configuredRetries) ? Math.min(3, Math.max(0, Math.floor(configuredRetries))) : 2;
   if (!/^https?:\/\//i.test(baseUrl)) throw new AIProviderError("invalid_config", `${provider} Base URL must start with http:// or https://`, { provider });
 
   async function requestOnce(prompt: string, options: AIGenerateOptions, stream: boolean, onToken?: (token: string) => void, timeoutMs = REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));\n    timer.unref?.();
+    const timer = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));
+    timer.unref?.();
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/chat/completions`, { method: "POST", headers: headers(config.apiKey), body: JSON.stringify(getRequestBody(config.model, prompt, options, stream, supportsResponseFormat)), cache: "no-store", signal: controller.signal });
