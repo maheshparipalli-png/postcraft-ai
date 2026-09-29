@@ -1,4 +1,5 @@
 ﻿"use client";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -1092,7 +1093,7 @@ function resetFromStory() {
                       <span>{postCardRendering ? "Creating…" : "Ready"}</span>
                     </div>
                     {postCardImage ? (
-                      <img src={postCardImage} alt="PostCraft LinkedIn infographic PostCard" className="w-full rounded-lg" />
+                      <Image src={postCardImage} alt="PostCraft LinkedIn infographic PostCard" width={800} height={1000} unoptimized className="w-full rounded-lg" />
                     ) : (
                       <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-500">
                         Creating your infographic…
