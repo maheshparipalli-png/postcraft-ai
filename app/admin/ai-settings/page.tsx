@@ -24,11 +24,28 @@ export default function AISettingsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  async function readResponse(response: Response) {
+    const text = await response.text();
+    if (!text.trim()) {
+      throw new Error(
+        `Request failed (HTTP ${response.status}). The server returned an empty response.`,
+      );
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(
+        `Request failed (HTTP ${response.status}). The server returned an invalid response.`,
+      );
+    }
+  }
+
   useEffect(() => {
     fetch("/api/admin/ai-config")
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Unable to load AI configuration.");
+      .then(async (response) => {
+        const data = await readResponse(response);
+        if (!response.ok) throw new Error(data.error || "Unable to load AI configuration.");
         if (data.config) {
           setConfig(data.config);
           setProvider(data.config.provider);
@@ -38,21 +55,30 @@ export default function AISettingsPage() {
           setModel("qwen2.5:7b");
         }
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e instanceof Error ? e.message : "Unable to load AI configuration."))
       .finally(() => setLoading(false));
   }, []);
 
   async function submit(path: string, method: "POST" | "PUT") {
     setError("");
     setMessage("");
+
+    if (!model.trim()) {
+      throw new Error("Model is required.");
+    }
+
+    if (provider !== "ollama" && provider !== "anthropic" && !baseUrl.trim()) {
+      throw new Error("Base URL is required for this provider.");
+    }
+
     const payload = { provider, baseUrl, model, apiKey };
     const response = await fetch(path, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Request failed.");
+    const data = await readResponse(response);
+    if (!response.ok) throw new Error(data.error || `Request failed (HTTP ${response.status}).`);
     return data;
   }
 
