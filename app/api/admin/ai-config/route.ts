@@ -22,19 +22,34 @@ type AIConfigRequest = {
 function validateInput(body: AIConfigRequest) {
   const provider = typeof body.provider === "string" ? body.provider as AIProviderName : undefined;
   const model = typeof body.model === "string" ? body.model.trim() : "";
-  const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+  const rawBaseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
 
   if (!provider || !providers.includes(provider)) throw new Error("Invalid AI provider.");
   if (!model) throw new Error("Model is required.");
 
-  if (provider !== "ollama" && !baseUrl && provider !== "anthropic") {
+  if (provider !== "ollama" && provider !== "anthropic" && !rawBaseUrl) {
     throw new Error("Base URL is required for this provider.");
+  }
+
+  const baseUrl = provider === "ollama" ? null : rawBaseUrl || null;
+
+  if (baseUrl) {
+    let parsed: URL;
+    try {
+      parsed = new URL(baseUrl);
+    } catch {
+      throw new Error("Base URL must be a valid URL.");
+    }
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Base URL must start with http:// or https://");
+    }
   }
 
   return {
     provider,
     model,
-    baseUrl: baseUrl || null,
+    baseUrl,
     apiKey: typeof body.apiKey === "string" ? body.apiKey.trim() : "",
   };
 }
@@ -44,9 +59,7 @@ export async function GET() {
   if (!access.allowed) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const config = await getPublicAIConfig();
-  return NextResponse.json({
-    config: config ? { ...config, apiKey: config.apiKeyConfigured ? "configured" : "" } : null,
-  });
+  return NextResponse.json({ config });
 }
 
 export async function POST(request: Request) {
@@ -56,13 +69,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as unknown;
     if (!body || typeof body !== "object") throw new Error("Invalid request body.");
+
     const input = validateInput(body as AIConfigRequest);
-    const existing = await getRuntimeAIConfig();
+    const existing = await getPublicAIConfig();
 
     if (
       input.provider !== "ollama" &&
       !input.apiKey &&
-      !(existing?.provider === input.provider && existing.apiKey)
+      !(existing?.provider === input.provider && existing.apiKeyConfigured)
     ) {
       throw new Error("API key is required when configuring or switching to this provider.");
     }
@@ -82,7 +96,7 @@ export async function POST(request: Request) {
         provider: saved.provider,
         baseUrl: saved.base_url,
         model: saved.model,
-        apiKey: saved.encrypted_api_key ? "configured" : "",
+        apiKeyConfigured: Boolean(saved.encrypted_api_key),
         isActive: saved.is_active,
         updatedAt: saved.updated_at,
       },
@@ -105,7 +119,7 @@ export async function PUT(request: Request) {
 
     let provider;
     if (input.provider === "ollama") {
-      provider = createOllamaProvider({ baseUrl: input.baseUrl || undefined, model: input.model });
+      provider = createOllamaProvider({ baseUrl: undefined, model: input.model });
     } else {
       const runtime = await getRuntimeAIConfig();
       const apiKey = input.apiKey || (runtime?.provider === input.provider ? runtime.apiKey : null) || "";
@@ -118,9 +132,8 @@ export async function PUT(request: Request) {
           model: input.model,
         });
       } else {
-        const baseUrl = input.baseUrl!;
         provider = createOpenAICompatibleProvider({
-          baseUrl,
+          baseUrl: input.baseUrl!,
           apiKey,
           model: input.model,
           providerLabel:
