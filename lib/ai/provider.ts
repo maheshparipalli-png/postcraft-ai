@@ -1,20 +1,22 @@
 import { getRuntimeAIConfig } from "./config";
 import { createAnthropicProvider } from "./anthropic";
 import { createOpenAICompatibleProvider } from "./openai-compatible";
-import { createOllamaProvider, ollamaProvider } from "./ollama";
 import type { AIProvider } from "./types";
 
 export async function getAIProvider(): Promise<AIProvider> {
   const config = await getRuntimeAIConfig();
 
-  if (!config) return ollamaProvider;
+  if (!config) {
+    throw new Error(
+      "No active AI provider is configured. Open Admin → AI Configuration and save an active provider.",
+    );
+  }
 
   switch (config.provider) {
     case "ollama":
-      return createOllamaProvider({
-        baseUrl: config.baseUrl ?? undefined,
-        model: config.model,
-      });
+      throw new Error(
+        "Ollama is configured as the active AI provider. Select FreeLLMAPI (or another production provider) in Admin → AI Configuration.",
+      );
 
     case "anthropic":
       if (!config.apiKey) throw new Error("Anthropic API key is not configured.");
@@ -29,6 +31,8 @@ export async function getAIProvider(): Promise<AIProvider> {
     case "google":
     case "custom":
       if (!config.baseUrl) throw new Error("AI provider Base URL is not configured.");
+      if (!config.apiKey) throw new Error("AI provider API key is not configured.");
+
       return createOpenAICompatibleProvider({
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
