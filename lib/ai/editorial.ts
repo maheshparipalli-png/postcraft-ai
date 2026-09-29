@@ -333,7 +333,8 @@ The thesis should be specific enough that a writer can build the whole post arou
 Return ONLY valid JSON:
 {"angle":"one concise story-specific editorial thesis"}`;
 
-  const plannerRaw = await provider().generateText(prompt, {
+  const aiProvider = await provider();
+  const plannerRaw = await aiProvider.generateText(prompt, {
     format: "json",
     temperature: 0.2,
     numPredict: 80,
@@ -989,7 +990,8 @@ ${modeInstruction}
 `;
 
   async function generateRaw(prompt: string) {
-    return provider().generateText(prompt, {
+    const aiProvider = await provider();
+    return aiProvider.generateText(prompt, {
       temperature: 0.3,
       numPredict: 96,
     });
