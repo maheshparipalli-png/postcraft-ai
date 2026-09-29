@@ -128,7 +128,7 @@ export function createOpenAICompatibleProvider(config: OpenAICompatibleConfig): 
         // Keep the raw response for a useful error below.
       }
 
-      const message = data?.error?.message || data?.error || responseText.slice(0, 400);
+      const message = errorMessage(data, responseText.slice(0, 400));
       throw new Error(`${config.providerLabel} request failed (${response.status}): ${message}`);
     }
 
