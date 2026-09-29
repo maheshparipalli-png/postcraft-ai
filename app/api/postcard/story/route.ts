@@ -191,9 +191,9 @@ export async function GET(request: Request) {
 
 Turn the SOURCE MATERIAL below into an original, short motivational story for a social card.
 
-This is source-inspired writing, not a quotation and not a verbatim summary. Do not copy sentences or distinctive phrasing from the source. Do not invent facts and do not present fictional details as verified facts. Preserve only the broad human lesson supported by the source material.
+The source is the creative foundation. Preserve at least two concrete elements from it: the central situation, action, challenge, setting, subject, or lesson. Do not replace the source situation with a generic motivational scenario. If it describes a real person or event, do not invent facts. If it is a personal or fictional story, retell its situation in original language without adding a new character, setting, or event that changes what happened. If it is general advice, create a clearly illustrative example and do not present it as a verified event. Do not copy sentences or distinctive phrasing.
 
-Write 120-220 words. Give the story a small narrative arc: a person or situation, a difficulty or turning point, a choice or realization, and what changed. Keep it emotionally believable and concrete.
+Write 100-180 words. Use a compact narrative arc: situation, difficulty or turning point, choice or realization, and outcome. Keep it concrete and avoid generic motivational filler.
 
 Category: ${category}
 
@@ -207,7 +207,7 @@ ${selected.source_summary || "(No summary supplied; use only the title and sourc
 Return ONLY valid JSON:
 {
   "headline": "short story title, 4-9 words",
-  "body": "120-220 word original story",
+  "body": "100-180 word original story grounded in the source",
   "closing": "one memorable lesson, 8-18 words"
 }
 
@@ -221,19 +221,35 @@ Do not add hashtags, emojis, citations, or markdown.`;
 
     let generated: Record<string, unknown>;
     try {
-      const parsed = JSON.parse(raw);
+      const cleaned = raw
+        .replace(/^\s*```(?:json)?\s*/i, "")
+        .replace(/\s*```\s*$/i, "")
+        .trim();
+      const parsed = JSON.parse(cleaned);
       if (!parsed || typeof parsed !== "object") throw new Error("invalid");
       generated = parsed as Record<string, unknown>;
     } catch {
       throw new Error("PostCard story generation returned an invalid response. Please try again.");
     }
 
+    const headline = typeof generated.headline === "string" ? generated.headline.trim() : "";
+    const body = typeof generated.body === "string" ? generated.body.trim() : "";
+    const closing = typeof generated.closing === "string" ? generated.closing.trim() : "";
+    const bodyWords = body ? body.split(/\s+/).filter(Boolean).length : 0;
+    const headlineWords = headline ? headline.split(/\s+/).filter(Boolean).length : 0;
+    const closingWords = closing ? closing.split(/\s+/).filter(Boolean).length : 0;
+
+    if (!headline || headlineWords < 4 || headlineWords > 12 ||
+        bodyWords < 90 || bodyWords > 190 ||
+        !closing || closingWords < 6 || closingWords > 24) {
+      throw new Error("PostCard story generation returned content outside the required story format. Please try again.");
+    }
     return NextResponse.json({
       story: {
         hash: selected.story_hash,
-        title: typeof generated.headline === "string" ? generated.headline.trim() : selected.source_title,
-        body: typeof generated.body === "string" ? generated.body.trim() : "",
-        lesson: typeof generated.closing === "string" ? generated.closing.trim() : "",
+        title: headline,
+        body,
+        lesson: closing,
         category,
         sourceName: selected.source_name,
         sourceTitle: selected.source_title,
