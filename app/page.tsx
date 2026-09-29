@@ -47,7 +47,7 @@ function cleanGeneratedPost(value: string) {
     .trim();
 }
 
-function renderPostCardImage(title: string, post: string, angle: string, source: string) {
+function renderPostCardImage(title: string, post: string, _angle: string, source: string) {
   const width = 1080;
   const height = 1350;
   const margin = 78;
@@ -94,12 +94,6 @@ function renderPostCardImage(title: string, post: string, angle: string, source:
   ctx.font = `700 ${titleFit.size}px Georgia`;
   let y = 155;
   titleFit.lines.forEach((line) => { ctx.fillText(line, margin, y); y += titleFit.size * 1.2; });
-
-  y += 25;
-  ctx.fillStyle = "#d6d3d1";
-  const angleFit = fit(angle || "The key tension behind this story.", width - margin * 2, 27, 20, 4, "Arial", "400");
-  ctx.font = `400 ${angleFit.size}px Arial`;
-  angleFit.lines.forEach((line) => { ctx.fillText(line, margin, y); y += angleFit.size * 1.35; });
 
   y += 38;
   ctx.strokeStyle = "#3f3f46";
@@ -1097,8 +1091,7 @@ function resetFromStory() {
                   <div className="self-start rounded-2xl border border-neutral-300/80 bg-[#f1efe9] p-6">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">PostCard content</div>
                     <h3 className="mt-3 font-serif text-2xl leading-tight">{selectedIdea?.title || newsTitle}</h3>
-                    <p className="mt-4 text-sm leading-6 text-neutral-600">{angle || "Editorial angle"}</p>
-                    <p className="mt-5 text-xs leading-5 text-neutral-500">The infographic uses the same title, editorial angle, key points and takeaway as the LinkedIn post.</p>
+                    <p className="mt-4 text-sm leading-6 text-neutral-600">The infographic is built from the LinkedIn post itself, with duplicate points removed.</p>
                   </div>
                 </div>
 
