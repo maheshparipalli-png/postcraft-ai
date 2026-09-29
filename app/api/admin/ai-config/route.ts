@@ -136,6 +136,7 @@ export async function PUT(request: Request) {
           baseUrl: input.baseUrl!,
           apiKey,
           model: input.model,
+          supportsResponseFormat: input.provider !== "freellmapi",
           providerLabel:
             input.provider === "freellmapi"
               ? "FreeLLMAPI"
