@@ -393,7 +393,6 @@ function resetFromStory() {
     resetFromStory();
     setNewsTitle(decodeHtmlEntities(idea.title));
     setNewsSource(decodeHtmlEntities(idea.source));
-    setNewsDate(formatDateInput(idea.publishedAt));
     setSourceUrl(idea.url);
     setError("");
     setGenerationStatus("Checking the source and building the editorial angle…");
