@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { getAIProvider } from "@/lib/ai/provider";
+import { POSTCARD_FIELD_TERMS, POSTCARD_FIELDS, type PostCardField } from "@/lib/postcard/categories";
 
 export const dynamic = "force-dynamic";
 
@@ -21,19 +22,9 @@ const DEFAULT_FEEDS = [
   { name: "Positive News", url: "https://www.positive.news/feed/" },
 ];
 
-const CATEGORY_TERMS: Record<string, string[]> = {
-  resilience: ["resilience", "failure", "fail", "setback", "overcome", "challenge", "comeback", "hard"],
-  courage: ["courage", "fear", "brave", "risk", "bold", "doubt"],
-  discipline: ["discipline", "habit", "practice", "consistency", "persistence", "routine"],
-  leadership: ["leadership", "leader", "team", "responsibility", "service", "example"],
-  entrepreneurship: ["business", "entrepreneur", "startup", "founder", "build", "create", "risk"],
-  learning: ["learn", "learning", "mistake", "education", "knowledge", "experience"],
-  life: ["life", "meaning", "purpose", "happiness", "change", "journey", "relationships"],
-  achievement: ["success", "achievement", "goal", "progress", "breakthrough", "mastery"],
-  sports: ["sport", "athlete", "team", "game", "champion", "competition", "practice"],
-};
+const CATEGORY_TERMS = POSTCARD_FIELD_TERMS;
 
-const DEFAULT_CATEGORY = "resilience";
+const DEFAULT_CATEGORY: PostCardField = "resilience";
 
 function decodeXml(value: string) {
   return value
@@ -110,6 +101,8 @@ async function fetchFeed(feed: { name: string; url: string }) {
   return parseFeed(await response.text(), feed.name);
 }
 
+const FEED_REFRESH_MS = 6 * 60 * 60 * 1000;
+
 async function refreshPool(admin: ReturnType<typeof createAdminClient>) {
   const results = await Promise.allSettled(DEFAULT_FEEDS.map(fetchFeed));
   const items = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
@@ -129,7 +122,7 @@ async function refreshPool(admin: ReturnType<typeof createAdminClient>) {
 
   const { error } = await admin
     .from("postcard_story_pool")
-    .upsert(rows, { onConflict: "story_hash", ignoreDuplicates: true });
+    .upsert(rows, { onConflict: "story_hash" });
 
   if (error) console.error("PostCard story pool refresh failed:", error);
 }
@@ -147,16 +140,17 @@ export async function GET(request: Request) {
 
     const params = new URL(request.url).searchParams;
     const requestedCategory = params.get("category") || DEFAULT_CATEGORY;
-    const category = CATEGORY_TERMS[requestedCategory] ? requestedCategory : DEFAULT_CATEGORY;
+    const category = POSTCARD_FIELDS.includes(requestedCategory as PostCardField) ? requestedCategory as PostCardField : DEFAULT_CATEGORY;
     const admin = createAdminClient();
 
     let { data: pool } = await admin
       .from("postcard_story_pool")
-      .select("story_hash,source_title,source_url,source_name,source_summary,source_published_at,category")
+      .select("story_hash,source_title,source_url,source_name,source_summary,source_published_at,category,fetched_at")
       .order("fetched_at", { ascending: false })
       .limit(120);
 
-    if (!pool?.length || pool.length < 12) {
+    const latestFetchedAt = pool?.[0]?.fetched_at ? new Date(pool[0].fetched_at).getTime() : 0;
+    if (!pool?.length || pool.length < 12 || !latestFetchedAt || Date.now() - latestFetchedAt > FEED_REFRESH_MS) {
       await refreshPool(admin);
       const refreshed = await admin
         .from("postcard_story_pool")
