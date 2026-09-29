@@ -3,6 +3,8 @@ import { getAIProvider } from "@/lib/ai/provider";
 import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
+import { parseJsonObject } from "@/lib/ai/json";
+import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -114,17 +116,7 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
         format: "json",
       });
 
-      let generated: Record<string, unknown> = {};
-      try {
-        const cleaned = raw
-          .replace(/^\s*\`\`\`(?:json)?\s*/i, "")
-          .replace(/\s*\`\`\`\s*$/i, "")
-          .trim();
-        const parsed = JSON.parse(cleaned);
-        if (parsed && typeof parsed === "object") generated = parsed as Record<string, unknown>;
-      } catch {
-        throw new Error("PostCard AI returned an invalid response. Please try again.");
-      }
+      const generated = parseJsonObject(raw, "PostCard AI");
 
       const statistic = normalizeStatisticContent(
         currentStat,
@@ -205,10 +197,13 @@ Return ONLY valid JSON with keys: headline, body, closing.`;
     const text = await provider.generateText(prompt);
     return NextResponse.json({ text });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "AI request failed";
-    const status = message.includes("Ollama request failed") || message.includes("Ollama returned")
-      ? 502
-      : 500;
-    return NextResponse.json({ error: message }, { status });
+    console.error("[PostCraft] AI request failed", {
+      kind: error && typeof error === "object" && "kind" in error ? String((error as { kind?: unknown }).kind) : "unknown",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: userFacingAIError(error) },
+      { status: httpStatusForAIError(error) },
+    );
   }
 }
