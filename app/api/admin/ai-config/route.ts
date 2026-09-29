@@ -9,6 +9,7 @@ import {
 import { createOpenAICompatibleProvider } from "@/lib/ai/openai-compatible";
 import { createAnthropicProvider } from "@/lib/ai/anthropic";
 import { createOllamaProvider } from "@/lib/ai/ollama";
+import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 
 const providers: AIProviderName[] = ["ollama", "freellmapi", "openai", "anthropic", "google", "custom"];
 
@@ -161,9 +162,10 @@ export async function PUT(request: Request) {
       elapsedMs: Date.now() - startedAt,
     });
   } catch (error) {
+    console.error("AI connection test failed:", error instanceof Error ? error.message : String(error));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI connection test failed." },
-      { status: 400 },
+      { error: userFacingAIError(error) },
+      { status: httpStatusForAIError(error) },
     );
   }
 }
