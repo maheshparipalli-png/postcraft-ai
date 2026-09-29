@@ -48,7 +48,7 @@ function encryptSecret(value: string) {
 function decryptSecret(value: string) {
   const [ivText, tagText, encryptedText] = value.split(".");
   if (!ivText || !tagText || !encryptedText) throw new Error("Stored AI provider secret is invalid.");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", getEncryptionKey(), Buffer.from(ivText, "base64url"));
+  const decipher = crypto.createDecipheriv("aes-256-gcm", getEncryptionKey(), ivText ? Buffer.from(ivText, "base64url") : Buffer.alloc(0));
   decipher.setAuthTag(Buffer.from(tagText, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
 }
@@ -100,6 +100,7 @@ export async function saveAIConfig(input: {
 }) {
   const admin = createAdminClient();
   const existing = await getStoredAIConfig();
+  const apiKey = input.apiKey?.trim() || null;
 
   const payload: Record<string, unknown> = {
     provider: input.provider,
@@ -107,15 +108,15 @@ export async function saveAIConfig(input: {
     model: input.model,
     is_active: true,
     updated_at: new Date().toISOString(),
+    encrypted_api_key:
+      input.provider === "ollama"
+        ? null
+        : apiKey
+          ? encryptSecret(apiKey)
+          : existing?.provider === input.provider
+            ? existing.encrypted_api_key
+            : null,
   };
-
-  if (input.apiKey?.trim()) {
-    payload.encrypted_api_key = encryptSecret(input.apiKey.trim());
-  } else if (existing?.encrypted_api_key) {
-    payload.encrypted_api_key = existing.encrypted_api_key;
-  } else {
-    payload.encrypted_api_key = null;
-  }
 
   if (existing?.id) {
     const { data, error } = await admin
