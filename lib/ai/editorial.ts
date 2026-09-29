@@ -614,11 +614,10 @@ function buildGroundedPostFallback(story: Story, angle: string) {
 
   const hookOne = clauses[0] || story.headline.trim();
   const hookTwo = clauses[1] || summarySentences[1] || angle;
-
   const bodyEvidence = summarySentences.join(" ");
   const body = [
     `${bodyEvidence} ${angle}`,
-    `The central implication follows from those details: ${angle}`,
+    `The practical implication follows from these details: ${angle}`,
   ].join("\n\n");
 
   return sanitizeLinkedInPost(
@@ -779,10 +778,8 @@ export async function generateEditorialPost(
         "The draft does not contain enough distinctive evidence from the selected story.",
       );
     }
-    // A grounded summary alone is not sufficient for an editorial post.
     if (!hasEditorialInsight) {
       reasons.push("The draft needs a distinct editorial interpretation, not only a summary.");
-    });
     }
     if (hasGenericFiller) {
       reasons.push("The draft contains generic LinkedIn or AI filler language.");
@@ -831,7 +828,7 @@ Rules:
 - Then write 2-3 short paragraphs developing the thesis, not retelling the article paragraph by paragraph.
 - Use at least two concrete story details as evidence. Explain what those details mean together, not just what happened.
 - Make the central tension, trade-off, mechanism, or consequence explicit.
-- End with a memorable, specific conclusion resolving the thesis from the evidence, not repeating the summary.
+- End with a specific conclusion resolving the thesis from the evidence, not repeating the summary.
 - Do not use generic advice such as strategic planning, preparedness, risk management, the need to adapt, or broad calls for policy action unless the supplied story explicitly supports it.
 - Avoid generic AI/LinkedIn filler, engagement bait, rhetorical questions, and editorial-process language.
 - Do not include URLs, source footers, emojis, hashtags, or questions to the reader.
