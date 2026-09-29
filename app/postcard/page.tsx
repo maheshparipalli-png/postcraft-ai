@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { POSTCARD_FIELDS } from "@/lib/postcard/categories";
@@ -688,7 +688,7 @@ export default function PostCardPage() {
                 <div className="mt-4 flex items-center justify-between rounded-lg border border-neutral-200 bg-white/60 px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                      {photo ? <Image src={photo} alt="" fill sizes="36px" unoptimized className="object-cover" /> : initial(name)}
+                      {photo ? <NextImage src={photo} alt="" fill sizes="36px" unoptimized className="object-cover" /> : initial(name)}
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{name}</div>
@@ -716,7 +716,7 @@ export default function PostCardPage() {
                         aria-label={photo ? "Change profile photo" : "Upload profile photo"}
                       >
                         {photo ? (
-                          <Image src={photo} alt="" fill sizes="96px" unoptimized className="object-cover" />
+                          <NextImage src={photo} alt="" fill sizes="96px" unoptimized className="object-cover" />
                         ) : (
                           <span className="px-3">◉<br />Upload photo</span>
                         )}
