@@ -4,18 +4,18 @@ export type VisualStorytellingInput = {
   closing: string;
 };
 
-export type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor";
+import { VISUAL_STYLES, type VisualStyle } from "./visual-styles";
 
-export type VisualStorytellingPlan = {
+export type VisualStorytellingPlan = {\n  preferredModel?: string;
   coreTheme: string;
   emotionalMessage: string;
   visualConcept: string;
   imagePrompt: string;
   motivationalSentence: string;
   textPlacement: "bottom-left";
-  visualStyle: string;
+  visualStyle: VisualStyle;
   colorDirection: string;
-  negativeSpaceLocation: string;
+  negativeSpaceLocation: "lower-left";
   aspectRatio: "4:5";
 };
 
@@ -106,7 +106,7 @@ export function buildVisualStorytellingPlan(
   const source = [headline, body, closing].filter(Boolean).join(" ");
   const coreTheme = inferCoreTheme(source, headline || body || closing);
   const lower = source.toLowerCase();
-  const style = STYLE_DETAILS[visualStyle];
+  const style = VISUAL_STYLES[visualStyle];
 
   let emotionalMessage = "The courage to act on what matters.";
   let visualConcept = "A lone person choosing a clear path while the world around them moves in another direction.";
@@ -157,7 +157,7 @@ export function buildVisualStorytellingPlan(
     imagePrompt,
     motivationalSentence: sentenceFromClosing(closing, source),
     textPlacement: "bottom-left",
-    visualStyle: style.label,
+    visualStyle,
     colorDirection,
     negativeSpaceLocation: "lower-left",
     aspectRatio: "4:5",
