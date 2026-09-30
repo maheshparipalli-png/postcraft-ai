@@ -944,6 +944,7 @@ REPAIR INSTRUCTIONS
 EXISTING POST
 ${post}
 `;
+  }
 
   // Treat quality checks as a repair mechanism rather than a hard rejection.
   // Every failed check is sent to the repair pass together so the model can
