@@ -11,7 +11,7 @@ const primaryLinks: NavLink[] = [
   { label: "Discover", href: "/", exact: true },
   { label: "Idea Radar", href: "/ideas" },
   { label: "Write", href: "/create" },
-  { label: "PostCard", href: "/visual-studio" },
+  { label: "Visual Studio", href: "/visual-studio" },
   { label: "CommentCraft", href: "/commentcraft" },
   { label: "Workspace", href: "/workspace" },
 ];
