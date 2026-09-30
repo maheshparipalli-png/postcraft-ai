@@ -5,6 +5,39 @@ import { getBillingAccess } from "@/lib/billing/access";
 import { generateEditorialPost } from "@/lib/ai/editorial";
 import { analyzeIdea } from "@/lib/idea-radar/ai";
 
+const AI_ANALYSIS_DISABLED = true;
+
+function fallbackAngles(title: string, description: string) {
+  return [
+    {
+      angle: `What people usually miss about: ${title}`,
+      why: "Look past the obvious interpretation and identify the less visible idea underneath the story.",
+      evidence: description || title,
+    },
+    {
+      angle: `The practical lesson from: ${title}`,
+      why: "Turn the story into a specific lesson a professional can apply.",
+      evidence: description || title,
+    },
+    {
+      angle: `Why this matters more than it seems: ${title}`,
+      why: "Explore the second-order effect or consequence that is easy to overlook.",
+      evidence: description || title,
+    },
+    {
+      angle: `A different way to think about: ${title}`,
+      why: "Reframe the story so the reader sees it from a less obvious perspective.",
+      evidence: description || title,
+    },
+    {
+      angle: `The question behind: ${title}`,
+      why: "Turn the story into a useful question that challenges the reader's current assumptions.",
+      evidence: description || title,
+    },
+  ];
+}
+
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
@@ -96,18 +129,22 @@ export async function POST(request: Request) {
     const { data: idea } = await admin.from("idea_radar_ideas").select("*").eq("id", ideaId).single();
     if (!idea) return NextResponse.json({ error: "Idea not found." }, { status: 404 });
 
-    const analysis = await analyzeIdea({
-      title: idea.title,
-      summary: idea.description + "\n" + idea.insight,
-      source: idea.source_name,
-      url: idea.source_url,
-      category: idea.category,
-    });
-    const angles = analysis.angles;
-    if (angles.length) await admin.from("idea_radar_angles").upsert(
-      angles.map((a) => ({ idea_id: ideaId, angle: a.angle, why: a.why, evidence: a.evidence })),
-      { onConflict: "idea_id,angle" },
-    );
+    const angles = AI_ANALYSIS_DISABLED
+      ? fallbackAngles(idea.title, idea.description || idea.insight || "")
+      : (await analyzeIdea({
+          title: idea.title,
+          summary: idea.description + "\n" + idea.insight,
+          source: idea.source_name,
+          url: idea.source_url,
+          category: idea.category,
+        })).angles;
+
+    await admin.from("idea_radar_angles").delete().eq("idea_id", ideaId);
+    if (angles.length) {
+      await admin.from("idea_radar_angles").insert(
+        angles.map((a) => ({ idea_id: ideaId, angle: a.angle, why: a.why, evidence: a.evidence })),
+      );
+    }
     return NextResponse.json({ angles });
   }
 
