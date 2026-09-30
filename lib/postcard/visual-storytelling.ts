@@ -6,7 +6,8 @@ export type VisualStorytellingInput = {
 
 import { VISUAL_STYLES, type VisualStyle } from "./visual-styles";
 
-export type VisualStorytellingPlan = {\n  preferredModel?: string;
+export type VisualStorytellingPlan = {
+  preferredModel?: string;
   coreTheme: string;
   emotionalMessage: string;
   visualConcept: string;
