@@ -65,9 +65,15 @@ export async function POST() {
     .limit(16);
 
   let analyzed = 0;
+  let analysisAttempted = 0;
+  let rejected = 0;
+  const analysisErrors: { title: string; error: string }[] = [];
+
   for (const item of candidates ?? []) {
     const { data: already } = await admin.from("idea_radar_ideas").select("id").eq("feed_item_id", item.id).limit(1);
     if (already?.length) continue;
+
+    analysisAttempted += 1;
     try {
       const result = await analyzeIdea({
         title: item.title,
@@ -76,8 +82,13 @@ export async function POST() {
         url: item.source_url,
         category: item.category,
       });
-      if (!result.keep) continue;
-      const { data: idea } = await admin.from("idea_radar_ideas").insert({
+
+      if (!result.keep) {
+        rejected += 1;
+        continue;
+      }
+
+      const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
         feed_item_id: item.id,
         title: result.title || item.title,
         description: result.description || item.description || "",
@@ -89,22 +100,48 @@ export async function POST() {
         published_at: item.published_at,
         analysis: { generated_by: "idea-radar", keep: true },
       }).select("id").single();
+
+      if (ideaError) {
+        analysisErrors.push({ title: item.title, error: ideaError.message });
+        continue;
+      }
+
       if (idea && result.angles.length) {
-        await admin.from("idea_radar_angles").insert(result.angles.map((a) => ({
+        const { error: angleError } = await admin.from("idea_radar_angles").insert(result.angles.map((a) => ({
           idea_id: idea.id, angle: a.angle, why: a.why, evidence: a.evidence,
         })));
+        if (angleError) {
+          analysisErrors.push({ title: item.title, error: angleError.message });
+        }
       }
+
       if (idea) analyzed += 1;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Idea Radar analysis failed:", item.title, error);
+      analysisErrors.push({ title: item.title, error: message });
     }
   }
+
+  const sourceResults = results.map((r) =>
+    r.status === "fulfilled"
+      ? r.value
+      : { ok: false, error: r.reason instanceof Error ? r.reason.message : String(r.reason) }
+  );
+  const sourceFailures = sourceResults.filter((result) => !result.ok).length;
+  const sourceSuccesses = sourceResults.length - sourceFailures;
 
   return NextResponse.json({
     ok: true,
     sources: (sources ?? []).length,
-    sourceResults: results.map((r) => r.status === "fulfilled" ? r.value : { ok: false, error: String(r.reason) }),
+    sourceSuccesses,
+    sourceFailures,
+    sourceResults,
+    candidates: (candidates ?? []).length,
+    analysisAttempted,
     analyzed,
+    rejected,
+    analysisErrors,
     refreshedBy: user.id,
   });
 }
