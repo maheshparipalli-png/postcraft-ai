@@ -124,7 +124,7 @@ function renderPostCardImage(title: string, post: string, _angle: string, source
     y = py;
   });
 
-  const angleKey = normalizeSentence(angle);
+  const angleKey = normalizeSentence(_angle);
   const candidateTakeaway = uniqueSentences[uniqueSentences.length - 1] || "";
   const takeaway =
     candidateTakeaway &&
