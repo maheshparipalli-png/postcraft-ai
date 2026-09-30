@@ -1,6 +1,6 @@
 export const IDEA_CATEGORIES = [
   "Business","Leadership","Entrepreneurship","AI & Technology","Career",
-  "Psychology","Productivity","Personal Growth","Marketing","Management",
+  "Psychology","Productivity","Personal Growth","Motivation","Marketing","Management",
   "Innovation","Interesting Stories",
 ] as const;
 
