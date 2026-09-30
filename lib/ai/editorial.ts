@@ -486,7 +486,7 @@ function postHasConcreteAnchor(post: string, story: Story, angle: string) {
 
   // Keep Idea Radar/editorial posts substantial enough to carry the argument,
   // while staying comfortably below LinkedIn's 3,000-character post limit.
-  if (words.length < 180 || words.length > 250) return false;
+  if (words.length < 200 || words.length > 300) return false;
 
   // Anchor validation should follow the actual story, not a fixed topic list.
   // This prevents valid posts about new companies, products, people, or domains
@@ -776,8 +776,8 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "length",
       label: "Length checked",
-      passed: wordCount >= 180 && wordCount <= 250 && post.length <= 3000,
-      detail: wordCount + " words; target is 180–250 and under 3,000 characters.",
+      passed: wordCount >= 200 && wordCount <= 300 && post.length <= 3000,
+      detail: wordCount + " words; target is 200–300 and under 3,000 characters.",
     },
   ];
 }
@@ -848,7 +848,7 @@ Each insight must add new information or reasoning.
 4. TAKEAWAY
 End the main content with one clear takeaway or lesson only if it adds something new.
 
-The finished post should feel complete on its own and contain 180–250 words. Do not use placeholder numbering such as a lone "3".
+The finished post should feel complete on its own and contain 200–300 words. Do not use placeholder numbering such as a lone "3".
 
 5. CTA
 End with ONE natural question or clear call to action directly related to the topic.
@@ -883,7 +883,7 @@ IMPORTANT WRITING RULES
       basePrompt + instructionSuffix,
       {
         temperature: 0.25,
-        numPredict: 900,
+        numPredict: 1000,
       },
     );
 
@@ -909,7 +909,7 @@ QUALITY RETRY
 The previous draft failed one or more quality checks. Generate a completely new version.
 Do not copy the previous wording.
 Make every sentence complete.
-Stay within 180–250 words.
+Stay within 200–300 words.
 Keep the selected angle as the central thesis.
 Do not include meta-commentary, prompt text, labels, ellipses, placeholders, or truncated sentences.
 `);
