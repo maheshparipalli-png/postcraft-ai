@@ -8,28 +8,14 @@ import { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-st
 
 type SourceMode = "linkedin" | "idea";
 
-type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor";
-
-const VISUAL_STYLES: Array<{ id: VisualStyle; label: string }> = [
-  { id: "editorial", label: "Editorial photo" },
-  { id: "cartoon", label: "Cartoon" },
-  { id: "hand-drawn", label: "Hand-drawn" },
-  { id: "3d", label: "3D illustration" },
-  { id: "anime", label: "Anime" },
-  { id: "watercolor", label: "Watercolor" },
-];
-
 type VisualPlan = ReturnType<typeof buildVisualStorytellingPlan>;
 
 function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
   if (!clean) return { headline: "", body: "", closing: "" };
 
-  const paragraphs = clean.split(/
-\s*
-/).map((part) => part.trim()).filter(Boolean);
-  const lines = clean.split("
-").map((line) => line.trim()).filter(Boolean);
+  const paragraphs = clean.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const lines = clean.split("\n").map((line) => line.trim()).filter(Boolean);
 
   if (mode === "linkedin") {
     const headline = lines[0] || paragraphs[0] || clean;
