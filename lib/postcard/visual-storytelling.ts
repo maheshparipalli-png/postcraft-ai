@@ -70,33 +70,6 @@ function inferCoreTheme(sourceText: string, headline: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-const STYLE_DETAILS: Record<VisualStyle, { label: string; prompt: string }> = {
-  editorial: {
-    label: "Premium cinematic editorial photography",
-    prompt: "Photorealistic premium editorial photograph, natural textures, realistic human proportions, atmospheric depth, natural lighting, controlled depth of field.",
-  },
-  cartoon: {
-    label: "Sophisticated editorial cartoon illustration",
-    prompt: "Sophisticated editorial cartoon illustration, expressive but believable human forms, clean confident linework, refined shapes, subtle dimensional shading, restrained premium palette, intelligent visual storytelling, polished magazine illustration quality.",
-  },
-  "hand-drawn": {
-    label: "Hand-drawn editorial illustration",
-    prompt: "Hand-drawn editorial illustration, elegant ink and pencil texture, organic line variation, subtle paper grain, refined composition, human warmth, restrained sophisticated palette, polished magazine illustration quality.",
-  },
-  "3d": {
-    label: "Cinematic 3D illustration",
-    prompt: "Cinematic 3D illustration, believable stylized forms, refined materials, soft realistic lighting, subtle depth, premium visual design, restrained colors, sophisticated editorial advertising aesthetic.",
-  },
-  anime: {
-    label: "Cinematic anime illustration",
-    prompt: "Cinematic anime-inspired editorial illustration, expressive but restrained character design, elegant composition, refined linework, atmospheric depth, sophisticated lighting, mature magazine-art direction rather than childish cartoon styling.",
-  },
-  watercolor: {
-    label: "Editorial watercolor illustration",
-    prompt: "Editorial watercolor illustration, expressive brushwork, delicate paper texture, controlled washes, subtle ink accents, atmospheric depth, sophisticated muted palette, premium magazine illustration aesthetic.",
-  },
-};
-
 export function buildVisualStorytellingPlan(
   input: VisualStorytellingInput,
   visualStyle: VisualStyle = "editorial",
@@ -142,16 +115,20 @@ export function buildVisualStorytellingPlan(
     visualConcept,
     `Core idea: ${coreTheme}.`,
     `Emotional idea: ${emotionalMessage}`,
-    "Communicate the idea visually without any words or typography inside the image.",
-    "Absolutely no readable text, letters, numbers, captions, signs, posters, book pages, labels, logos, watermarks, or typographic marks anywhere in the image.",
-    "Single dominant subject, strong visual hierarchy, meaningful movement or direction, subtle symbolism, cinematic composition.",
+    "Create one deliberately composed cinematic visual moment, like a frame from a thoughtfully directed film.",
+    "Use clear foreground, midground, and background separation, intentional camera perspective, atmospheric depth, directional lighting, dimensional shadows, subtle dramatic contrast, and a strong visual focal point.",
+    "Communicate the idea entirely through visual storytelling. The generated artwork must contain no text.",
+    "ABSOLUTELY NO WORDS, LETTERS, NUMBERS, CAPTIONS, TYPOGRAPHY, SIGNS, POSTERS, BOOK PAGES, LABELS, LOGOS, WATERMARKS, SPEECH BUBBLES, UI ELEMENTS, OR WRITTEN LANGUAGE OF ANY KIND.",
+    "Do not place writing on clothing, buildings, screens, papers, roads, walls, signs, objects, or in the background.",
+    "Single dominant subject, strong visual hierarchy, meaningful movement or direction, subtle symbolism, and a memorable moment.",
     colorDirection,
     "Leave clean, visually simple negative space in the lower-left area for a short motivational sentence to be added later by PostCraft.",
-    "No signage, no written surfaces, no stock-photo look, no clutter, no generic corporate imagery.",
-    "Vertical 4:5 composition, sophisticated and memorable.",
+    "No stock-photo look, no generic corporate imagery, no clutter, no decorative text, and no collage.",
+    "Vertical 4:5 composition, sophisticated, cinematic, memorable.",
   ].join(" ");
 
   return {
+    preferredModel: style.preferredModel,
     coreTheme,
     emotionalMessage,
     visualConcept,
