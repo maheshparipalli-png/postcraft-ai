@@ -132,12 +132,12 @@ export default function VisualStudioPage() {
               <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-neutral-400">PostCard</div>
               <h1 className="mt-2 font-serif text-4xl tracking-[-0.04em] sm:text-6xl">Visual Studio</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">
-                Turn a human idea or LinkedIn post into one strong visual story.
+                Turn a human idea or LinkedIn post into a visual PostCard.
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs">
               <Link href="/postcard/saved" className="rounded-full border border-neutral-300 bg-white px-4 py-2.5 font-medium hover:border-neutral-900">Saved PostCards</Link>
-              <Link href="/postcard" className="rounded-full bg-neutral-900 px-4 py-2.5 font-medium text-white hover:bg-neutral-700">Classic PostCard</Link>
+              <Link href="/postcard" className="px-2 py-2.5 font-medium text-neutral-500 hover:text-neutral-950">Classic editor</Link>
             </div>
           </div>
         </header>
@@ -202,25 +202,34 @@ export default function VisualStudioPage() {
             </div>
 
             {plan && (
-              <div className="mt-6 space-y-4">
-                <div className="border border-neutral-200 bg-white p-6">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">01 · Core idea</div>
-                  <p className="mt-3 text-lg font-medium leading-7">{plan.coreTheme}</p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="border border-neutral-200 bg-white p-6">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">02 · Human insight</div>
-                    <p className="mt-3 text-sm leading-6 text-neutral-700">{plan.emotionalMessage}</p>
+              <div className="mt-6">
+                <div className="mb-3 flex items-end justify-between">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Creative direction</div>
+                    <p className="mt-1 text-xs text-neutral-500">One message. One human insight. One visual metaphor.</p>
                   </div>
-                  <div className="border border-neutral-200 bg-white p-6">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">03 · Visual metaphor</div>
-                    <p className="mt-3 text-sm leading-6 text-neutral-700">{plan.visualConcept}</p>
-                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Ready</span>
                 </div>
-                <div className="border border-neutral-200 bg-white p-6">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">04 · Motivational sentence</div>
-                  <p className="mt-3 max-w-2xl font-serif text-2xl leading-tight tracking-[-0.02em]">{plan.motivationalSentence}</p>
-                  <p className="mt-2 text-xs text-neutral-500">This is rendered by PostCraft, not by the image model.</p>
+                <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                  <div className="border-b border-neutral-200 p-5 sm:p-6">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Core idea</div>
+                    <p className="mt-2 max-w-2xl text-lg font-medium leading-7">{plan.coreTheme}</p>
+                  </div>
+                  <div className="grid divide-y border-b border-neutral-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                    <div className="p-5 sm:p-6">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Human insight</div>
+                      <p className="mt-2 text-sm leading-6 text-neutral-700">{plan.emotionalMessage}</p>
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Visual metaphor</div>
+                      <p className="mt-2 text-sm leading-6 text-neutral-700">{plan.visualConcept}</p>
+                    </div>
+                  </div>
+                  <div className="bg-[#f1eee7] p-5 sm:p-6">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-500">PostCard sentence</div>
+                    <p className="mt-2 max-w-2xl font-serif text-2xl leading-tight tracking-[-0.02em]">{plan.motivationalSentence}</p>
+                    <p className="mt-2 text-xs text-neutral-500">Added by PostCraft after the image is generated.</p>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -242,7 +251,7 @@ export default function VisualStudioPage() {
             <div className="mb-3 flex items-end justify-between">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Live composition</div>
-                <p className="mt-1 text-xs text-neutral-500">4:5 editorial format · 1200 × 1500</p>
+                <p className="mt-1 text-xs text-neutral-500">4:5 editorial composition · 1200 × 1500</p>
               </div>
               {imageUrl && <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-green-700">Stored</span>}
             </div>
@@ -252,8 +261,8 @@ export default function VisualStudioPage() {
                 <div className="relative aspect-[4/5]">
                   <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 460px" unoptimized className="object-cover" />
                   {plan?.motivationalSentence && (
-                    <div className="absolute inset-x-0 bottom-0 p-7">
-                      <div className="max-w-[88%] text-2xl font-semibold leading-[1.08] tracking-[-0.02em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,.65)] sm:text-3xl">
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pb-7 pt-20 sm:px-7 sm:pb-8">
+                      <div className="max-w-[78%] font-serif text-2xl leading-[1.05] tracking-[-0.025em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.55)] sm:text-3xl">
                         {plan.motivationalSentence}
                       </div>
                     </div>
@@ -264,7 +273,7 @@ export default function VisualStudioPage() {
                   <div>
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-neutral-400 text-lg">✦</div>
                     <p className="mt-4 text-sm font-medium text-neutral-700">Your visual will appear here.</p>
-                    <p className="mt-2 text-xs leading-5 text-neutral-500">PostCraft keeps the image clean and adds typography separately.</p>
+                    <p className="mt-2 text-xs leading-5 text-neutral-500">Clean image first. PostCraft adds the message separately.</p>
                   </div>
                 </div>
               )}
