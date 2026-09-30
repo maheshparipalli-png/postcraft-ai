@@ -172,12 +172,23 @@ export default function IdeasPage() {
                 <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
-                  <Link
-                    href={`/postcard?headline=${encodeURIComponent(cardHeadline)}&body=${encodeURIComponent(cardBody)}&closing=${encodeURIComponent(cardClosing)}&template=thought`}
+                  <button
+                    onClick={() => {
+                      window.sessionStorage.setItem(
+                        "postcraft-idea-radar-postcard",
+                        JSON.stringify({
+                          headline: cardHeadline,
+                          body: cardBody,
+                          closing: cardClosing,
+                          template: "thought",
+                        }),
+                      );
+                      window.location.href = "/postcard?source=idea-radar";
+                    }}
                     className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white"
                   >
                     Open in PostCard Studio →
-                  </Link>
+                  </button>
                 </div>
               </div>
 
