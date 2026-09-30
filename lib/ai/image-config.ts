@@ -77,7 +77,7 @@ export async function getPublicImageConfigs() {
 
 export async function getRuntimeImageConfigs() {
   return (await getStoredImageConfigs())
-    .filter((config) => config.is_enabled && config.encrypted_api_key)
+    .filter((config): config is StoredImageConfig & { encrypted_api_key: string } => config.is_enabled && Boolean(config.encrypted_api_key))
     .map((config) => ({
       provider: config.provider,
       baseUrl: config.base_url,
