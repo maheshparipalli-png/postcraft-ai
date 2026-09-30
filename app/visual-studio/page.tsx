@@ -3,7 +3,7 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useMemo, useState } from "react";
-import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
+import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";\nimport { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
 
 type SourceMode = "linkedin" | "idea";
 
@@ -43,7 +43,7 @@ function deriveContent(source: string, mode: SourceMode) {
   return { headline, body: body || clean, closing: "" };
 }
 
-export default function VisualStudioPage() {
+function dataModelFallback(plan: VisualPlan) {\n  return plan.preferredModel || "configured-default";\n}\n\nexport default function VisualStudioPage() {
   const [mode, setMode] = useState<SourceMode>("idea");
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
@@ -78,7 +78,7 @@ export default function VisualStudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: plan.imagePrompt,
-          model: undefined,
+          model: plan.preferredModel,
           width: 1200,
           height: 1500,
         }),
@@ -121,7 +121,7 @@ export default function VisualStudioPage() {
           imageStoragePath: storagePath,
           visualPrompt: plan.imagePrompt,
           motivationalSentence: plan.motivationalSentence,
-          visualConcept: plan.visualConcept,
+          visualConcept: plan.visualConcept,\n          visualStyle: plan.visualStyle,\n          imageModel: plan.preferredModel || dataModelFallback(plan),
         }),
       });
       const data = await response.json().catch(() => null);
@@ -188,11 +188,11 @@ export default function VisualStudioPage() {
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
-                {VISUAL_STYLES.map((style) => (
+                {VISUAL_STYLE_OPTIONS.map((style) => (
                   <button
                     key={style.id}
                     type="button"
-                    onClick={() => { setVisualStyle(style.id); setPlan(null); setImageUrl(null); setSavedId(null); setMessage(""); }}
+                    onClick={() => {\n                      setVisualStyle(style.id);\n                      setImageUrl(null);\n                      setStoragePath(null);\n                      setSavedId(null);\n                      if (source.trim()) setPlan(buildVisualStorytellingPlan(derived, style.id));\n                      setMessage(plan ? "Style changed. Your idea and visual metaphor were kept." : "Style selected. Extract the visual idea when you are ready.");\n                    }}
                     className={visualStyle === style.id
                       ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white"
                       : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900 hover:text-neutral-950"}
@@ -261,7 +261,7 @@ export default function VisualStudioPage() {
                   disabled={generating}
                   className="w-full rounded-2xl bg-neutral-900 px-5 py-4 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
                 >
-                  {generating ? `Generating ${VISUAL_STYLES.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}…` : imageUrl ? "Regenerate visual →" : `Generate ${VISUAL_STYLES.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} →`}
+                  {generating ? `Generating ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}…` : imageUrl ? "Regenerate visual →" : `Generate ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} →`}
                 </button>
               </div>
             )}
