@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
+        provider: result.provider,
         model: result.model,
         images: result.images,
       },
