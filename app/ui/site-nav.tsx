@@ -9,6 +9,7 @@ type NavLink = { label: string; href: string; exact?: boolean };
 
 const primaryLinks: NavLink[] = [
   { label: "Discover", href: "/", exact: true },
+  { label: "Idea Radar", href: "/ideas" },
   { label: "Write", href: "/create" },
   { label: "PostCard", href: "/postcard" },
   { label: "CommentCraft", href: "/commentcraft" },
@@ -197,8 +198,7 @@ export default function SiteNav() {
                     className={publishActive || publishOpen
                       ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-medium text-white"
                       : "rounded-full px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-950"}
-                  >
-                    Publish <span className="ml-1 text-[10px]">{publishOpen ? "⌃" : "⌄"}</span>
+                  >                    Publish <span className="ml-1 text-[10px]">{publishOpen ? "⌃" : "⌄"}</span>
                   </button>
                   {publishOpen && (
                     <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg" role="menu">
@@ -397,7 +397,6 @@ export default function SiteNav() {
             )}
           </div>
         )}
-      </div>
-    </header>
+      </div>    </header>
   );
 }
