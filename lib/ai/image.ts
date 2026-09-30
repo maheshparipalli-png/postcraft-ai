@@ -192,7 +192,12 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
 
   const width = validateDimension(options.width, 1200);
   const height = validateDimension(options.height, 1500);
-  const candidates = options.model ? configs.filter((config) => config.model === options.model) : configs;
+  const candidates = options.model
+    ? configs.filter((config) =>
+        config.model === options.model ||
+        (config.provider === "freellmapi" && options.model.startsWith("@cf/")),
+      )
+    : configs;
 
   if (!candidates.length) {
     throw new AIProviderError("invalid_config", `The requested image model "${options.model}" is not configured.`, { provider: "Image Router" });
@@ -201,8 +206,8 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
   const failures: string[] = [];
   for (const config of candidates) {
     try {
-      const images = await generateWithProvider(config, cleanPrompt, width, height);
-      return { provider: config.provider, model: config.model, images };
+      const requestConfig = options.model && config.provider === "freellmapi"\n        ? { ...config, model: options.model }\n        : config;\n      const images = await generateWithProvider(requestConfig, cleanPrompt, width, height);
+      return { provider: config.provider, model: requestConfig.model, images };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failures.push(`${config.provider}: ${message}`);
