@@ -873,7 +873,6 @@ IMPORTANT WRITING RULES
 - Do not create a separate "Key Insights" or "Takeaway" heading unless it reads naturally in the finished post.
 - The CTA must add a new invitation to discuss the topic; it must not repeat the takeaway.
 - Do not use URLs, source footers, hashtags, or emojis.
-- Do not perform a repair pass or fallback generation.
 - Return ONLY the finished LinkedIn post.`;
 
   const aiProvider = await provider();
