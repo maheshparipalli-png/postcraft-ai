@@ -11,6 +11,12 @@ type GeneratedContext = {
   angleId: string;
   angle: string;
 };
+type QualityCheck = {
+  key: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+};
 type Idea = {
   id: string;
   title: string;
@@ -38,6 +44,7 @@ export default function IdeasPage() {
   const [selectedAngle, setSelectedAngle] = useState<Record<string, string>>({});
   const [generatedPost, setGeneratedPost] = useState("");
   const [generatedContext, setGeneratedContext] = useState<GeneratedContext | null>(null);
+  const [qualityChecks, setQualityChecks] = useState<QualityCheck[]>([]);
 
   async function loadIdeas() {
     setLoading(true);
@@ -117,6 +124,7 @@ export default function IdeasPage() {
     }
     setBusy(idea.id + "post");
     setGeneratedPost("");
+    setQualityChecks([]);
     try {
       const response = await fetch("/api/ideas", {
         method: "POST",
@@ -126,6 +134,7 @@ export default function IdeasPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Post generation failed.");
       setGeneratedPost(data.post || "");
+      setQualityChecks(data.quality ?? []);
       const selected = idea.idea_radar_angles.find((item) => item.id === angleId);
       setGeneratedContext({
         ideaId: idea.id,
@@ -202,6 +211,22 @@ export default function IdeasPage() {
                   <div className="mt-1">Selected angle: {generatedContext.angle}</div>
                 </div>
                 <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
+                {qualityChecks.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-400">Quality checks</div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {qualityChecks.map((check) => (
+                        <div key={check.key} className="flex items-start gap-2 text-xs">
+                          <span className={check.passed ? "mt-0.5 text-green-700" : "mt-0.5 text-red-600"}>{check.passed ? "✓" : "!"}</span>
+                          <div>
+                            <div className="font-medium text-neutral-900">{check.label}</div>
+                            <div className="mt-0.5 text-neutral-500">{check.detail}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
                   <button
@@ -241,6 +266,25 @@ export default function IdeasPage() {
                       {cardClosing}
                     </div>
                   )}
+                  {(() => {
+                    const source = (generatedContext.ideaTitle + " " + generatedContext.angle).toLowerCase().replace(/[^a-z0-9]+/g, " ");
+                    const card = (cardHeadline + " " + cardBody + " " + cardClosing).toLowerCase().replace(/[^a-z0-9]+/g, " ");
+                    const sourceTerms = new Set(source.split(/\s+/).filter((word) => word.length >= 5));
+                    const cardTerms = new Set(card.split(/\s+/).filter((word) => word.length >= 5));
+                    let shared = 0;
+                    for (const term of sourceTerms) if (cardTerms.has(term)) shared += 1;
+                    const relevant = shared >= 2;
+                    const clean = !/[#*_\`]|https?:\/\//.test(cardHeadline + " " + cardBody + " " + cardClosing);
+                    return (
+                      <div className="mt-6 border-t border-white/15 pt-4 text-xs text-neutral-400">
+                        <div className="font-medium uppercase tracking-[0.14em] text-neutral-500">PostCard quality</div>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                          <span className={relevant ? "text-neutral-200" : "text-red-300"}>{relevant ? "✓" : "!"} Relevant to selected topic</span>
+                          <span className={clean ? "text-neutral-200" : "text-red-300"}>{clean ? "✓" : "!"} Clean formatting</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </section>
@@ -311,6 +355,7 @@ export default function IdeasPage() {
                             setSelectedAngle((current) => ({ ...current, [idea.id]: angle.id }));
                             setGeneratedPost("");
                             setGeneratedContext(null);
+                            setQualityChecks([]);
                           }} className="mt-1" />
                           <div>
                             <div className="text-sm font-medium">{angle.angle}</div>
