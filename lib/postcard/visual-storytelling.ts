@@ -29,14 +29,35 @@ export function buildVisualImagePrompt(
 }
 
 export function createVisualStorytellingPlan(
-  ai: { coreTheme: string; emotionalMessage: string; visualConcept: string; motivationalSentence: string; colorDirection?: string },
+  ai: {
+    coreTheme: string;
+    emotionalMessage: string;
+    visualConcept: string;
+    motivationalSentence: string;
+    colorDirection?: string;
+  },
   visualStyle: VisualStyle = "editorial",
 ): VisualStorytellingPlan {
-  const colorDirection = ai.colorDirection?.trim() || "Natural warm daylight with restrained neutral tones and subtle contrast.";
+  const colorDirection = ai.colorDirection?.trim();
+  if (!colorDirection) {
+    throw new Error("Visual storytelling AI returned no color direction.");
+  }
+
   const base = {
-    coreTheme: ai.coreTheme.trim(), emotionalMessage: ai.emotionalMessage.trim(), visualConcept: ai.visualConcept.trim(),
-    motivationalSentence: ai.motivationalSentence.trim(), textPlacement: "bottom-left" as const,
-    visualStyle, colorDirection, negativeSpaceLocation: "lower-left" as const, aspectRatio: "4:5" as const,
+    coreTheme: ai.coreTheme.trim(),
+    emotionalMessage: ai.emotionalMessage.trim(),
+    visualConcept: ai.visualConcept.trim(),
+    motivationalSentence: ai.motivationalSentence.trim(),
+    textPlacement: "bottom-left" as const,
+    visualStyle,
+    colorDirection,
+    negativeSpaceLocation: "lower-left" as const,
+    aspectRatio: "4:5" as const,
   };
-  return { ...base, preferredModel: VISUAL_STYLES[visualStyle].preferredModel, imagePrompt: buildVisualImagePrompt(base, visualStyle, colorDirection) };
+
+  return {
+    ...base,
+    preferredModel: VISUAL_STYLES[visualStyle].preferredModel,
+    imagePrompt: buildVisualImagePrompt(base, visualStyle, colorDirection),
+  };
 }
