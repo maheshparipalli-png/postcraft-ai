@@ -181,11 +181,18 @@ export default function IdeasPage() {
             .map((part) => part.trim())
             .filter(Boolean);
           const blocks = generatedPost.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-          const cardHeadline = cleanSentences[0] || generatedContext.angle;
-          const cardBody = cleanSentences.slice(1, 3).join(" ") || blocks[1] || "";
-          const cardClosing = cleanSentences.length > 3
-            ? cleanSentences[cleanSentences.length - 1]
-            : generatedContext.angle.replace(/^.*?:\s*/, "").trim();
+          const limitWords = (text: string, maxWords: number) => {
+            const words = text.split(/\s+/).filter(Boolean);
+            return words.length <= maxWords ? text : words.slice(0, maxWords).join(" ") + "…";
+          };
+          const cardHeadline = limitWords(cleanSentences[0] || generatedContext.angle, 16);
+          const cardBody = limitWords(cleanSentences.slice(1, 3).join(" ") || blocks[1] || "", 42);
+          const cardClosing = limitWords(
+            cleanSentences.length > 3
+              ? cleanSentences[cleanSentences.length - 1]
+              : generatedContext.angle.replace(/^.*?:\s*/, "").trim(),
+            16,
+          );
           return (
             <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
               <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
