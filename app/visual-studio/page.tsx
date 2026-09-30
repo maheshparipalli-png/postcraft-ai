@@ -7,6 +7,17 @@ import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling"
 
 type SourceMode = "linkedin" | "idea";
 
+type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor";
+
+const VISUAL_STYLES: Array<{ id: VisualStyle; label: string }> = [
+  { id: "editorial", label: "Editorial photo" },
+  { id: "cartoon", label: "Cartoon" },
+  { id: "hand-drawn", label: "Hand-drawn" },
+  { id: "3d", label: "3D illustration" },
+  { id: "anime", label: "Anime" },
+  { id: "watercolor", label: "Watercolor" },
+];
+
 type VisualPlan = ReturnType<typeof buildVisualStorytellingPlan>;
 
 function deriveContent(source: string, mode: SourceMode) {
@@ -34,6 +45,7 @@ function deriveContent(source: string, mode: SourceMode) {
 
 export default function VisualStudioPage() {
   const [mode, setMode] = useState<SourceMode>("idea");
+  const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -47,7 +59,7 @@ export default function VisualStudioPage() {
 
   function analyzeIdea() {
     if (!source.trim()) return;
-    const next = buildVisualStorytellingPlan(derived);
+    const next = buildVisualStorytellingPlan(derived, visualStyle);
     setPlan(next);
     setImageUrl(null);
     setStoragePath(null);
@@ -174,6 +186,22 @@ export default function VisualStudioPage() {
                 <div className="text-[11px] text-neutral-400">{source.length} characters</div>
               </div>
 
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
+                {VISUAL_STYLES.map((style) => (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => { setVisualStyle(style.id); setPlan(null); setImageUrl(null); setSavedId(null); setMessage(""); }}
+                    className={visualStyle === style.id
+                      ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white"
+                      : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900 hover:text-neutral-950"}
+                  >
+                    {style.label}
+                  </button>
+                ))}
+              </div>
+
               <textarea
                 value={source}
                 onChange={(event) => { setSource(event.target.value); setPlan(null); setImageUrl(null); setSavedId(null); }}
@@ -233,7 +261,7 @@ export default function VisualStudioPage() {
                   disabled={generating}
                   className="w-full rounded-2xl bg-neutral-900 px-5 py-4 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
                 >
-                  {generating ? "Generating editorial visual…" : imageUrl ? "Regenerate visual →" : "Generate editorial visual →"}
+                  {generating ? `Generating ${VISUAL_STYLES.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}…` : imageUrl ? "Regenerate visual →" : `Generate ${VISUAL_STYLES.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} →`}
                 </button>
               </div>
             )}
@@ -247,7 +275,7 @@ export default function VisualStudioPage() {
             <div className="mb-3 flex items-end justify-between">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Live composition</div>
-                <p className="mt-1 text-xs text-neutral-500">4:5 editorial composition · 1200 × 1500</p>
+                <p className="mt-1 text-xs text-neutral-500">4:5 composition · {VISUAL_STYLES.find((style) => style.id === visualStyle)?.label || "Editorial photo"} · 1200 × 1500</p>
               </div>
               {imageUrl && <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-green-700">Stored</span>}
             </div>
