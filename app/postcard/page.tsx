@@ -586,14 +586,24 @@ export default function PostCardPage() {
   }
   async function generateVisual() {
     if (visualGenerating) return;
-    const plan = buildVisualStorytellingPlan({ headline, body, closing });
     setVisualGenerating(true);
     setGenerateMessage("");
-    setVisualPrompt(plan.imagePrompt);
-    setVisualConcept(plan.visualConcept);
-    setMotivationalSentence(plan.motivationalSentence);
 
     try {
+      const analysisResponse = await fetch("/api/ai/visual-storytelling", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headline, body, closing, visualStyle: "editorial" }),
+      });
+      const analysisData = await analysisResponse.json().catch(() => null);
+      if (!analysisResponse.ok || !analysisData?.plan) {
+        throw new Error(analysisData?.error || "Could not develop the visual direction.");
+      }
+      const plan = analysisData.plan;
+      setVisualPrompt(plan.imagePrompt);
+      setVisualConcept(plan.visualConcept);
+      setMotivationalSentence(plan.motivationalSentence);
+
       const response = await fetch("/api/ai/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
