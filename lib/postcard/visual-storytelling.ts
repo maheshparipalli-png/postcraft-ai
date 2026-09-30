@@ -25,11 +25,46 @@ function words(value: string) {
   return clean(value).split(/\s+/).filter(Boolean);
 }
 
-function sentenceFromClosing(closing: string) {
+function sentenceFromClosing(closing: string, sourceText: string) {
   const source = clean(closing).replace(/^["'“”]+|["'“”]+$/g, "");
-  if (!source) return "Choose the path that matters.";
-  const list = words(source).slice(0, 12);
-  return list.join(" ").replace(/[.!?]+$/, "") + ".";
+  if (source) {
+    const list = words(source).slice(0, 12);
+    return list.join(" ").replace(/[.!?]+$/, "") + ".";
+  }
+
+  const sourceLower = sourceText.toLowerCase();
+  if (/not everyone|nobody understand|people.*understand|understand your journey|journey/.test(sourceLower)) {
+    return "Keep walking, even when others do not understand.";
+  }
+  if (/keep going|keep moving|don't give up|do not give up|persist/.test(sourceLower)) {
+    return "Keep going when the path gets difficult.";
+  }
+  if (/work hard|working hard|effort|discipline/.test(sourceLower)) {
+    return "Effort matters most when it is directed well.";
+  }
+  if (/fear|afraid|scared|courage|brave/.test(sourceLower)) {
+    return "Courage begins when you move despite fear.";
+  }
+
+  return "Choose the path that matters.";
+}
+
+function inferCoreTheme(sourceText: string, headline: string) {
+  const sourceLower = sourceText.toLowerCase();
+
+  if (/not everyone|nobody understand|people.*understand|understand your journey|journey/.test(sourceLower)) {
+    return "Your journey does not need everyone's understanding.";
+  }
+  if (/keep going|keep moving|don't give up|do not give up|persist/.test(sourceLower)) {
+    return "Progress sometimes means continuing when it gets difficult.";
+  }
+  if (/work hard|working hard/.test(sourceLower)) {
+    return "Hard work matters, but direction matters too.";
+  }
+
+  const value = clean(headline);
+  if (!value) return "A meaningful idea";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export function buildVisualStorytellingPlan(input: VisualStorytellingInput): VisualStorytellingPlan {
@@ -37,14 +72,17 @@ export function buildVisualStorytellingPlan(input: VisualStorytellingInput): Vis
   const body = clean(input.body);
   const closing = clean(input.closing);
   const source = [headline, body, closing].filter(Boolean).join(" ");
-  const coreTheme = headline || body || closing || "A meaningful idea";
+  const coreTheme = inferCoreTheme(source, headline || body || closing);
   const lower = source.toLowerCase();
 
   let emotionalMessage = "The courage to act on what matters.";
   let visualConcept = "A lone person choosing a clear path while the world around them moves in another direction.";
   let colorDirection = "Natural warm daylight with restrained neutral tones and subtle contrast.";
 
-  if (/lead|leader|leadership|team|people/.test(lower)) {
+  if (/not everyone|nobody understand|people.*understand|understand your journey|journey/.test(lower)) {
+    emotionalMessage = "You do not need everyone's approval to keep moving toward what matters.";
+    visualConcept = "One person walking calmly along a quiet road while other people take a different route in the distance, creating a feeling of conviction without isolation.";
+  } else if (/lead|leader|leadership|team|people/.test(lower)) {
     emotionalMessage = "Leadership is creating direction and making space for others.";
     visualConcept = "One person slightly ahead on a wide path, turning back to guide others forward.";
   } else if (/change|adapt|learning|learn|growth/.test(lower)) {
@@ -71,11 +109,12 @@ export function buildVisualStorytellingPlan(input: VisualStorytellingInput): Vis
     `Core idea: ${coreTheme}.`,
     `Emotional idea: ${emotionalMessage}`,
     "Communicate the idea visually without any words or typography inside the image.",
+    "Absolutely no readable text, letters, numbers, captions, signs, posters, book pages, labels, logos, watermarks, or typographic marks anywhere in the image.",
     "Single dominant subject, strong visual hierarchy, meaningful movement or direction, subtle symbolism, cinematic composition.",
     "Photorealistic, natural textures, realistic human proportions, atmospheric depth, natural lighting, controlled depth of field.",
     colorDirection,
-    "Leave clean negative space in the lower-left area for a short motivational sentence.",
-    "No text, no letters, no logos, no watermark, no stock-photo look, no cartoon style, no excessive technology, no clutter.",
+    "Leave clean, visually simple negative space in the lower-left area for a short motivational sentence to be added later by PostCraft.",
+    "No signage, no written surfaces, no stock-photo look, no cartoon style, no excessive technology, no clutter.",
     "Vertical 4:5 editorial composition, sophisticated and memorable.",
   ].join(" ");
 
@@ -84,7 +123,7 @@ export function buildVisualStorytellingPlan(input: VisualStorytellingInput): Vis
     emotionalMessage,
     visualConcept,
     imagePrompt,
-    motivationalSentence: sentenceFromClosing(closing),
+    motivationalSentence: sentenceFromClosing(closing, source),
     textPlacement: "bottom-left",
     visualStyle: "Premium cinematic editorial photography, photorealistic, natural textures, atmospheric depth.",
     colorDirection,
