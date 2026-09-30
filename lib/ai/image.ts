@@ -192,16 +192,17 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
 
   const width = validateDimension(options.width, 1200);
   const height = validateDimension(options.height, 1500);
-  const requestedCandidates = options.model
+  const requestedModel = options.model;
+  const requestedCandidates = requestedModel
     ? configs.filter((config) =>
-        config.model === options.model ||
-        (config.provider === "freellmapi" && options.model.startsWith("@cf/")),
+        config.model === requestedModel ||
+        (config.provider === "freellmapi" && requestedModel.startsWith("@cf/")),
       )
     : [];
 
   // Prefer the requested style model, but keep the normal configured provider
   // as a fallback so a missing optional model never breaks image generation.
-  const candidates = options.model
+  const candidates = requestedModel
     ? [...requestedCandidates, ...configs.filter((config) => !requestedCandidates.includes(config))]
     : configs;
 
@@ -212,8 +213,8 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
   const failures: string[] = [];
   for (const config of candidates) {
     try {
-      const requestConfig = options.model && config.provider === "freellmapi"
-        ? { ...config, model: options.model }
+      const requestConfig = requestedModel && config.provider === "freellmapi"
+        ? { ...config, model: requestedModel }
         : config;
       const images = await generateWithProvider(requestConfig, cleanPrompt, width, height);
       return { provider: config.provider, model: requestConfig.model, images };
