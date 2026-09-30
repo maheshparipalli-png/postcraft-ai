@@ -54,9 +54,9 @@ export async function GET(request: Request) {
     actionMap[action.idea_id].push(action.action);
   }
 
-  const filtered = savedOnly
-    ? (ideas ?? []).filter((idea) => actionMap[idea.id]?.includes("saved"))
-    : ideas ?? [];
+  const filtered = (ideas ?? [])
+    .filter((idea) => !actionMap[idea.id]?.includes("hidden"))
+    .filter((idea) => !savedOnly || actionMap[idea.id]?.includes("saved"));
 
   return NextResponse.json({
     ideas: filtered.map((idea) => ({
@@ -87,8 +87,6 @@ export async function POST(request: Request) {
       { onConflict: "user_id,idea_id,action" },
     );
     if (error) return NextResponse.json({ error: "Unable to update idea status." }, { status: 500 });
-    if (action === "save") await admin.from("idea_radar_ideas").update({ status: "saved", updated_at: new Date().toISOString() }).eq("id", ideaId);
-    if (action === "used") await admin.from("idea_radar_ideas").update({ status: "used", updated_at: new Date().toISOString() }).eq("id", ideaId);
     return NextResponse.json({ ok: true });
   }
 
