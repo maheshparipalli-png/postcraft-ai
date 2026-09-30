@@ -68,8 +68,9 @@ export async function POST() {
 
   if (sourceError) return NextResponse.json({ error: "Unable to load Idea Radar sources. Apply the database migration first." }, { status: 500 });
 
-  const results = await Promise.allSettled((sources ?? []).map(async (source) => {
-    const items = await fetchFeed(source.url);
+  const results = await Promise.all((sources ?? []).map(async (source) => {
+    try {
+      const items = await fetchFeed(source.url);
     let added = 0;
     for (const item of items.slice(0, 15)) {
       const canonicalUrl = item.link.split("#")[0].trim();
@@ -97,8 +98,15 @@ export async function POST() {
       }).select("id").single();
 
       if (inserted) added += 1;
+      return { source: source.name, added, ok: true };
+    } catch (error) {
+      return {
+        source: source.name,
+        added: 0,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
-    return { source: source.name, added, ok: true };
   }));
 
   const { data: candidates } = await admin
@@ -192,11 +200,8 @@ export async function POST() {
     }
   }
 
-  const sourceResults = results.map((r) =>
-    r.status === "fulfilled"
-      ? r.value
-      : { ok: false, error: r.reason instanceof Error ? r.reason.message : String(r.reason) }
-  );
+  const sourceResults = results;
+
   const sourceFailures = sourceResults.filter((result) => !result.ok).length;
   const sourceSuccesses = sourceResults.length - sourceFailures;
 
