@@ -116,13 +116,13 @@ export default function IdeasPage() {
     }
   }
 
-  async function generatePost(idea: Idea) {
-    const angleId = selectedAngle[idea.id] || idea.idea_radar_angles[0]?.id;
+  async function generatePost(idea: Idea, requestedAngleId?: string) {
+    const angleId = requestedAngleId || selectedAngle[idea.id] || idea.idea_radar_angles[0]?.id;
     if (!angleId) {
       setMessage("Select an angle first.");
       return;
     }
-    setBusy(idea.id + "post");
+    setBusy("post:" + idea.id);
     setGeneratedPost("");
     setQualityChecks([]);
     try {
@@ -325,12 +325,20 @@ export default function IdeasPage() {
                     {idea.idea_radar_angles.map((angle) => (
                       <label key={angle.id} className={selectedAngle[idea.id] === angle.id ? "block cursor-pointer rounded-xl border border-neutral-900 bg-neutral-50 p-3" : "block cursor-pointer rounded-xl border border-neutral-200 p-3 hover:border-neutral-400"}>
                         <div className="flex gap-3">
-                          <input type="radio" name={`angle-${idea.id}`} checked={selectedAngle[idea.id] === angle.id} onChange={() => {
-                            setSelectedAngle((current) => ({ ...current, [idea.id]: angle.id }));
-                            setGeneratedPost("");
-                            setGeneratedContext(null);
-                            setQualityChecks([]);
-                          }} className="mt-1" />
+                          <input
+                            type="radio"
+                            name="idea-radar-angle"
+                            checked={selectedAngle[idea.id] === angle.id}
+                            disabled={busy.startsWith("post:") && busy !== "post:" + idea.id}
+                            onChange={() => {
+                              setSelectedAngle({ [idea.id]: angle.id });
+                              setGeneratedPost("");
+                              setGeneratedContext(null);
+                              setQualityChecks([]);
+                              void generatePost(idea, angle.id);
+                            }}
+                            className="mt-1"
+                          />
                           <div>
                             <div className="text-sm font-medium">{angle.angle}</div>
                             <div className="mt-1 text-xs leading-5 text-neutral-500">{angle.why}</div>
@@ -338,9 +346,9 @@ export default function IdeasPage() {
                         </div>
                       </label>
                     ))}
-                    <button onClick={() => generatePost(idea)} disabled={busy === idea.id + "post"} className="rounded-full bg-neutral-900 px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50">
-                      {busy === idea.id + "post" ? "Writing post…" : "Generate Post"}
-                    </button>
+                    {busy === "post:" + idea.id && (
+                      <div className="text-xs text-neutral-500">Writing your post and PostCard…</div>
+                    )}
                   </div>
                 )}
               </article>
