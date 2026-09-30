@@ -4,7 +4,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { useMemo, useState } from "react";
 import type { VisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
-import { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
+import { VISUAL_STYLES, VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
 
 type SourceMode = "linkedin" | "idea";
 
