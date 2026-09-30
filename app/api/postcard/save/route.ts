@@ -36,7 +36,9 @@ export async function POST(request: Request) {
     const imageStoragePath = typeof body?.imageStoragePath === "string" ? body.imageStoragePath.trim() : "";
     const visualPrompt = typeof body?.visualPrompt === "string" ? body.visualPrompt.trim() : "";
     const motivationalSentence = typeof body?.motivationalSentence === "string" ? body.motivationalSentence.trim() : "";
-    const visualConcept = typeof body?.visualConcept === "string" ? body.visualConcept.trim() : "";\n    const visualStyle = typeof body?.visualStyle === "string" ? body.visualStyle.trim() : "";\n    const imageModel = typeof body?.imageModel === "string" ? body.imageModel.trim() : "";
+    const visualConcept = typeof body?.visualConcept === "string" ? body.visualConcept.trim() : "";
+    const visualStyle = typeof body?.visualStyle === "string" ? body.visualStyle.trim() : "";
+    const imageModel = typeof body?.imageModel === "string" ? body.imageModel.trim() : "";
 
     const validTemplates = new Set(["quote", "story", "success", "person", "history", "thought"]);
     const validBackgrounds = new Set(["gradient", "dark", "photo", "minimal", "abstract", "ink", "nature"]);
@@ -79,7 +81,9 @@ export async function POST(request: Request) {
         image_storage_path: imageStoragePath || null,
         visual_prompt: visualPrompt || null,
         motivational_sentence: motivationalSentence || null,
-        visual_concept: visualConcept || null,\n        visual_style: visualStyle || null,\n        image_model: imageModel || null,
+        visual_concept: visualConcept || null,
+        visual_style: visualStyle || null,
+        image_model: imageModel || null,
       })
       .select("id, created_at")
       .single();
