@@ -76,8 +76,11 @@ export default function IdeasPage() {
       const sourceSummary = `${data.sourceSuccesses ?? 0}/${data.sources ?? 0} sources returned stories`;
       const currentSummary = `${data.currentIdeasCreated ?? 0} current stories added`;
       const evergreenSummary = `${data.evergreenIdeasCreated ?? 0} evergreen ideas added`;
+      const failedSources = (data.sourceResults ?? [])
+        .filter((result: { ok?: boolean }) => !result.ok)
+        .map((result: { source?: string; error?: string }) => result.source || result.error || "Unknown source");
       const failureSummary = data.sourceFailures || data.ideaErrors?.length
-        ? ` ${data.sourceFailures ?? 0} feed failures, ${data.ideaErrors?.length ?? 0} idea errors.`
+        ? ` ${data.sourceFailures ?? 0} feed failures${failedSources.length ? ` (${failedSources.join(", ")})` : ""}, ${data.ideaErrors?.length ?? 0} idea errors.`
         : "";
       const aiSummary = data.aiAnalysisDisabled
         ? " AI enrichment is temporarily disabled; ready-made angles are still available."
