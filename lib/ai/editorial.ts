@@ -822,6 +822,27 @@ IMPORTANT WRITING RULES
 
   const post = normalizeGeneratedPost(raw);
 
-  if (onPostToken) onPostToken(post);
-  return post;
+  // Some compatible/local models can echo the instruction prompt instead of
+  // generating the requested post. Never expose internal generation prompts
+  // to the user; fall back to grounded copy built only from the supplied story.
+  const promptEchoMarkers = [
+    "Create a finished LinkedIn post from the supplied story",
+    "POST STRUCTURE",
+    "IMPORTANT WRITING RULES",
+    "STORY EVIDENCE",
+    "SELECTED ANGLE / CENTRAL THESIS",
+    "USER'S TAKE",
+  ];
+  const promptEchoCount = promptEchoMarkers.filter((marker) => post.includes(marker)).length;
+  const looksLikePromptEcho =
+    promptEchoCount >= 2 ||
+    post.startsWith("We need to produce a LinkedIn post.") ||
+    post.includes("We need to produce a LinkedIn post. The story:");
+
+  const finalPost = looksLikePromptEcho
+    ? buildGroundedPostFallback(story, angle)
+    : post;
+
+  if (onPostToken) onPostToken(finalPost);
+  return finalPost;
 }
