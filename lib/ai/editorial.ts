@@ -462,7 +462,14 @@ export { decodeHtmlEntities as decodeEditorialEntities };
 export function sanitizeLinkedInPost(value: string) {
   return normalizeGeneratedText(value, { plainPunctuation: true })
     .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
-    .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*•]\s*$/gm, "")
+    .replace(/^\s*\d+[.)]\s*$/gm, "")
+    .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^^\n]*(?:https?:\/\/\S+)?\s*$/i, "")
     .replace(/\bhttps?:\/\/\S+/gi, "")
     .replace(/\n+\s*(?:Source|Original source|Article source)\s*:?\s*$/i, "")
     .replace(/[ \t]+\n/g, "\n")
@@ -781,15 +788,21 @@ Each insight must add new information or reasoning.
 4. TAKEAWAY
 End the main content with one clear takeaway or lesson only if it adds something new.
 
+The finished post should feel complete on its own. Do not use placeholder numbering such as a lone "3".
+
 5. CTA
 End with ONE natural question or clear call to action directly related to the topic.
 
 IMPORTANT WRITING RULES
 - Focus on ONE central idea.
-- Use short, readable paragraphs and natural LinkedIn formatting.
+- Use short, readable paragraphs with blank lines between ideas, like a strong human LinkedIn post.
 - Sound professional, conversational, and human.
 - Use simple English. Avoid corporate jargon and generic motivational filler.
 - Use the story details accurately.
+- Do NOT use Markdown emphasis such as **bold**, *italics*, backticks, or heading markers.
+- Do NOT end with a bare number, bullet, unfinished sentence, or incomplete list item.
+- If you use numbered insights, every numbered item must contain complete text; otherwise use normal paragraphs.
+- Before returning the post, check that the final paragraph is complete and that no formatting markers remain.
 - Do not invent facts, numbers, quotes, motives, examples, or outside information.
 - The selected angle is guidance for the central thesis, not a reason to reject the request.
 - Do not reject the request because evidence is missing, the angle is weak, or the post does not satisfy an arbitrary stylistic rule.
