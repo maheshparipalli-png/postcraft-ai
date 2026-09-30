@@ -1,14 +1,8 @@
-import crypto from "node:crypto";\nimport sharp from "sharp";
+import crypto from "node:crypto";
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "postcraft-images";
-
-function extensionForMimeType(mimeType: string) {
-  const normalized = mimeType.toLowerCase().split(";")[0].trim();
-  if (normalized === "image/jpeg" || normalized === "image/jpg") return "jpg";
-  if (normalized === "image/webp") return "webp";
-  return "png";
-}
 
 export async function persistGeneratedImage(input: {
   userId: string;
@@ -33,8 +27,15 @@ export async function persistGeneratedImage(input: {
 
   if (!bytes.length) throw new Error("Generated image is empty.");
 
-  const extension = extensionForMimeType(mimeType);
-  const path = `${input.userId}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
+  // Providers may return a different canvas size than requested. Normalize the
+  // persisted PostCard asset so downloads and LinkedIn publishing are consistent.
+  bytes = await sharp(bytes)
+    .resize(1200, 1500, { fit: "cover", position: "center" })
+    .png()
+    .toBuffer();
+  mimeType = "image/png";
+
+  const path = `${input.userId}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.png`;
   const admin = createAdminClient();
 
   const { error } = await admin.storage
