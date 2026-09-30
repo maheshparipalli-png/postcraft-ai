@@ -125,8 +125,8 @@ export default function VisualStudioPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-neutral-950">
-      <div className="mx-auto max-w-7xl px-5 pb-20 sm:px-8">
-        <header className="border-b border-neutral-300/80 py-7">
+      <div className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+        <header className="border-b border-neutral-300/80 py-5">
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-neutral-400">PostCard</div>
@@ -142,7 +142,7 @@ export default function VisualStudioPage() {
           </div>
         </header>
 
-        <section className="grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_460px]">
+        <section className="grid gap-6 pt-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-neutral-200 bg-white p-2">
               <button
@@ -184,8 +184,8 @@ export default function VisualStudioPage() {
                 placeholder={mode === "idea"
                   ? "Example: Progress is not always about moving faster. Sometimes it is about staying on the path when nobody is watching."
                   : "Paste your LinkedIn post here..."}
-                rows={11}
-                className="mt-6 w-full resize-y rounded-2xl border border-neutral-300 bg-white p-5 text-[15px] leading-7 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
+                rows={8}
+                className="mt-5 w-full resize-y rounded-2xl border border-neutral-300 bg-white p-5 text-[15px] leading-7 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
               />
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -259,7 +259,7 @@ export default function VisualStudioPage() {
             <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-900 shadow-[0_24px_70px_rgba(0,0,0,.12)]">
               {imageUrl ? (
                 <div className="relative aspect-[4/5]">
-                  <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 460px" unoptimized className="object-cover" />
+                  <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 360px" unoptimized className="object-cover" />
                   {plan?.motivationalSentence && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pb-7 pt-20 sm:px-7 sm:pb-8">
                       <div className="max-w-[78%] font-serif text-2xl leading-[1.05] tracking-[-0.025em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.55)] sm:text-3xl">
