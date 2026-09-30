@@ -764,8 +764,8 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "relevance",
       label: "Topic relevance",
-      passed: shared >= 2 && relevanceRatio >= 0.16,
-      detail: shared >= 2 ? "Post contains multiple terms grounded in the selected story and angle." : "The post has weak overlap with the selected story and angle.",
+      passed: (shared >= 2 && relevanceRatio >= 0.16) || (shared >= 1 && relevanceRatio >= 0.08 && normalizeQualityText(post).includes(normalizeQualityText(angle).split(" ").filter((word) => word.length >= 6).slice(0, 2).join(" "))),
+      detail: shared >= 2 ? "Post contains multiple terms grounded in the selected story and angle." : "The post needs stronger direct grounding in the selected story and angle.",
     },
     {
       key: "completeness",
@@ -907,6 +907,21 @@ IMPORTANT WRITING RULES
 QUALITY REPAIR
 The existing LinkedIn post below failed one or more quality checks.
 
+SOURCE CONTEXT
+Topic: ${story.topic}
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
+
+SELECTED ANGLE / CENTRAL THESIS
+${angle}
+
+WHY THIS ANGLE WORKS
+${angleWhy}
+
+STORY EVIDENCE
+${ledger}
+
 FAILED CHECKS
 ${failureDetails}
 
@@ -915,22 +930,20 @@ REPAIR INSTRUCTIONS
 - Preserve the existing central thesis, useful facts, tone, and overall argument.
 - Do not throw away a good post and write an unrelated replacement.
 - Make the smallest natural changes needed to satisfy every failed check.
-- If the post is too short, add useful story-grounded explanation rather than generic filler.
+- If the post is too short, add useful story-grounded explanation using the source context above rather than generic filler.
 - If the post is too long, remove repetition or low-value wording rather than cutting an argument mid-sentence.
-- If relevance failed, strengthen connections to the supplied story, evidence, and selected angle. Do not invent facts.
+- If relevance failed, strengthen connections to the supplied headline, summary, evidence, and selected angle. Use concrete source terms naturally; do not merely repeat the angle.
 - If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
 - If completeness failed, finish every incomplete sentence and make the final thought complete.
 - If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, or other prohibited formatting.
 - Keep the result between 200 and 300 words and under 3,000 characters.
 - Do not introduce new unsupported facts, numbers, quotes, examples, motives, or claims.
+- The repaired post must still read naturally as a human LinkedIn post, not as a quality-check response.
 - Return ONLY the repaired LinkedIn post. Do not explain the changes.
 
 EXISTING POST
 ${post}
 `;
-  }
-
-  let result = await generateCandidate();
 
   // Treat quality checks as a repair mechanism rather than a hard rejection.
   // Every failed check is sent to the repair pass together so the model can
