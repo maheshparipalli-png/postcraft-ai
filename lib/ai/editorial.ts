@@ -484,9 +484,9 @@ function validateEvidence(value: unknown): Evidence[] {
 function postHasConcreteAnchor(post: string, story: Story, angle: string) {
   const words = post.trim().split(/\s+/).filter(Boolean);
 
-  // LinkedIn copy is intentionally short: the infographic carries the visual
-  // depth, while the text below it delivers a fast hook and concise context.
-  if (words.length < 50 || words.length > 120) return false;
+  // Keep Idea Radar/editorial posts substantial enough to carry the argument,
+  // while staying comfortably below LinkedIn's 3,000-character post limit.
+  if (words.length < 180 || words.length > 250) return false;
 
   // Anchor validation should follow the actual story, not a fixed topic list.
   // This prevents valid posts about new companies, products, people, or domains
@@ -698,30 +698,6 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
   return anchoredTerms.length >= 1 && markers.some((value) => bodyLower.includes(value));
 }
 
-function buildGroundedPostFallback(story: Story, angle: string) {
-  const summarySentences = story.summary
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
-  const primarySentence = summarySentences[0] || story.summary.trim();
-  const clauses = primarySentence
-    .split(/,\s+(?=(?:while|but|and|yet|as|because)\b)/i)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const hookOne = clauses[0] || story.headline.trim();
-  const hookTwo = clauses[1] || summarySentences[1] || angle;
-  const bodyEvidence = summarySentences.join(" ");
-  const body = [`${bodyEvidence} ${angle}`, `The implication follows from these details: ${angle}`].join("\n\n");
-
-  return sanitizeLinkedInPost(
-    [story.headline.trim(), hookOne, hookTwo, body]
-      .filter(Boolean)
-      .join("\n\n"),
-  );
-}
-
 export type PostQualityCheck = {
   key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length";
   label: string;
@@ -764,7 +740,13 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
   const relevanceRatio = sourceTerms.size ? shared / Math.min(sourceTerms.size, 12) : 0;
 
   const wordCount = post.split(/\s+/).filter(Boolean).length;
-  const complete = Boolean(post.trim()) && !/[,:;\-]\s*$/.test(post.trim()) && !/\b(?:and|or|but|because|with|to|of|the)\s*$/i.test(post.trim());
+  const trimmedPost = post.trim();
+  const complete =
+    Boolean(trimmedPost) &&
+    !/[,:;\-]\s*$/.test(trimmedPost) &&
+    !/(?:\.\.\.|…)\s*$/.test(trimmedPost) &&
+    !/\b(?:and|or|but|because|with|to|of|the|a|an|this|these|those|the)\s*$/i.test(trimmedPost) &&
+    !/The implication follows from these details:/i.test(trimmedPost);
 
   return [
     {
@@ -794,8 +776,8 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "length",
       label: "Length checked",
-      passed: wordCount >= 50 && wordCount <= 120,
-      detail: wordCount + " words; target is 50–120.",
+      passed: wordCount >= 180 && wordCount <= 250 && post.length <= 3000,
+      detail: wordCount + " words; target is 180–250 and under 3,000 characters.",
     },
   ];
 }
@@ -866,7 +848,7 @@ Each insight must add new information or reasoning.
 4. TAKEAWAY
 End the main content with one clear takeaway or lesson only if it adds something new.
 
-The finished post should feel complete on its own. Do not use placeholder numbering such as a lone "3".
+The finished post should feel complete on its own and contain 180–250 words. Do not use placeholder numbering such as a lone "3".
 
 5. CTA
 End with ONE natural question or clear call to action directly related to the topic.
@@ -878,8 +860,10 @@ IMPORTANT WRITING RULES
 - Use simple English. Avoid corporate jargon and generic motivational filler.
 - Use the story details accurately.
 - Do NOT use Markdown emphasis such as **bold**, *italics*, backticks, or heading markers.
-- Do NOT end with a bare number, bullet, unfinished sentence, or incomplete list item.
+- Do NOT end with a bare number, bullet, ellipsis, unfinished sentence, or incomplete list item.
+- Every sentence must be grammatically complete. Never end a sentence with "The..." or any other truncated phrase.
 - If you use numbered insights, every numbered item must contain complete text; otherwise use normal paragraphs.
+- Do not include meta-writing such as "The implication follows from these details" or "The assumption behind:" as filler. State the actual insight directly.
 - Before returning the post, check that the final paragraph is complete and that no formatting markers remain.
 - Do not invent facts, numbers, quotes, motives, examples, or outside information.
 - The selected angle is guidance for the central thesis, not a reason to reject the request.
@@ -893,35 +877,54 @@ IMPORTANT WRITING RULES
 - Return ONLY the finished LinkedIn post.`;
 
   const aiProvider = await provider();
-  const raw = await aiProvider.generateText(basePrompt, {
-    temperature: 0.25,
-    numPredict: 420,
-  });
 
-  const post = normalizeGeneratedPost(raw);
+  async function generateCandidate(instructionSuffix = "") {
+    const raw = await aiProvider.generateText(
+      basePrompt + instructionSuffix,
+      {
+        temperature: 0.25,
+        numPredict: 900,
+      },
+    );
 
-  // Some compatible/local models can echo the instruction prompt instead of
-  // generating the requested post. Never expose internal generation prompts
-  // to the user; fall back to grounded copy built only from the supplied story.
-  const promptEchoMarkers = [
-    "Create a finished LinkedIn post from the supplied story",
-    "POST STRUCTURE",
-    "IMPORTANT WRITING RULES",
-    "STORY EVIDENCE",
-    "SELECTED ANGLE / CENTRAL THESIS",
-    "USER'S TAKE",
-  ];
-  const promptEchoCount = promptEchoMarkers.filter((marker) => post.includes(marker)).length;
-  const looksLikePromptEcho =
-    promptEchoCount >= 2 ||
-    post.startsWith("We need to produce a LinkedIn post.") ||
-    post.includes("We need to produce a LinkedIn post. The story:");
+    const post = normalizeGeneratedPost(raw);
+    return {
+      post,
+      quality: evaluatePostQuality(post, story, angle),
+    };
+  }
 
-  const finalPost = looksLikePromptEcho
-    ? buildGroundedPostFallback(story, angle)
-    : post;
+  let result = await generateCandidate();
 
-  const quality = evaluatePostQuality(finalPost, story, angle);
-  if (onPostToken) onPostToken(finalPost);
-  return { post: finalPost, quality };
+  const criticalFailure = result.quality.some(
+    (check) =>
+      !check.passed &&
+      ["duplication", "specialCharacters", "relevance", "completeness", "length"].includes(check.key),
+  );
+
+  if (criticalFailure) {
+    result = await generateCandidate(`
+      
+QUALITY RETRY
+The previous draft failed one or more quality checks. Generate a completely new version.
+Do not copy the previous wording.
+Make every sentence complete.
+Stay within 180–250 words.
+Keep the selected angle as the central thesis.
+Do not include meta-commentary, prompt text, labels, ellipses, placeholders, or truncated sentences.
+`);
+  }
+
+  const finalCriticalFailure = result.quality.some(
+    (check) => !check.passed,
+  );
+
+  if (finalCriticalFailure) {
+    throw new Error(
+      "The generated post did not pass PostCraft's quality checks. Please generate again.",
+    );
+  }
+
+  if (onPostToken) onPostToken(result.post);
+  return result;
 }
