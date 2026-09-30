@@ -275,31 +275,45 @@ export default function PostCardPage() {
   }
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("linkedinConnected") === "1") setLinkedinNotice("LinkedIn connected successfully.");
-    const error = params.get("linkedinError");
-    if (error) setLinkedinNotice(error);
-    if (params.has("linkedinConnected") || params.has("linkedinError")) {
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, []);
+    try {
+      const stored = window.sessionStorage.getItem("postcraft-idea-radar-postcard");
+      if (stored) {
+        const imported = JSON.parse(stored) as {
+          headline?: string;
+          body?: string;
+          closing?: string;
+          template?: Template;
+        };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const importedHeadline = params.get("headline");
-    const importedBody = params.get("body");
-    const importedClosing = params.get("closing");
-    const importedTemplate = params.get("template") as Template | null;
+        if (imported.template && templates.some((item) => item.id === imported.template)) {
+          setTemplate(imported.template);
+        }
+        if (imported.headline) setHeadline(imported.headline);
+        if (imported.body) setBody(imported.body);
+        if (imported.closing) setClosing(imported.closing);
 
-    if (importedTemplate && templates.some((item) => item.id === importedTemplate)) {
-      setTemplate(importedTemplate);
-    }
-    if (importedHeadline) setHeadline(importedHeadline);
-    if (importedBody) setBody(importedBody);
-    if (importedClosing) setClosing(importedClosing);
+        if (imported.headline || imported.body || imported.closing) {
+          setGenerateMessage("Imported from Idea Radar. Refine the visual, then save or publish.");
+        }
 
-    if (importedHeadline || importedBody || importedClosing) {
-      setGenerateMessage("Imported from Idea Radar. Refine the visual, then save or publish.");
+        window.sessionStorage.removeItem("postcraft-idea-radar-postcard");
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const importedHeadline = params.get("headline");
+      const importedBody = params.get("body");
+      const importedClosing = params.get("closing");
+      const importedTemplate = params.get("template") as Template | null;
+
+      if (importedTemplate && templates.some((item) => item.id === importedTemplate)) {
+        setTemplate(importedTemplate);
+      }
+      if (importedHeadline) setHeadline(importedHeadline);
+      if (importedBody) setBody(importedBody);
+      if (importedClosing) setClosing(importedClosing);
+    } catch {
+      // Keep the normal PostCard defaults if imported content is unavailable.
     }
   }, []);
 
