@@ -59,7 +59,12 @@ export default function IdeasPage() {
       const response = await fetch("/api/ideas/refresh", { method: "POST" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Refresh failed.");
-      setMessage(`Radar refreshed. Analyzed ${data.analyzed ?? 0} promising stories.`);
+      const sourceSummary = `${data.sourceSuccesses ?? 0}/${data.sources ?? 0} sources returned stories`;
+      const analysisSummary = `${data.analysisAttempted ?? 0} analyzed, ${data.analyzed ?? 0} ideas found`;
+      const failureSummary = data.sourceFailures || data.analysisErrors?.length
+        ? ` ${data.sourceFailures ?? 0} feed failures, ${data.analysisErrors?.length ?? 0} analysis errors.`
+        : "";
+      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}`);
       await loadIdeas();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Refresh failed.");
