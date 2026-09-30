@@ -74,53 +74,28 @@ export async function POST() {
     if (already?.length) continue;
 
     analysisAttempted += 1;
-    try {
-      const result = await analyzeIdea({
-        title: item.title,
-        summary: item.description ?? "",
-        source: item.source_name,
-        url: item.source_url,
-        category: item.category,
-      });
 
-      if (!result.keep) {
-        rejected += 1;
-        continue;
-      }
+    // Temporarily bypass AI analysis while the configured AI provider is unavailable.
+    // Ideas are still collected from the RSS feed so the radar remains useful.
+    const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
+      feed_item_id: item.id,
+      title: item.title,
+      description: item.description || "",
+      why_interesting: "Collected from a configured Idea Radar source. AI analysis is temporarily disabled.",
+      insight: "AI analysis is temporarily disabled; generate angles after analysis is restored.",
+      category: item.category,
+      source_name: item.source_name,
+      source_url: item.source_url,
+      published_at: item.published_at,
+      analysis: { generated_by: "idea-radar", keep: true, ai_analysis_disabled: true },
+    }).select("id").single();
 
-      const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
-        feed_item_id: item.id,
-        title: result.title || item.title,
-        description: result.description || item.description || "",
-        why_interesting: result.whyInteresting,
-        insight: result.insight,
-        category: result.category || item.category,
-        source_name: item.source_name,
-        source_url: item.source_url,
-        published_at: item.published_at,
-        analysis: { generated_by: "idea-radar", keep: true },
-      }).select("id").single();
-
-      if (ideaError) {
-        analysisErrors.push({ title: item.title, error: ideaError.message });
-        continue;
-      }
-
-      if (idea && result.angles.length) {
-        const { error: angleError } = await admin.from("idea_radar_angles").insert(result.angles.map((a) => ({
-          idea_id: idea.id, angle: a.angle, why: a.why, evidence: a.evidence,
-        })));
-        if (angleError) {
-          analysisErrors.push({ title: item.title, error: angleError.message });
-        }
-      }
-
-      if (idea) analyzed += 1;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("Idea Radar analysis failed:", item.title, error);
-      analysisErrors.push({ title: item.title, error: message });
+    if (ideaError) {
+      analysisErrors.push({ title: item.title, error: ideaError.message });
+      continue;
     }
+
+    if (idea) analyzed += 1;
   }
 
   const sourceResults = results.map((r) =>
