@@ -122,7 +122,7 @@ export async function POST(request: Request) {
     ]);
     if (!idea || !angle || angle.idea_id !== idea.id) return NextResponse.json({ error: "Idea or angle not found." }, { status: 404 });
 
-    const post = await generateEditorialPost(
+    const generated = await generateEditorialPost(
       { topic: idea.category, headline: idea.title, source: idea.source_name, summary: idea.description + "\n" + idea.insight, url: idea.source_url },
       angle.angle,
       angle.why,
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     );
 
     await admin.from("idea_radar_ideas").update({ status: "post_generated", updated_at: new Date().toISOString() }).eq("id", idea.id);
-    return NextResponse.json({ post });
+    return NextResponse.json({ post: generated.post, quality: generated.quality });
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
