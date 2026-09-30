@@ -43,11 +43,11 @@ export default function SavedPostcardsPage() {
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <header className="flex items-end justify-between border-b border-neutral-300/80 py-6">
           <div>
-            <Link href="/postcard" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCARD</Link>
+            <Link href="/visual-studio" className="font-serif text-[22px] font-semibold tracking-[-0.03em]">POSTCARD</Link>
             <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-neutral-500">Saved visuals</div>
           </div>
           <nav className="flex items-center gap-3 text-sm">
-            <Link href="/postcard" className="rounded-full border border-neutral-900 bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700">Create PostCard</Link>
+            <Link href="/visual-studio" className="rounded-full border border-neutral-900 bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700">Create PostCard</Link>
             <Link href="/workspace" className="text-neutral-500 hover:text-neutral-900">Workspace</Link>
           </nav>
         </header>
@@ -56,7 +56,7 @@ export default function SavedPostcardsPage() {
           <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">My PostCards</div>
           <h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[.98] tracking-[-0.045em] sm:text-7xl">Your visuals,<br />kept together.</h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">Open a saved card, copy its link, or return to the visual studio to create another.</p>
-          <Link href="/postcard" className="mt-7 inline-flex rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700">+ Create a new PostCard</Link>
+          <Link href="/visual-studio" className="mt-7 inline-flex rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700">+ Create a new PostCard</Link>
         </section>
 
         {error && <div className="border-b border-red-300 py-5 text-sm text-red-700">{error}</div>}
@@ -68,7 +68,7 @@ export default function SavedPostcardsPage() {
             <div className="border-y border-neutral-300/80 py-16">
               <div className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">Nothing saved yet</div>
               <h2 className="mt-3 font-serif text-3xl">Create your first PostCard.</h2>
-              <Link href="/postcard" className="mt-7 inline-block border-b border-neutral-900 pb-1 text-sm font-medium">Open PostCard →</Link>
+              <Link href="/visual-studio" className="mt-7 inline-block border-b border-neutral-900 pb-1 text-sm font-medium">Open PostCard →</Link>
             </div>
           ) : (
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
