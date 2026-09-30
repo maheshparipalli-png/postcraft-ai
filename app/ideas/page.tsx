@@ -60,16 +60,16 @@ export default function IdeasPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Refresh failed.");
       const sourceSummary = `${data.sourceSuccesses ?? 0}/${data.sources ?? 0} sources returned stories`;
-      const analysisSummary = `${data.analysisAttempted ?? 0} analyzed, ${data.analyzed ?? 0} ideas found`;
-      const failureSummary = data.sourceFailures || data.analysisErrors?.length
-        ? ` ${data.sourceFailures ?? 0} feed failures, ${data.analysisErrors?.length ?? 0} analysis errors.`
+      const currentSummary = `${data.currentIdeasCreated ?? 0} current stories added`;
+      const evergreenSummary = `${data.evergreenIdeasCreated ?? 0} evergreen ideas added`;
+      const failureSummary = data.sourceFailures || data.ideaErrors?.length
+        ? ` ${data.sourceFailures ?? 0} feed failures, ${data.ideaErrors?.length ?? 0} idea errors.`
         : "";
-      const errorDetail = data.analysisErrors?.[0]?.error
-        ? ` First analysis error: ${String(data.analysisErrors[0].error).slice(0, 240)}`
+      const aiSummary = data.aiAnalysisDisabled
+        ? " AI enrichment is temporarily disabled; ready-made angles are still available."
         : "";
-      const rejectionSummary = data.rejected ? ` ${data.rejected} stories were rejected by the AI.` : "";
       await loadIdeas();
-      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}${rejectionSummary}${errorDetail}`);
+      setMessage(`Radar refreshed: ${sourceSummary}; ${currentSummary}; ${evergreenSummary}.${failureSummary}${aiSummary}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Refresh failed.");
     } finally {
@@ -139,7 +139,7 @@ export default function IdeasPage() {
             <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-neutral-500">Insight discovery engine</div>
             <h1 className="mt-3 font-serif text-5xl tracking-[-0.045em] sm:text-6xl">Idea Radar</h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-600">
-              Find interesting developments, uncover the insight beneath them, and turn one selected angle into an original LinkedIn post.
+              Discover ideas worth talking about, find the insight beneath them, and turn one selected angle into an original LinkedIn post.
             </p>
           </div>
           <button onClick={refresh} disabled={refreshing} className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-medium text-white disabled:opacity-50">
@@ -173,15 +173,20 @@ export default function IdeasPage() {
         ) : ideas.length === 0 ? (
           <div className="py-20 text-center">
             <h2 className="font-serif text-3xl">No ideas yet.</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-neutral-500">Run Refresh Radar to collect configured RSS sources, remove duplicates, and analyze promising stories.</p>
-            <button onClick={refresh} disabled={refreshing} className="mt-6 rounded-full bg-neutral-900 px-5 py-3 text-sm text-white">Find today's ideas</button>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-neutral-500">Refresh Radar to explore current developments and evergreen ideas across the topics you care about.</p>
+            <button onClick={refresh} disabled={refreshing} className="mt-6 rounded-full bg-neutral-900 px-5 py-3 text-sm text-white">Find ideas</button>
           </div>
         ) : (
           <div className="grid gap-5 pt-7 lg:grid-cols-2">
             {ideas.map((idea) => (
               <article key={idea.id} className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-7">
                 <div className="flex items-start justify-between gap-4">
-                  <span className="rounded-full bg-neutral-100 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-600">{idea.category}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-neutral-100 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-600">{idea.category}</span>
+                    <span className="rounded-full border border-neutral-200 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-500">
+                      {idea.source_url ? "Current" : "Evergreen"}
+                    </span>
+                  </div>
                   <span className="text-[11px] text-neutral-400">{formatDate(idea.published_at)}</span>
                 </div>
                 <h2 className="mt-5 font-serif text-2xl leading-tight tracking-[-0.025em]">{idea.title}</h2>
@@ -199,7 +204,11 @@ export default function IdeasPage() {
 
                 <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-200 pt-4">
                   <span className="text-xs text-neutral-500">{idea.source_name}</span>
-                  <Link href={idea.source_url} target="_blank" rel="noreferrer" className="text-xs font-medium underline underline-offset-4">Open source →</Link>
+                  {idea.source_url ? (
+                    <Link href={idea.source_url} target="_blank" rel="noreferrer" className="text-xs font-medium underline underline-offset-4">Open source →</Link>
+                  ) : (
+                    <span className="text-xs text-neutral-400">Evergreen library</span>
+                  )}
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
