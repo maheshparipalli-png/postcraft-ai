@@ -36,6 +36,6 @@ Before returning, check: the image would communicate the idea without text; the 
     emotionalMessage:field(parsed.emotionalMessage,"human insight"),
     visualConcept:field(parsed.visualConcept,"visual metaphor"),
     motivationalSentence:field(parsed.motivationalSentence,"motivational sentence"),
-    colorDirection:typeof parsed.colorDirection==="string"?parsed.colorDirection:undefined,
+    colorDirection:field(parsed.colorDirection,"color direction"),
   },visualStyle);
 }
