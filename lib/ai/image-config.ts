@@ -82,7 +82,7 @@ export async function getRuntimeImageConfigs() {
       provider: config.provider,
       baseUrl: config.base_url,
       model: config.model,
-      apiKey: config.encrypted_api_key ? decryptSecret(config.encrypted_api_key) : null,
+      apiKey: decryptSecret(config.encrypted_api_key),
       priority: config.priority,
     }));
 }
