@@ -123,8 +123,12 @@ export async function POST() {
       feed_item_id: item.id,
       title: item.title,
       description: item.description || "",
-      why_interesting: "A current story collected from a configured Idea Radar source. AI analysis is temporarily disabled, so the story is kept for exploration.",
-      insight: "Start with the underlying question, behavior, or business lesson behind the story rather than simply summarizing the article.",
+      why_interesting: item.description
+        ? "This story is interesting because its source material points to a real question, comparison, behavior, or change that professionals can examine beyond the headline."
+        : "This story is worth exploring for the broader professional lesson behind the headline.",
+      insight: item.description
+        ? "Look for the underlying question, tension, behavior, or business lesson in the source rather than simply repeating the article."
+        : "Look beyond the headline for the broader lesson the story can reveal.",
       category: item.category,
       source_name: item.source_name,
       source_url: item.source_url,
