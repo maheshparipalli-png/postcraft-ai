@@ -3,7 +3,8 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useMemo, useState } from "react";
-import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";\nimport { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
+import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
+import { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
 
 type SourceMode = "linkedin" | "idea";
 
@@ -24,8 +25,11 @@ function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
   if (!clean) return { headline: "", body: "", closing: "" };
 
-  const paragraphs = clean.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-  const lines = clean.split("\n").map((line) => line.trim()).filter(Boolean);
+  const paragraphs = clean.split(/
+\s*
+/).map((part) => part.trim()).filter(Boolean);
+  const lines = clean.split("
+").map((line) => line.trim()).filter(Boolean);
 
   if (mode === "linkedin") {
     const headline = lines[0] || paragraphs[0] || clean;
@@ -49,7 +53,8 @@ export default function VisualStudioPage() {
   const [source, setSource] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [storagePath, setStoragePath] = useState<string | null>(null);\n  const [generatedModel, setGeneratedModel] = useState<string | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
+  const [generatedModel, setGeneratedModel] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -121,7 +126,9 @@ export default function VisualStudioPage() {
           imageStoragePath: storagePath,
           visualPrompt: plan.imagePrompt,
           motivationalSentence: plan.motivationalSentence,
-          visualConcept: plan.visualConcept,\n          visualStyle: plan.visualStyle,\n          imageModel: generatedModel,
+          visualConcept: plan.visualConcept,
+          visualStyle: plan.visualStyle,
+          imageModel: generatedModel,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -192,7 +199,14 @@ export default function VisualStudioPage() {
                   <button
                     key={style.id}
                     type="button"
-                    onClick={() => {\n                      setVisualStyle(style.id);\n                      setImageUrl(null);\n                      setStoragePath(null);\n                      setSavedId(null);\n                      if (source.trim()) setPlan(buildVisualStorytellingPlan(derived, style.id));\n                      setMessage(plan ? "Style changed. Your idea and visual metaphor were kept." : "Style selected. Extract the visual idea when you are ready.");\n                    }}
+                    onClick={() => {
+                      setVisualStyle(style.id);
+                      setImageUrl(null);
+                      setStoragePath(null);
+                      setSavedId(null);
+                      if (source.trim()) setPlan(buildVisualStorytellingPlan(derived, style.id));
+                      setMessage(plan ? "Style changed. Your idea and visual metaphor were kept." : "Style selected. Extract the visual idea when you are ready.");
+                    }}
                     className={visualStyle === style.id
                       ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white"
                       : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900 hover:text-neutral-950"}
