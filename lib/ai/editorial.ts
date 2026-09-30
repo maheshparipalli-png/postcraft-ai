@@ -722,6 +722,84 @@ function buildGroundedPostFallback(story: Story, angle: string) {
   );
 }
 
+export type PostQualityCheck = {
+  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length";
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+function normalizeQualityText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function sentenceSimilarity(a: string, b: string) {
+  const aTokens = new Set(normalizeQualityText(a).split(" ").filter((word) => word.length >= 4));
+  const bTokens = new Set(normalizeQualityText(b).split(" ").filter((word) => word.length >= 4));
+  if (!aTokens.size || !bTokens.size) return 0;
+  let shared = 0;
+  for (const token of aTokens) if (bTokens.has(token)) shared += 1;
+  return shared / Math.max(aTokens.size, bTokens.size);
+}
+
+export function evaluatePostQuality(post: string, story: Story, angle: string): PostQualityCheck[] {
+  const sentences = post.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  let maxSimilarity = 0;
+  for (let i = 0; i < sentences.length; i += 1) {
+    for (let j = i + 1; j < sentences.length; j += 1) {
+      maxSimilarity = Math.max(maxSimilarity, sentenceSimilarity(sentences[i], sentences[j]));
+    }
+  }
+
+  const hasForbiddenFormatting =
+    /(?:^|\n)\s*(?:#{1,6}\s|[-*•]\s|\d+[.)]\s)|\*\*|__|\`|https?:\/\/|[\u{1F300}-\u{1FAFF}]/u.test(post);
+
+  const sourceText = normalizeQualityText(
+    story.topic + " " + story.headline + " " + story.summary + " " + angle,
+  );
+  const sourceTerms = new Set(sourceText.split(" ").filter((word) => word.length >= 5));
+  const postTerms = new Set(normalizeQualityText(post).split(" ").filter((word) => word.length >= 5));
+  let shared = 0;
+  for (const term of sourceTerms) if (postTerms.has(term)) shared += 1;
+  const relevanceRatio = sourceTerms.size ? shared / Math.min(sourceTerms.size, 12) : 0;
+
+  const wordCount = post.split(/\s+/).filter(Boolean).length;
+  const complete = Boolean(post.trim()) && !/[,:;\-]\s*$/.test(post.trim()) && !/\b(?:and|or|but|because|with|to|of|the)\s*$/i.test(post.trim());
+
+  return [
+    {
+      key: "duplication",
+      label: "No duplication",
+      passed: maxSimilarity < 0.82,
+      detail: maxSimilarity < 0.82 ? "No closely repeated sentences detected." : "Some sentences are too similar.",
+    },
+    {
+      key: "specialCharacters",
+      label: "Formatting checked",
+      passed: !hasForbiddenFormatting,
+      detail: hasForbiddenFormatting ? "Markdown, URLs, bullets, or emoji detected." : "No unwanted formatting characters detected.",
+    },
+    {
+      key: "relevance",
+      label: "Topic relevance",
+      passed: shared >= 2 && relevanceRatio >= 0.16,
+      detail: shared >= 2 ? "Post contains multiple terms grounded in the selected story and angle." : "The post has weak overlap with the selected story and angle.",
+    },
+    {
+      key: "completeness",
+      label: "Complete text",
+      passed: complete,
+      detail: complete ? "Post ends as a complete thought." : "Post appears to end mid-sentence.",
+    },
+    {
+      key: "length",
+      label: "Length checked",
+      passed: wordCount >= 50 && wordCount <= 120,
+      detail: wordCount + " words; target is 50–120.",
+    },
+  ];
+}
+
 export async function generateEditorialPost(
   story: Story,
   angle: string,
@@ -843,6 +921,7 @@ IMPORTANT WRITING RULES
     ? buildGroundedPostFallback(story, angle)
     : post;
 
+  const quality = evaluatePostQuality(finalPost, story, angle);
   if (onPostToken) onPostToken(finalPost);
-  return finalPost;
+  return { post: finalPost, quality };
 }
