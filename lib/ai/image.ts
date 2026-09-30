@@ -141,10 +141,11 @@ async function generateWithProvider(config: {
     return parseImages(data, provider);
   }
 
+  const size = width === height ? "1024x1024" : width > height ? "1536x1024" : "1024x1536";
   const data = await requestJson(`${baseUrl}/images/generations`, config.apiKey, {
     model: config.model,
     prompt,
-    size: `${width}x${height}`,
+    size,
     n: 1,
   }, provider);
   return parseImages(data, provider);
