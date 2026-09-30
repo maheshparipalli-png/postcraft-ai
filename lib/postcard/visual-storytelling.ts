@@ -42,8 +42,8 @@ function sentenceFromClosing(closing: string, sourceText: string) {
   if (/keep going|keep moving|don't give up|do not give up|persist/.test(sourceLower)) {
     return "Keep going when the path gets difficult.";
   }
-  if (/work hard|working hard|effort|discipline/.test(sourceLower)) {
-    return "Effort matters most when it is directed well.";
+  if (/hard work|work hard|working hard|effort|discipline|direction matters|right direction/.test(sourceLower)) {
+    return "Work hard, but make sure you are moving in the right direction.";
   }
   if (/fear|afraid|scared|courage|brave/.test(sourceLower)) {
     return "Courage begins when you move despite fear.";
@@ -61,7 +61,7 @@ function inferCoreTheme(sourceText: string, headline: string) {
   if (/keep going|keep moving|don't give up|do not give up|persist/.test(sourceLower)) {
     return "Progress sometimes means continuing when it gets difficult.";
   }
-  if (/work hard|working hard/.test(sourceLower)) {
+  if (/hard work|work hard|working hard|direction matters|right direction/.test(sourceLower)) {
     return "Hard work matters, but direction matters too.";
   }
 
@@ -98,6 +98,9 @@ export function buildVisualStorytellingPlan(
   } else if (/fail|failure|setback|mistake|comeback|resilien/.test(lower)) {
     emotionalMessage = "A setback can become the moment that changes direction.";
     visualConcept = "A person rising after a difficult climb, looking toward a brighter ridge.";
+  } else if (/hard work|work hard|working hard|direction matters|right direction/.test(lower)) {
+    emotionalMessage = "Effort creates progress only when it moves in the right direction.";
+    visualConcept = "A determined person carrying a heavy load toward one clearly illuminated destination while several empty paths branch away, showing effort guided by direction.";
   } else if (/focus|discipline|consisten|habit|work|effort/.test(lower)) {
     emotionalMessage = "Small deliberate actions create momentum.";
     visualConcept = "A person walking steadily through a long quiet road while distant distractions blur behind.";
