@@ -142,36 +142,32 @@ export default function VisualStudioPage() {
           </div>
         </header>
 
-        <section className="grid gap-6 pt-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="grid gap-5 pt-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-neutral-200 bg-white p-2">
+            <div className="inline-flex rounded-full border border-neutral-300 bg-white p-1 shadow-sm">
               <button
                 type="button"
                 onClick={() => { setMode("idea"); setPlan(null); setImageUrl(null); setMessage(""); }}
-                className={mode === "idea" ? "rounded-xl bg-neutral-900 px-4 py-4 text-left text-white" : "rounded-xl px-4 py-4 text-left hover:bg-neutral-50"}
+                className={mode === "idea" ? "rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white" : "rounded-full px-4 py-2 text-xs font-medium text-neutral-600 hover:text-neutral-950"}
               >
-                <span className="block text-xs font-semibold uppercase tracking-[0.14em] opacity-60">01</span>
-                <span className="mt-2 block text-base font-semibold">From My Idea</span>
-                <span className="mt-1 block text-xs leading-5 opacity-70">Start with a simple human thought.</span>
+                From my idea
               </button>
               <button
                 type="button"
                 onClick={() => { setMode("linkedin"); setPlan(null); setImageUrl(null); setMessage(""); }}
-                className={mode === "linkedin" ? "rounded-xl bg-neutral-900 px-4 py-4 text-left text-white" : "rounded-xl px-4 py-4 text-left hover:bg-neutral-50"}
+                className={mode === "linkedin" ? "rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white" : "rounded-full px-4 py-2 text-xs font-medium text-neutral-600 hover:text-neutral-950"}
               >
-                <span className="block text-xs font-semibold uppercase tracking-[0.14em] opacity-60">02</span>
-                <span className="mt-2 block text-base font-semibold">From LinkedIn Post</span>
-                <span className="mt-1 block text-xs leading-5 opacity-70">Paste the post and extract its visual idea.</span>
+                From LinkedIn
               </button>
             </div>
 
-            <div className="mt-6 border-y border-neutral-300/80 py-7">
+            <div className="mt-5 border-y border-neutral-300/80 py-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
                     {mode === "idea" ? "Your idea" : "LinkedIn post"}
                   </div>
-                  <h2 className="mt-2 font-serif text-2xl tracking-[-0.02em]">
+                  <h2 className="mt-1 font-serif text-xl tracking-[-0.02em]">
                     {mode === "idea" ? "What do you want to say?" : "What should the visual communicate?"}
                   </h2>
                 </div>
@@ -184,8 +180,8 @@ export default function VisualStudioPage() {
                 placeholder={mode === "idea"
                   ? "Example: Progress is not always about moving faster. Sometimes it is about staying on the path when nobody is watching."
                   : "Paste your LinkedIn post here..."}
-                rows={8}
-                className="mt-5 w-full resize-y rounded-2xl border border-neutral-300 bg-white p-5 text-[15px] leading-7 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
+                rows={6}
+                className="mt-4 w-full resize-y rounded-xl border border-neutral-300 bg-white p-4 text-[15px] leading-6 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
               />
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -193,7 +189,7 @@ export default function VisualStudioPage() {
                   type="button"
                   onClick={analyzeIdea}
                   disabled={!source.trim()}
-                  className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Extract visual idea →
                 </button>
@@ -259,7 +255,7 @@ export default function VisualStudioPage() {
             <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-900 shadow-[0_24px_70px_rgba(0,0,0,.12)]">
               {imageUrl ? (
                 <div className="relative aspect-[4/5]">
-                  <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 360px" unoptimized className="object-cover" />
+                  <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 320px" unoptimized className="object-cover" />
                   {plan?.motivationalSentence && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pb-7 pt-20 sm:px-7 sm:pb-8">
                       <div className="max-w-[78%] font-serif text-2xl leading-[1.05] tracking-[-0.025em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.55)] sm:text-3xl">
@@ -269,10 +265,10 @@ export default function VisualStudioPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex aspect-[4/5] items-center justify-center bg-[#e9e5dc] p-10 text-center">
+                <div className="flex aspect-[4/5] items-center justify-center bg-[#e9e5dc] p-7 text-center">
                   <div>
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-neutral-400 text-lg">✦</div>
-                    <p className="mt-4 text-sm font-medium text-neutral-700">Your visual will appear here.</p>
+                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-neutral-400 text-lg">✦</div>
+                    <p className="mt-3 text-sm font-medium text-neutral-700">Your visual will appear here.</p>
                     <p className="mt-2 text-xs leading-5 text-neutral-500">Clean image first. PostCraft adds the message separately.</p>
                   </div>
                 </div>
