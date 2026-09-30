@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import NextImage from "next/image";
@@ -55,7 +55,7 @@ export default function VisualStudioPage() {
     setStoragePath(null);
     setGeneratedModel(null);
     setSavedId(null);
-    setMessage("Understanding your idea and developing the visual direction…");
+    setMessage("Understanding your idea and developing the visual directionâ€¦");
 
     try {
       const response = await fetch("/api/ai/visual-storytelling", {
@@ -129,7 +129,7 @@ export default function VisualStudioPage() {
           headline: derived.headline,
           body: derived.body,
           closing: plan.motivationalSentence,
-          source: mode === "linkedin" ? "Visual Studio · LinkedIn post" : "Visual Studio · My idea",
+          source: mode === "linkedin" ? "Visual Studio Â· LinkedIn post" : "Visual Studio Â· My idea",
           imageUrl,
           imageStoragePath: storagePath,
           visualPrompt: plan.imagePrompt,
@@ -244,9 +244,9 @@ export default function VisualStudioPage() {
                   disabled={!source.trim()}
                   className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Extract visual idea →
+                  Extract visual idea â†’
                 </button>
-                <span className="text-xs text-neutral-500">AI analysis · one idea · one tension · one visual metaphor</span>
+                <span className="text-xs text-neutral-500">AI analysis Â· one idea Â· one tension Â· one visual metaphor</span>
               </div>
             </div>
 
@@ -286,7 +286,7 @@ export default function VisualStudioPage() {
                   disabled={generating}
                   className="w-full rounded-2xl bg-neutral-900 px-5 py-4 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
                 >
-                  {generating ? `Generating ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}…` : imageUrl ? "Regenerate visual →" : `Generate ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} →`}
+                  {generating ? `Generating ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}â€¦` : imageUrl ? "Regenerate visual â†’" : `Generate ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} â†’`}
                 </button>
               </div>
             )}
@@ -300,7 +300,7 @@ export default function VisualStudioPage() {
             <div className="mb-3 flex items-end justify-between">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Live composition</div>
-                <p className="mt-1 text-xs text-neutral-500">4:5 composition · {VISUAL_STYLES.find((style) => style.id === visualStyle)?.label || "Editorial photo"} · 1200 × 1500</p>
+                <p className="mt-1 text-xs text-neutral-500">4:5 composition Â· {VISUAL_STYLES[visualStyle]?.label || "Editorial photo"} Â· 1200 Ã— 1500</p>
               </div>
               {imageUrl && <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-green-700">Stored</span>}
             </div>
@@ -320,7 +320,7 @@ export default function VisualStudioPage() {
               ) : (
                 <div className="flex aspect-[4/5] items-center justify-center bg-[#e9e5dc] p-7 text-center">
                   <div>
-                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-neutral-400 text-lg">✦</div>
+                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-neutral-400 text-lg">âœ¦</div>
                     <p className="mt-3 text-sm font-medium text-neutral-700">Your visual will appear here.</p>
                     <p className="mt-2 text-xs leading-5 text-neutral-500">Clean image first. PostCraft adds the message separately.</p>
                   </div>
@@ -336,10 +336,10 @@ export default function VisualStudioPage() {
                   disabled={saving || Boolean(savedId)}
                   className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold hover:border-neutral-900 disabled:opacity-50"
                 >
-                  {savedId ? "✓ Saved" : saving ? "Saving…" : "Save PostCard"}
+                  {savedId ? "âœ“ Saved" : saving ? "Savingâ€¦" : "Save PostCard"}
                 </button>
                 {savedId ? (
-                  <Link href={`/postcard/${savedId}`} className="rounded-xl bg-neutral-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-700">Open card →</Link>
+                  <Link href={`/postcard/${savedId}`} className="rounded-xl bg-neutral-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-700">Open card â†’</Link>
                 ) : (
                   <a href={imageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-center text-sm font-semibold hover:border-neutral-900">Open image</a>
                 )}
