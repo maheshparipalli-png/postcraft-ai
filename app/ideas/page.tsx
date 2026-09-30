@@ -64,8 +64,12 @@ export default function IdeasPage() {
       const failureSummary = data.sourceFailures || data.analysisErrors?.length
         ? ` ${data.sourceFailures ?? 0} feed failures, ${data.analysisErrors?.length ?? 0} analysis errors.`
         : "";
+      const errorDetail = data.analysisErrors?.[0]?.error
+        ? ` First analysis error: ${String(data.analysisErrors[0].error).slice(0, 240)}`
+        : "";
+      const rejectionSummary = data.rejected ? ` ${data.rejected} stories were rejected by the AI.` : "";
       await loadIdeas();
-      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}`);
+      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}${rejectionSummary}${errorDetail}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Refresh failed.");
     } finally {
