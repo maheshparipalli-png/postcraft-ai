@@ -16,19 +16,29 @@ export type EvergreenIdea = {
 
 const angleSet = (title: string): EvergreenAngle[] => [
   {
-    angle: `The assumption behind: ${title}`,
-    why: "Challenge a common assumption and turn the topic into a practical leadership or work lesson.",
-    evidence: "Use the idea itself as the starting point and add a concrete personal or workplace example.",
+    angle: `What people usually miss about: ${title}`,
+    why: "Look past the obvious advice and identify the less visible idea underneath the topic.",
+    evidence: "Use the underlying insight and a concrete professional situation to make the distinction clear.",
   },
   {
-    angle: `What this means in everyday work: ${title}`,
-    why: "Translate the concept into a situation most professionals can recognize.",
-    evidence: "Connect the idea to a familiar decision, habit, conversation, or team situation.",
+    angle: `The practical lesson from: ${title}`,
+    why: "Turn the idea into a specific lesson someone can apply at work or in everyday decisions.",
+    evidence: "Connect the idea to a realistic decision, habit, conversation, or team situation.",
   },
   {
-    angle: `The overlooked lesson in: ${title}`,
-    why: "Look for the less obvious lesson rather than repeating the surface-level advice.",
-    evidence: "Use a simple example, observation, or experience to make the lesson tangible.",
+    angle: `Why ${title.toLowerCase()} matters more than it seems`,
+    why: "Explore the second-order effect or consequence that is easy to overlook.",
+    evidence: "Use the stated insight to explain what changes when people take the idea seriously.",
+  },
+  {
+    angle: `A different way to think about: ${title}`,
+    why: "Reframe a familiar topic so the reader sees it from a less obvious perspective.",
+    evidence: "Build the reframe from the description and insight rather than introducing unsupported claims.",
+  },
+  {
+    angle: `The question behind: ${title}`,
+    why: "Turn the topic into a useful question that challenges the reader to examine how they currently think or act.",
+    evidence: "Use the core idea to show what the question reveals in a practical professional context.",
   },
 ];
 
