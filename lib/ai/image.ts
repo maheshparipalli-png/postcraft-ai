@@ -192,15 +192,21 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
 
   const width = validateDimension(options.width, 1200);
   const height = validateDimension(options.height, 1500);
-  const candidates = options.model
+  const requestedCandidates = options.model
     ? configs.filter((config) =>
         config.model === options.model ||
         (config.provider === "freellmapi" && options.model.startsWith("@cf/")),
       )
+    : [];
+
+  // Prefer the requested style model, but keep the normal configured provider
+  // as a fallback so a missing optional model never breaks image generation.
+  const candidates = options.model
+    ? [...requestedCandidates, ...configs.filter((config) => !requestedCandidates.includes(config))]
     : configs;
 
   if (!candidates.length) {
-    throw new AIProviderError("invalid_config", `The requested image model "${options.model}" is not configured.`, { provider: "Image Router" });
+    throw new AIProviderError("invalid_config", "No usable image provider is configured.", { provider: "Image Router" });
   }
 
   const failures: string[] = [];
