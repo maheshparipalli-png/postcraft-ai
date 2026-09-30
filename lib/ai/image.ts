@@ -95,17 +95,42 @@ async function requestJson(url: string, apiKey: string, body: JsonRecord, provid
 }
 
 function parseImages(data: JsonRecord, provider: string) {
-  const rawImages = Array.isArray(data.data) ? data.data : [];
+  // OpenAI-compatible providers commonly return images under `data`.
+  // FreeLLMAPI/Cloudflare image responses can return them under `images`.
+  const rawImages = Array.isArray(data.data)
+    ? data.data
+    : Array.isArray(data.images)
+      ? data.images
+      : [];
+
   const images = rawImages.map((item) => {
+    if (typeof item === "string") {
+      return {
+        b64Json: item,
+        mimeType: "image/png",
+      };
+    }
+
     if (!item || typeof item !== "object") return null;
     const record = item as JsonRecord;
-    const b64Json = typeof record.b64_json === "string" ? record.b64_json : undefined;
+    const b64Json =
+      typeof record.b64_json === "string"
+        ? record.b64_json
+        : typeof record.base64 === "string"
+          ? record.base64
+          : undefined;
     const url = typeof record.url === "string" ? record.url : undefined;
     if (!b64Json && !url) return null;
+
     return {
       ...(url ? { url } : {}),
       ...(b64Json ? { b64Json } : {}),
-      mimeType: typeof record.mime_type === "string" ? record.mime_type : "image/png",
+      mimeType:
+        typeof record.mime_type === "string"
+          ? record.mime_type
+          : typeof record.mimeType === "string"
+            ? record.mimeType
+            : "image/png",
     };
   }).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
