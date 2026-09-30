@@ -42,7 +42,7 @@ function encryptSecret(value: string) {
 function decryptSecret(value: string) {
   const [ivText, tagText, encryptedText] = value.split(".");
   if (!ivText || !tagText || !encryptedText) throw new Error("Stored image provider secret is invalid.");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", getEncryptionKey(), ivText ? Buffer.from(ivText, "base64url") : Buffer.alloc(0));
+  const decipher = crypto.createDecipheriv("aes-256-gcm", getEncryptionKey(), Buffer.from(ivText, "base64url"));
   decipher.setAuthTag(Buffer.from(tagText, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
 }
