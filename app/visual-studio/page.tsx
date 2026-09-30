@@ -14,11 +14,8 @@ function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
   if (!clean) return { headline: "", body: "", closing: "" };
 
-  const paragraphs = clean.split(/
-\s*
-/).map((part) => part.trim()).filter(Boolean);
-  const lines = clean.split("
-").map((line) => line.trim()).filter(Boolean);
+  const paragraphs = clean.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const lines = clean.split("\n").map((line) => line.trim()).filter(Boolean);
 
   if (mode === "linkedin") {
     const headline = lines[0] || paragraphs[0] || clean;
