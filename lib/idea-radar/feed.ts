@@ -12,7 +12,9 @@ function decodeXml(value: string) {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&apos;|&#39;|&#x27;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -47,16 +49,29 @@ export function parseFeed(xml: string): FeedItem[] {
 }
 
 export async function fetchFeed(url: string) {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
-      "User-Agent": "PostCraft AI Idea Radar/1.0",
-    },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!response.ok) throw new Error("Feed returned HTTP " + response.status);
-  return parseFeed(await response.text());
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
+          "User-Agent": "Mozilla/5.0 (compatible; PostCraft-Idea-Radar/1.0; +https://www.ninety6ai.online/)",
+        },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!response.ok) throw new Error("Feed returned HTTP " + response.status);
+      const items = parseFeed(await response.text());
+      if (!items.length) throw new Error("Feed returned no readable stories.");
+      return items;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Unable to fetch feed.");
 }
 
 export function normalizeTitle(title: string) {
