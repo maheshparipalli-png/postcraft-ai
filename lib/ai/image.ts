@@ -129,7 +129,7 @@ async function generateWithProvider(config: {
 
   if (config.provider === "freellmapi") {
     if (!config.model.startsWith("@cf/")) {
-      throw new AIProviderError("bad_request", "FreeLLMAPI image models must use a Cloudflare Workers AI model ID.", { provider, model: config.model });
+      throw new AIProviderError("bad_request", "FreeLLMAPI image models must use a Cloudflare Workers AI model ID.", { provider });
     }
     const data = await requestJson(`${baseUrl}/images/generations`, config.apiKey, {
       model: config.model,
