@@ -160,13 +160,45 @@ export default function IdeasPage() {
 
         {message && <div className="my-5 rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-700">{message}</div>}
 
-        {generatedPost && (
-          <section className="my-7 rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Generated LinkedIn post</div>
-            <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
-            <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="mt-6 rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
-          </section>
-        )}
+        {generatedPost && (() => {
+          const blocks = generatedPost.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+          const cardHeadline = blocks[0] || "Your main idea";
+          const cardBody = blocks.slice(1, Math.max(2, blocks.length - 1)).join("\n\n") || blocks[1] || "";
+          const cardClosing = blocks.length > 2 ? blocks[blocks.length - 1] : "";
+          return (
+            <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
+              <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Generated LinkedIn post</div>
+                <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
+                  <Link
+                    href={`/postcard?headline=${encodeURIComponent(cardHeadline)}&body=${encodeURIComponent(cardBody)}&closing=${encodeURIComponent(cardClosing)}&template=thought`}
+                    className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white"
+                  >
+                    Open in PostCard Studio →
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-neutral-300 bg-[#151515] p-6 text-white sm:p-8">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-400">PostCard</div>
+                <div className="mt-12 flex min-h-[430px] flex-col justify-between">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">THOUGHT EXPERIMENT</div>
+                    <h3 className="mt-7 font-serif text-4xl leading-[1.02] tracking-[-0.03em]">{cardHeadline}</h3>
+                    {cardBody && <p className="mt-7 whitespace-pre-wrap text-sm leading-6 text-neutral-300">{cardBody}</p>}
+                  </div>
+                  {cardClosing && (
+                    <div className="mt-8 border-t border-white/20 pt-5 text-sm font-medium leading-6 text-white">
+                      {cardClosing}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          );
+        })()}
 
         {loading ? (
           <div className="py-20 text-center text-sm text-neutral-500">Loading ideas…</div>
