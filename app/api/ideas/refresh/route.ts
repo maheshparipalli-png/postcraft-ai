@@ -3,10 +3,43 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { fetchFeed, normalizeTitle } from "@/lib/idea-radar/feed";
-import { analyzeIdea } from "@/lib/idea-radar/ai";
+import { EVERGREEN_IDEAS } from "@/lib/idea-radar/evergreen";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+function fallbackAngles(title: string, description: string) {
+  return [
+    {
+      angle: `The assumption behind: ${title}`,
+      why: "Challenge the obvious interpretation and turn the topic into a useful professional lesson.",
+      evidence: description || title,
+    },
+    {
+      angle: `What this means in everyday work: ${title}`,
+      why: "Translate the idea into a situation professionals can recognize.",
+      evidence: description || title,
+    },
+    {
+      angle: `The overlooked lesson in: ${title}`,
+      why: "Look beyond the headline and identify the less obvious takeaway.",
+      evidence: description || title,
+    },
+  ];
+}
+
+async function addAngles(admin: ReturnType<typeof createAdminClient>, ideaId: string, angles: ReturnType<typeof fallbackAngles>) {
+  if (!angles.length) return;
+  await admin.from("idea_radar_angles").upsert(
+    angles.map((angle) => ({
+      idea_id: ideaId,
+      angle: angle.angle,
+      why: angle.why,
+      evidence: angle.evidence,
+    })),
+    { onConflict: "idea_id,angle" },
+  );
+}
 
 export async function POST() {
   const billing = await getBillingAccess();
@@ -64,38 +97,85 @@ export async function POST() {
     .order("published_at", { ascending: false })
     .limit(16);
 
-  let analyzed = 0;
-  let analysisAttempted = 0;
-  let rejected = 0;
-  const analysisErrors: { title: string; error: string }[] = [];
+  let currentIdeasCreated = 0;
+  const ideaErrors: { title: string; error: string }[] = [];
 
   for (const item of candidates ?? []) {
-    const { data: already } = await admin.from("idea_radar_ideas").select("id").eq("feed_item_id", item.id).limit(1);
+    const { data: already } = await admin
+      .from("idea_radar_ideas")
+      .select("id")
+      .eq("feed_item_id", item.id)
+      .limit(1);
+
     if (already?.length) continue;
 
-    analysisAttempted += 1;
-
-    // Temporarily bypass AI analysis while the configured AI provider is unavailable.
-    // Ideas are still collected from the RSS feed so the radar remains useful.
     const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
       feed_item_id: item.id,
       title: item.title,
       description: item.description || "",
-      why_interesting: "Collected from a configured Idea Radar source. AI analysis is temporarily disabled.",
-      insight: "AI analysis is temporarily disabled; generate angles after analysis is restored.",
+      why_interesting: "A current story collected from a configured Idea Radar source. AI analysis is temporarily disabled, so the story is kept for exploration.",
+      insight: "Start with the underlying question, behavior, or business lesson behind the story rather than simply summarizing the article.",
       category: item.category,
       source_name: item.source_name,
       source_url: item.source_url,
       published_at: item.published_at,
-      analysis: { generated_by: "idea-radar", keep: true, ai_analysis_disabled: true },
+      analysis: { generated_by: "idea-radar", keep: true, ai_analysis_disabled: true, content_type: "current" },
     }).select("id").single();
 
     if (ideaError) {
-      analysisErrors.push({ title: item.title, error: ideaError.message });
+      ideaErrors.push({ title: item.title, error: ideaError.message });
       continue;
     }
 
-    if (idea) analyzed += 1;
+    if (idea) {
+      await addAngles(admin, idea.id, fallbackAngles(item.title, item.description || ""));
+      currentIdeasCreated += 1;
+    }
+  }
+
+  const { data: existingEvergreen } = await admin
+    .from("idea_radar_ideas")
+    .select("analysis")
+    .is("feed_item_id", null);
+
+  const existingKeys = new Set(
+    (existingEvergreen ?? [])
+      .map((row) => (row.analysis as { evergreen_key?: string } | null)?.evergreen_key)
+      .filter(Boolean),
+  );
+
+  let evergreenCreated = 0;
+  for (const evergreen of EVERGREEN_IDEAS) {
+    if (existingKeys.has(evergreen.key)) continue;
+
+    const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
+      feed_item_id: null,
+      title: evergreen.title,
+      description: evergreen.description,
+      why_interesting: evergreen.whyInteresting,
+      insight: evergreen.insight,
+      category: evergreen.category,
+      source_name: "PostCraft Evergreen Library",
+      source_url: "",
+      published_at: null,
+      analysis: {
+        generated_by: "idea-radar",
+        keep: true,
+        ai_analysis_disabled: true,
+        content_type: "evergreen",
+        evergreen_key: evergreen.key,
+      },
+    }).select("id").single();
+
+    if (ideaError) {
+      ideaErrors.push({ title: evergreen.title, error: ideaError.message });
+      continue;
+    }
+
+    if (idea) {
+      await addAngles(admin, idea.id, evergreen.angles);
+      evergreenCreated += 1;
+    }
   }
 
   const sourceResults = results.map((r) =>
@@ -112,11 +192,12 @@ export async function POST() {
     sourceSuccesses,
     sourceFailures,
     sourceResults,
-    candidates: (candidates ?? []).length,
-    analysisAttempted,
-    analyzed,
-    rejected,
-    analysisErrors,
+    currentStoriesChecked: (candidates ?? []).length,
+    currentIdeasCreated,
+    evergreenIdeasCreated: evergreenCreated,
+    ideasCreated: currentIdeasCreated + evergreenCreated,
+    aiAnalysisDisabled: true,
+    ideaErrors,
     refreshedBy: user.id,
   });
 }
