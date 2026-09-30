@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("postcard_cards")
-    .select("id, template, background, name, handle, photo_data_url, headline, body, closing, stat, stat_label, source, created_at, updated_at")
+    .select("id, template, background, name, handle, photo_data_url, headline, body, closing, stat, stat_label, source, image_url, image_storage_path, visual_prompt, motivational_sentence, visual_concept, created_at, updated_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
