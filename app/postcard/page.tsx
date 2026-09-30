@@ -285,6 +285,25 @@ export default function PostCardPage() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const importedHeadline = params.get("headline");
+    const importedBody = params.get("body");
+    const importedClosing = params.get("closing");
+    const importedTemplate = params.get("template") as Template | null;
+
+    if (importedTemplate && templates.some((item) => item.id === importedTemplate)) {
+      setTemplate(importedTemplate);
+    }
+    if (importedHeadline) setHeadline(importedHeadline);
+    if (importedBody) setBody(importedBody);
+    if (importedClosing) setClosing(importedClosing);
+
+    if (importedHeadline || importedBody || importedClosing) {
+      setGenerateMessage("Imported from Idea Radar. Refine the visual, then save or publish.");
+    }
+  }, []);
+
+  useEffect(() => {
     fetch("/api/linkedin/status").then((response) => response.json()).then((data) => setLinkedinConnected(Boolean(data?.connected))).catch(() => undefined);
   }, []);
 
