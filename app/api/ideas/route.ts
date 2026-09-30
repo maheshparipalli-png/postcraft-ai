@@ -122,16 +122,28 @@ export async function POST(request: Request) {
     ]);
     if (!idea || !angle || angle.idea_id !== idea.id) return NextResponse.json({ error: "Idea or angle not found." }, { status: 404 });
 
-    const generated = await generateEditorialPost(
-      { topic: idea.category, headline: idea.title, source: idea.source_name, summary: idea.description + "\n" + idea.insight, url: idea.source_url },
-      angle.angle,
-      angle.why,
-      "Write the strongest natural version of the selected thesis. Use the selected idea as inspiration and keep the wording original.",
-      [{ claim: idea.title, support: idea.description, type: "fact" }, { claim: idea.insight, support: idea.why_interesting, type: "interpretation" }],
-    );
+    try {
+      const generated = await generateEditorialPost(
+        { topic: idea.category, headline: idea.title, source: idea.source_name, summary: idea.description + "\n" + idea.insight, url: idea.source_url },
+        angle.angle,
+        angle.why,
+        "Write the strongest natural version of the selected thesis. Use the selected idea as inspiration and keep the wording original.",
+        [{ claim: idea.title, support: idea.description, type: "fact" }, { claim: idea.insight, support: idea.why_interesting, type: "interpretation" }],
+      );
 
-    await admin.from("idea_radar_ideas").update({ status: "post_generated", updated_at: new Date().toISOString() }).eq("id", idea.id);
-    return NextResponse.json({ post: generated.post, quality: generated.quality });
+      await admin.from("idea_radar_ideas").update({ status: "post_generated", updated_at: new Date().toISOString() }).eq("id", idea.id);
+      return NextResponse.json({ post: generated.post, quality: generated.quality });
+    } catch (error) {
+      console.error("[PostCraft] Idea Radar post generation failed", {
+        ideaId,
+        angleId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Post generation failed." },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
