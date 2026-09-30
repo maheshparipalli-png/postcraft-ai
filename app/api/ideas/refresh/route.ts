@@ -11,18 +11,28 @@ export const maxDuration = 300;
 function fallbackAngles(title: string, description: string) {
   return [
     {
-      angle: `The assumption behind: ${title}`,
-      why: "Challenge the obvious interpretation and turn the topic into a useful professional lesson.",
+      angle: `What people usually miss about: ${title}`,
+      why: "Look past the obvious interpretation and identify the less visible idea underneath the story.",
       evidence: description || title,
     },
     {
-      angle: `What this means in everyday work: ${title}`,
-      why: "Translate the idea into a situation professionals can recognize.",
+      angle: `The practical lesson from: ${title}`,
+      why: "Turn the story into a specific lesson a professional can apply.",
       evidence: description || title,
     },
     {
-      angle: `The overlooked lesson in: ${title}`,
-      why: "Look beyond the headline and identify the less obvious takeaway.",
+      angle: `Why this matters more than it seems: ${title}`,
+      why: "Explore the second-order effect or consequence that is easy to overlook.",
+      evidence: description || title,
+    },
+    {
+      angle: `A different way to think about: ${title}`,
+      why: "Reframe the story so the reader sees it from a less obvious perspective.",
+      evidence: description || title,
+    },
+    {
+      angle: `The question behind: ${title}`,
+      why: "Turn the story into a useful question that challenges the reader's current assumptions.",
       evidence: description || title,
     },
   ];
