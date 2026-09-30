@@ -32,6 +32,11 @@ export async function POST(request: Request) {
     const storySourceTitle = typeof body?.storySourceTitle === "string" ? body.storySourceTitle.trim() : "";
     const storySourceUrl = typeof body?.storySourceUrl === "string" ? body.storySourceUrl.trim() : "";
     const storyCategory = typeof body?.storyCategory === "string" ? body.storyCategory.trim() : "";
+    const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl.trim() : "";
+    const imageStoragePath = typeof body?.imageStoragePath === "string" ? body.imageStoragePath.trim() : "";
+    const visualPrompt = typeof body?.visualPrompt === "string" ? body.visualPrompt.trim() : "";
+    const motivationalSentence = typeof body?.motivationalSentence === "string" ? body.motivationalSentence.trim() : "";
+    const visualConcept = typeof body?.visualConcept === "string" ? body.visualConcept.trim() : "";
 
     const validTemplates = new Set(["quote", "story", "success", "person", "history", "thought"]);
     const validBackgrounds = new Set(["gradient", "dark", "photo", "minimal", "abstract", "ink", "nature"]);
@@ -70,6 +75,11 @@ export async function POST(request: Request) {
         story_source_title: storySourceTitle || null,
         story_source_url: storySourceUrl || null,
         story_category: storyCategory || null,
+        image_url: imageUrl || null,
+        image_storage_path: imageStoragePath || null,
+        visual_prompt: visualPrompt || null,
+        motivational_sentence: motivationalSentence || null,
+        visual_concept: visualConcept || null,
       })
       .select("id, created_at")
       .single();
