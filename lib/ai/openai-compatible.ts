@@ -41,7 +41,13 @@ function extractStreamToken(chunk: JsonRecord) {
 function classifyHttpError(status: number, provider: string, message: string) {
   if (status === 530) return new AIProviderError("tunnel_unavailable", `${provider} returned Cloudflare HTTP 530 (1033).`, { provider, status, retryable: true });
   if (status === 401 || status === 403) return new AIProviderError("invalid_api_key", `${provider} rejected the configured API key.`, { provider, status });
-  if (status === 429) return new AIProviderError("rate_limited", `${provider} rate-limited the request: ${message}`, { provider, status, retryable: true });
+  if (status === 429) {
+    const exhausted = /all models are exhausted|all models exhausted|no key configured|rate.?limited|cooldown/i.test(message);
+    const friendly = exhausted
+      ? `${provider} is temporarily unavailable because its available models or API keys are rate-limited. Please wait for the provider limit to reset or configure another available key/model.`
+      : `${provider} rate-limited the request: ${message}`;
+    return new AIProviderError("rate_limited", friendly, { provider, status, retryable: !exhausted });
+  }
   if (status === 400 || status === 422) return new AIProviderError("bad_request", `${provider} rejected the request: ${message}`, { provider, status });
   if (status === 502 || status === 503 || status === 504) return new AIProviderError("gateway_unavailable", `${provider} is unavailable (${status}): ${message}`, { provider, status, retryable: true });
   return new AIProviderError("provider_error", `${provider} request failed (${status}): ${message}`, { provider, status });
