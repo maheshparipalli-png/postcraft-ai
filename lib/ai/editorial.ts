@@ -877,9 +877,9 @@ IMPORTANT WRITING RULES
 
   const aiProvider = await provider();
 
-  async function generateCandidate(instructionSuffix = "") {
+  async function generateCandidate() {
     const raw = await aiProvider.generateText(
-      basePrompt + instructionSuffix,
+      basePrompt,
       {
         temperature: 0.25,
         numPredict: 1000,
@@ -893,34 +893,84 @@ IMPORTANT WRITING RULES
     };
   }
 
-  let result = await generateCandidate();
-
-  const criticalFailure = result.quality.some(
-    (check) =>
-      !check.passed &&
-      ["duplication", "specialCharacters", "relevance", "completeness", "length"].includes(check.key),
-  );
-
-  if (criticalFailure) {
-    result = await generateCandidate(`
-      
-QUALITY RETRY
-The previous draft failed one or more quality checks. Generate a completely new version.
-Do not copy the previous wording.
-Make every sentence complete.
-Stay within 200–300 words.
-Keep the selected angle as the central thesis.
-Do not include meta-commentary, prompt text, labels, ellipses, placeholders, or truncated sentences.
-`);
+  function failedChecks(quality: PostQualityCheck[]) {
+    return quality.filter((check) => !check.passed);
   }
 
-  const finalCriticalFailure = result.quality.some(
-    (check) => !check.passed,
-  );
+  function buildRepairPrompt(post: string, failures: PostQualityCheck[]) {
+    const failureDetails = failures
+      .map((check) => `- ${check.label}: ${check.detail}`)
+      .join("\n");
 
-  if (finalCriticalFailure) {
+    return `
+
+QUALITY REPAIR
+The existing LinkedIn post below failed one or more quality checks.
+
+FAILED CHECKS
+${failureDetails}
+
+REPAIR INSTRUCTIONS
+- Fix ALL of the listed failures in this single repair pass.
+- Preserve the existing central thesis, useful facts, tone, and overall argument.
+- Do not throw away a good post and write an unrelated replacement.
+- Make the smallest natural changes needed to satisfy every failed check.
+- If the post is too short, add useful story-grounded explanation rather than generic filler.
+- If the post is too long, remove repetition or low-value wording rather than cutting an argument mid-sentence.
+- If relevance failed, strengthen connections to the supplied story, evidence, and selected angle. Do not invent facts.
+- If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
+- If completeness failed, finish every incomplete sentence and make the final thought complete.
+- If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, or other prohibited formatting.
+- Keep the result between 200 and 300 words and under 3,000 characters.
+- Do not introduce new unsupported facts, numbers, quotes, examples, motives, or claims.
+- Return ONLY the repaired LinkedIn post. Do not explain the changes.
+
+EXISTING POST
+${post}
+`;
+  }
+
+  let result = await generateCandidate();
+
+  // Treat quality checks as a repair mechanism rather than a hard rejection.
+  // Every failed check is sent to the repair pass together so the model can
+  // correct multiple problems in one revision while preserving good content.
+  const maxRepairPasses = 2;
+
+  for (let repairPass = 1; repairPass <= maxRepairPasses; repairPass += 1) {
+    const failures = failedChecks(result.quality);
+    if (!failures.length) break;
+
+    const repairedRaw = await aiProvider.generateText(
+      buildRepairPrompt(result.post, failures),
+      {
+        temperature: 0.15,
+        numPredict: 1000,
+      },
+    );
+
+    const repairedPost = normalizeGeneratedPost(repairedRaw);
+    result = {
+      post: repairedPost,
+      quality: evaluatePostQuality(repairedPost, story, angle),
+    };
+
+    console.info("[PostCraft] editorial_quality_repair", {
+      pass: repairPass,
+      failedChecks: failures.map((check) => check.key),
+      remainingFailures: failedChecks(result.quality).map((check) => check.key),
+    });
+  }
+
+  const finalFailures = failedChecks(result.quality);
+
+  if (finalFailures.length) {
+    const details = finalFailures
+      .map((check) => `${check.label}: ${check.detail}`)
+      .join("; ");
+
     throw new Error(
-      "The generated post did not pass PostCraft's quality checks. Please generate again.",
+      `The generated post could not pass PostCraft's quality checks after two repair passes. ${details}`,
     );
   }
 
