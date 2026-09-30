@@ -190,18 +190,11 @@ export default function IdeasPage() {
             .map((part) => part.trim())
             .filter(Boolean);
           const blocks = generatedPost.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-          const limitWords = (text: string, maxWords: number) => {
-            const words = text.split(/\s+/).filter(Boolean);
-            return words.length <= maxWords ? text : words.slice(0, maxWords).join(" ") + "…";
-          };
-          const cardHeadline = limitWords(cleanSentences[0] || generatedContext.angle, 16);
-          const cardBody = limitWords(cleanSentences.slice(1, 3).join(" ") || blocks[1] || "", 42);
-          const cardClosing = limitWords(
-            cleanSentences.length > 3
-              ? cleanSentences[cleanSentences.length - 1]
-              : generatedContext.angle.replace(/^.*?:\s*/, "").trim(),
-            16,
-          );
+          const cardHeadline = cleanSentences[0] || generatedContext.angle;
+          const cardBody = cleanSentences.slice(1, 3).join(" ") || blocks[1] || "";
+          const cardClosing = cleanSentences.length > 1
+            ? cleanSentences[cleanSentences.length - 1]
+            : generatedContext.angle.replace(/^.*?:\s*/, "").trim();
           return (
             <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
               <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
@@ -266,25 +259,6 @@ export default function IdeasPage() {
                       {cardClosing}
                     </div>
                   )}
-                  {(() => {
-                    const source = (generatedContext.ideaTitle + " " + generatedContext.angle).toLowerCase().replace(/[^a-z0-9]+/g, " ");
-                    const card = (cardHeadline + " " + cardBody + " " + cardClosing).toLowerCase().replace(/[^a-z0-9]+/g, " ");
-                    const sourceTerms = new Set(source.split(/\s+/).filter((word) => word.length >= 5));
-                    const cardTerms = new Set(card.split(/\s+/).filter((word) => word.length >= 5));
-                    let shared = 0;
-                    for (const term of sourceTerms) if (cardTerms.has(term)) shared += 1;
-                    const relevant = shared >= 2;
-                    const clean = !/[#*_\`]|https?:\/\//.test(cardHeadline + " " + cardBody + " " + cardClosing);
-                    return (
-                      <div className="mt-6 border-t border-white/15 pt-4 text-xs text-neutral-400">
-                        <div className="font-medium uppercase tracking-[0.14em] text-neutral-500">PostCard quality</div>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                          <span className={relevant ? "text-neutral-200" : "text-red-300"}>{relevant ? "✓" : "!"} Relevant to selected topic</span>
-                          <span className={clean ? "text-neutral-200" : "text-red-300"}>{clean ? "✓" : "!"} Clean formatting</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             </section>
