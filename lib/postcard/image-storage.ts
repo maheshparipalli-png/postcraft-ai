@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "node:crypto";\nimport sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "postcraft-images";
