@@ -752,7 +752,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
   }
 
   const hasForbiddenFormatting =
-    /(?:^|\n)\s*(?:#{1,6}\s|[-*•]\s|\d+[.)]\s)|\*\*|__|\`|https?:\/\/|[\u{1F300}-\u{1FAFF}]/u.test(post);
+    /(?:^|\n)\s*(?:#{1,6}\s|[-*•]\s|\d+[.)]\s)|\*\*|__|[\x60]|https?:\/\/|[\u{1F300}-\u{1FAFF}]/u.test(post);
 
   const sourceText = normalizeQualityText(
     story.topic + " " + story.headline + " " + story.summary + " " + angle,
