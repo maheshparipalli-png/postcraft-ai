@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { IDEA_CATEGORIES } from "@/lib/idea-radar/sources";
+import { buildIdeaRadarPostcardContent } from "@/lib/postcard/idea-radar";
 
 type Angle = { id: string; angle: string; why: string; evidence: string };
 type GeneratedContext = {
@@ -201,17 +202,10 @@ export default function IdeasPage() {
         {message && <div className="my-5 rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-700">{message}</div>}
 
         {generatedPost && generatedContext && (() => {
-          const cleanSentences = generatedPost
-            .replace(/\s+/g, " ")
-            .split(/(?<=[.!?])\s+/)
-            .map((part) => part.trim())
-            .filter(Boolean);
-          const blocks = generatedPost.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-          const cardHeadline = cleanSentences[0] || generatedContext.angle;
-          const cardBody = cleanSentences.slice(1, 3).join(" ") || blocks[1] || "";
-          const cardClosing = cleanSentences.length > 1
-            ? cleanSentences[cleanSentences.length - 1]
-            : generatedContext.angle.replace(/^.*?:\s*/, "").trim();
+          const postcard = buildIdeaRadarPostcardContent(generatedPost, generatedContext.angle);
+          const cardHeadline = postcard.headline;
+          const cardBody = postcard.body;
+          const cardClosing = postcard.closing;
           return (
             <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
               <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
