@@ -43,13 +43,13 @@ function deriveContent(source: string, mode: SourceMode) {
   return { headline, body: body || clean, closing: "" };
 }
 
-function dataModelFallback(plan: VisualPlan) {\n  return plan.preferredModel || "configured-default";\n}\n\nexport default function VisualStudioPage() {
+export default function VisualStudioPage() {
   const [mode, setMode] = useState<SourceMode>("idea");
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [storagePath, setStoragePath] = useState<string | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);\n  const [generatedModel, setGeneratedModel] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -121,7 +121,7 @@ function dataModelFallback(plan: VisualPlan) {\n  return plan.preferredModel || 
           imageStoragePath: storagePath,
           visualPrompt: plan.imagePrompt,
           motivationalSentence: plan.motivationalSentence,
-          visualConcept: plan.visualConcept,\n          visualStyle: plan.visualStyle,\n          imageModel: plan.preferredModel || dataModelFallback(plan),
+          visualConcept: plan.visualConcept,\n          visualStyle: plan.visualStyle,\n          imageModel: generatedModel,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -159,7 +159,7 @@ function dataModelFallback(plan: VisualPlan) {\n  return plan.preferredModel || 
             <div className="inline-flex rounded-full border border-neutral-300 bg-white p-1 shadow-sm">
               <button
                 type="button"
-                onClick={() => { setMode("idea"); setPlan(null); setImageUrl(null); setMessage(""); }}
+                onClick={() => { setMode("idea"); setPlan(null); setImageUrl(null); setStoragePath(null); setGeneratedModel(null); setMessage(""); }}
                 className={mode === "idea" ? "rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white" : "rounded-full px-4 py-2 text-xs font-medium text-neutral-600 hover:text-neutral-950"}
               >
                 From my idea
@@ -204,7 +204,7 @@ function dataModelFallback(plan: VisualPlan) {\n  return plan.preferredModel || 
 
               <textarea
                 value={source}
-                onChange={(event) => { setSource(event.target.value); setPlan(null); setImageUrl(null); setSavedId(null); }}
+                onChange={(event) => { setSource(event.target.value); setPlan(null); setImageUrl(null); setStoragePath(null); setGeneratedModel(null); setSavedId(null); }}
                 placeholder={mode === "idea"
                   ? "Example: Progress is not always about moving faster. Sometimes it is about staying on the path when nobody is watching."
                   : "Paste your LinkedIn post here..."}
