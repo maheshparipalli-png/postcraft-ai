@@ -206,7 +206,10 @@ export async function generateAIImage(prompt: string, options: AIImageOptions = 
   const failures: string[] = [];
   for (const config of candidates) {
     try {
-      const requestConfig = options.model && config.provider === "freellmapi"\n        ? { ...config, model: options.model }\n        : config;\n      const images = await generateWithProvider(requestConfig, cleanPrompt, width, height);
+      const requestConfig = options.model && config.provider === "freellmapi"
+        ? { ...config, model: options.model }
+        : config;
+      const images = await generateWithProvider(requestConfig, cleanPrompt, width, height);
       return { provider: config.provider, model: requestConfig.model, images };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
