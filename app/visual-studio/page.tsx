@@ -3,12 +3,12 @@
 import Link from "next/link";
 import NextImage from "next/image";
 import { useMemo, useState } from "react";
-import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
+import type { VisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
 import { VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/postcard/visual-styles";
 
 type SourceMode = "linkedin" | "idea";
 
-type VisualPlan = ReturnType<typeof buildVisualStorytellingPlan>;
+type VisualPlan = VisualStorytellingPlan;
 
 function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
@@ -81,7 +81,7 @@ export default function VisualStudioPage() {
       if (!image?.url) throw new Error("The image was generated but no stored image URL was returned.");
 
       setImageUrl(image.url);
-      setStoragePath(image.storagePath || null);
+      setStoragePath(image.storagePath || null);\n      setGeneratedModel(data?.model || null);
       setMessage("Visual generated and stored. The motivational sentence stays outside the image.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not generate the visual.");
@@ -221,7 +221,7 @@ export default function VisualStudioPage() {
                 >
                   Extract visual idea →
                 </button>
-                <span className="text-xs text-neutral-500">One idea · one tension · one visual metaphor</span>
+                <span className="text-xs text-neutral-500">AI analysis · one idea · one tension · one visual metaphor</span>
               </div>
             </div>
 
