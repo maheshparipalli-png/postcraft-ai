@@ -172,11 +172,25 @@ export default function IdeasPage() {
 
         <div className="flex flex-wrap gap-2 border-b border-neutral-300 py-5">
           {["All", ...IDEA_CATEGORIES].map((item) => (
-            <button key={item} onClick={() => setCategory(item)} className={category === item ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600 hover:border-neutral-900"}>
+            <button key={item} onClick={() => {
+              setCategory(item);
+              setSelectedAngle({});
+              setGeneratedPost("");
+              setGeneratedContext(null);
+              setQualityChecks([]);
+              setMessage("");
+            }} className={category === item ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600 hover:border-neutral-900"}>
               {item}
             </button>
           ))}
-          <button onClick={() => setSavedOnly((value) => !value)} className={savedOnly ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600"}>
+          <button onClick={() => {
+            setSavedOnly((value) => !value);
+            setSelectedAngle({});
+            setGeneratedPost("");
+            setGeneratedContext(null);
+            setQualityChecks([]);
+            setMessage("");
+          }} className={savedOnly ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600"}>
             Saved
           </button>
         </div>
@@ -329,13 +343,12 @@ export default function IdeasPage() {
                             type="radio"
                             name="idea-radar-angle"
                             checked={selectedAngle[idea.id] === angle.id}
-                            disabled={busy.startsWith("post:") && busy !== "post:" + idea.id}
                             onChange={() => {
                               setSelectedAngle({ [idea.id]: angle.id });
                               setGeneratedPost("");
                               setGeneratedContext(null);
                               setQualityChecks([]);
-                              void generatePost(idea, angle.id);
+                              setMessage("");
                             }}
                             className="mt-1"
                           />
@@ -346,9 +359,13 @@ export default function IdeasPage() {
                         </div>
                       </label>
                     ))}
-                    {busy === "post:" + idea.id && (
-                      <div className="text-xs text-neutral-500">Writing your post and PostCard…</div>
-                    )}
+                    <button
+                      onClick={() => generatePost(idea)}
+                      disabled={busy === "post:" + idea.id || !selectedAngle[idea.id]}
+                      className="rounded-full bg-neutral-900 px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      {busy === "post:" + idea.id ? "Writing post…" : "Generate Post"}
+                    </button>
                   </div>
                 )}
               </article>
