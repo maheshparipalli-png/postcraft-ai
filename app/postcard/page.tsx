@@ -5,7 +5,6 @@ import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { POSTCARD_FIELDS } from "@/lib/postcard/categories";
-import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
 
 type Template = "quote" | "story" | "success" | "person" | "history" | "thought";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
