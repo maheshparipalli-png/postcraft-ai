@@ -5,6 +5,12 @@ import { useEffect, useState } from "react";
 import { IDEA_CATEGORIES } from "@/lib/idea-radar/sources";
 
 type Angle = { id: string; angle: string; why: string; evidence: string };
+type GeneratedContext = {
+  ideaId: string;
+  ideaTitle: string;
+  angleId: string;
+  angle: string;
+};
 type Idea = {
   id: string;
   title: string;
@@ -31,6 +37,7 @@ export default function IdeasPage() {
   const [busy, setBusy] = useState("");
   const [selectedAngle, setSelectedAngle] = useState<Record<string, string>>({});
   const [generatedPost, setGeneratedPost] = useState("");
+  const [generatedContext, setGeneratedContext] = useState<GeneratedContext | null>(null);
 
   async function loadIdeas() {
     setLoading(true);
@@ -119,6 +126,13 @@ export default function IdeasPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Post generation failed.");
       setGeneratedPost(data.post || "");
+      const selected = idea.idea_radar_angles.find((item) => item.id === angleId);
+      setGeneratedContext({
+        ideaId: idea.id,
+        ideaTitle: idea.title,
+        angleId,
+        angle: selected?.angle || "Selected angle",
+      });
       await loadIdeas();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Post generation failed.");
@@ -160,15 +174,26 @@ export default function IdeasPage() {
 
         {message && <div className="my-5 rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-700">{message}</div>}
 
-        {generatedPost && (() => {
+        {generatedPost && generatedContext && (() => {
+          const cleanSentences = generatedPost
+            .replace(/\s+/g, " ")
+            .split(/(?<=[.!?])\s+/)
+            .map((part) => part.trim())
+            .filter(Boolean);
           const blocks = generatedPost.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-          const cardHeadline = blocks[0] || "Your main idea";
-          const cardBody = blocks.slice(1, Math.max(2, blocks.length - 1)).join("\n\n") || blocks[1] || "";
-          const cardClosing = blocks.length > 2 ? blocks[blocks.length - 1] : "";
+          const cardHeadline = cleanSentences[0] || generatedContext.angle;
+          const cardBody = cleanSentences.slice(1, 3).join(" ") || blocks[1] || "";
+          const cardClosing = cleanSentences.length > 3
+            ? cleanSentences[cleanSentences.length - 1]
+            : generatedContext.angle.replace(/^.*?:\s*/, "").trim();
           return (
             <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
               <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Generated LinkedIn post</div>
+                <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+                  <div className="font-medium text-neutral-900">Based on: {generatedContext.ideaTitle}</div>
+                  <div className="mt-1">Selected angle: {generatedContext.angle}</div>
+                </div>
                 <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
@@ -181,6 +206,10 @@ export default function IdeasPage() {
                           body: cardBody,
                           closing: cardClosing,
                           template: "thought",
+                          ideaId: generatedContext.ideaId,
+                          ideaTitle: generatedContext.ideaTitle,
+                          angleId: generatedContext.angleId,
+                          angle: generatedContext.angle,
                         }),
                       );
                       window.location.href = "/postcard?source=idea-radar";
@@ -271,7 +300,11 @@ export default function IdeasPage() {
                     {idea.idea_radar_angles.map((angle) => (
                       <label key={angle.id} className={selectedAngle[idea.id] === angle.id ? "block cursor-pointer rounded-xl border border-neutral-900 bg-neutral-50 p-3" : "block cursor-pointer rounded-xl border border-neutral-200 p-3 hover:border-neutral-400"}>
                         <div className="flex gap-3">
-                          <input type="radio" name={`angle-${idea.id}`} checked={selectedAngle[idea.id] === angle.id} onChange={() => setSelectedAngle((current) => ({ ...current, [idea.id]: angle.id }))} className="mt-1" />
+                          <input type="radio" name={`angle-${idea.id}`} checked={selectedAngle[idea.id] === angle.id} onChange={() => {
+                            setSelectedAngle((current) => ({ ...current, [idea.id]: angle.id }));
+                            setGeneratedPost("");
+                            setGeneratedContext(null);
+                          }} className="mt-1" />
                           <div>
                             <div className="text-sm font-medium">{angle.angle}</div>
                             <div className="mt-1 text-xs leading-5 text-neutral-500">{angle.why}</div>
