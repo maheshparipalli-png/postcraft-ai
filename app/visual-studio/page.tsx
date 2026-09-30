@@ -14,8 +14,11 @@ function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
   if (!clean) return { headline: "", body: "", closing: "" };
 
-  const paragraphs = clean.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-  const lines = clean.split("\n").map((line) => line.trim()).filter(Boolean);
+  const paragraphs = clean.split(/
+\s*
+/).map((part) => part.trim()).filter(Boolean);
+  const lines = clean.split("
+").map((line) => line.trim()).filter(Boolean);
 
   if (mode === "linkedin") {
     const headline = lines[0] || paragraphs[0] || clean;
@@ -48,14 +51,35 @@ export default function VisualStudioPage() {
 
   const derived = useMemo(() => deriveContent(source, mode), [source, mode]);
 
-  function analyzeIdea() {
+  async function analyzeIdea() {
     if (!source.trim()) return;
-    const next = buildVisualStorytellingPlan(derived, visualStyle);
-    setPlan(next);
+    setPlan(null);
     setImageUrl(null);
     setStoragePath(null);
+    setGeneratedModel(null);
     setSavedId(null);
-    setMessage("One dominant idea extracted. Review the direction, then generate the visual.");
+    setMessage("Understanding your idea and developing the visual direction…");
+
+    try {
+      const response = await fetch("/api/ai/visual-storytelling", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          headline: derived.headline,
+          body: derived.body,
+          closing: derived.closing,
+          visualStyle,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.plan) {
+        throw new Error(data?.error || "Could not develop the visual direction.");
+      }
+      setPlan(data.plan);
+      setMessage("AI developed one visual direction. Review it before generating the visual.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not develop the visual direction.");
+    }
   }
 
   async function generateVisual() {
@@ -81,7 +105,8 @@ export default function VisualStudioPage() {
       if (!image?.url) throw new Error("The image was generated but no stored image URL was returned.");
 
       setImageUrl(image.url);
-      setStoragePath(image.storagePath || null);\n      setGeneratedModel(data?.model || null);
+      setStoragePath(image.storagePath || null);
+      setGeneratedModel(data?.model || null);
       setMessage("Visual generated and stored. The motivational sentence stays outside the image.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not generate the visual.");
@@ -190,8 +215,11 @@ export default function VisualStudioPage() {
                       setImageUrl(null);
                       setStoragePath(null);
                       setSavedId(null);
-                      if (source.trim()) setPlan(buildVisualStorytellingPlan(derived, style.id));
-                      setMessage(plan ? "Style changed. Your idea and visual metaphor were kept." : "Style selected. Extract the visual idea when you are ready.");
+                      setGeneratedModel(null);
+                      setPlan(null);
+                      setMessage(source.trim()
+                        ? "Style changed. Extract the visual idea again so AI can develop the direction for this style."
+                        : "Style selected. Extract the visual idea when you are ready.");
                     }}
                     className={visualStyle === style.id
                       ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white"
