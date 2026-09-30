@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getBillingAccess } from "@/lib/billing/access";
 import { generateAIImage } from "@/lib/ai/image";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
+import { createClient } from "@/lib/supabase/server";
+import { persistGeneratedImage } from "@/lib/postcard/image-storage";
 
 export const maxDuration = 300;
 
@@ -19,6 +21,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+
     const body = await request.json();
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body?.model === "string" ? body.model.trim() : undefined;
@@ -32,12 +38,21 @@ export async function POST(request: Request) {
       numImages: 1,
     });
 
+    const storedImages = await Promise.all(
+      result.images.map((image) => persistGeneratedImage({ userId: user.id, image })),
+    );
+
     return NextResponse.json(
       {
         ok: true,
         provider: result.provider,
         model: result.model,
-        images: result.images,
+        images: storedImages.map((image) => ({
+          url: image.url,
+          storagePath: image.storagePath,
+          mimeType: image.mimeType,
+          size: image.size,
+        })),
       },
       {
         headers: { "Cache-Control": "no-store" },
