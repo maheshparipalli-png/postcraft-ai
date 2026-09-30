@@ -5,6 +5,7 @@ import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { POSTCARD_FIELDS } from "@/lib/postcard/categories";
+import { buildVisualStorytellingPlan } from "@/lib/postcard/visual-storytelling";
 
 type Template = "quote" | "story" | "success" | "person" | "history" | "thought";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
@@ -145,6 +146,12 @@ export default function PostCardPage() {
   const [source, setSource] = useState("Source: PostCard");
   const [photo, setPhoto] = useState<string | null>(null);
   const [background, setBackground] = useState<BackgroundId>("gradient");
+  const [visualImageUrl, setVisualImageUrl] = useState<string | null>(null);
+  const [visualStoragePath, setVisualStoragePath] = useState<string | null>(null);
+  const [visualPrompt, setVisualPrompt] = useState("");
+  const [visualConcept, setVisualConcept] = useState("");
+  const [motivationalSentence, setMotivationalSentence] = useState("");
+  const [visualGenerating, setVisualGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -578,6 +585,39 @@ export default function PostCardPage() {
       setGenerating(false);
     }
   }
+  async function generateVisual() {
+    if (visualGenerating) return;
+    const plan = buildVisualStorytellingPlan({ headline, body, closing });
+    setVisualGenerating(true);
+    setGenerateMessage("");
+    setVisualPrompt(plan.imagePrompt);
+    setVisualConcept(plan.visualConcept);
+    setMotivationalSentence(plan.motivationalSentence);
+
+    try {
+      const response = await fetch("/api/ai/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: plan.imagePrompt,
+          width: 1200,
+          height: 1500,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.images?.[0]?.url) {
+        throw new Error(data?.error || "Could not generate the visual.");
+      }
+      setVisualImageUrl(data.images[0].url);
+      setVisualStoragePath(data.images[0].storagePath || null);
+      setGenerateMessage("Visual generated and stored. You can now save the PostCard.");
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not generate the visual.");
+    } finally {
+      setVisualGenerating(false);
+    }
+  }
+
   async function saveCard() {
     setSaving(true);
     setSaved(false);
@@ -607,6 +647,11 @@ export default function PostCardPage() {
           storySourceTitle: template === "story" ? storySourceTitle : "",
           storySourceUrl: template === "story" ? storySourceUrl : "",
           storyCategory: template === "story" ? storyCategory : "",
+          imageUrl: visualImageUrl,
+          imageStoragePath: visualStoragePath,
+          visualPrompt,
+          motivationalSentence,
+          visualConcept,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -789,6 +834,11 @@ export default function PostCardPage() {
                       setHeadline("");
                       setBody("");
                       setClosing("");
+                      setVisualImageUrl(null);
+                      setVisualStoragePath(null);
+                      setVisualPrompt("");
+                      setVisualConcept("");
+                      setMotivationalSentence("");
                       setQuoteHash(null);
                       setQuoteAuthor("");
                       setStoryHash(null);
@@ -905,7 +955,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">4 / Choose a background</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">5 / Choose a background</div>
               <div className="mt-4 grid grid-cols-4 gap-3">
                 {backgrounds.map((item) => (
                   <button key={item.id} type="button" onClick={() => setBackground(item.id)} className="group text-left">
@@ -917,6 +967,30 @@ export default function PostCardPage() {
                 ))}
               </div>
             </div>
+            <div className="mt-8 border-t border-neutral-300 pt-7">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">4 / Create the visual</div>
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-neutral-500">
+                PostCraft extracts one dominant idea, turns it into a visual metaphor, and generates a 4:5 editorial image. The motivational sentence is kept separate from the image so the design layer can control typography.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={generateVisual}
+                  disabled={visualGenerating || !headline.trim()}
+                  className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+                >
+                  {visualGenerating ? "Generating visual..." : visualImageUrl ? "Regenerate visual →" : "Generate visual →"}
+                </button>
+                {visualImageUrl && <span className="text-xs text-green-700">✓ Stored in PostCraft</span>}
+              </div>
+              {motivationalSentence && (
+                <div className="mt-4 border border-neutral-200 bg-white p-4">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Motivational sentence</div>
+                  <div className="mt-2 text-lg font-medium">{motivationalSentence}</div>
+                </div>
+              )}
+            </div>
+
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <button
                 type="button"
@@ -952,10 +1026,26 @@ export default function PostCardPage() {
           <div className="lg:sticky lg:top-8">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">5 / Live preview</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">6 / Live preview</div>
                 <p className="mt-1 text-sm text-neutral-500">Choose a background on the left to update this preview.</p>
               </div>
               <div className="text-xs text-neutral-400">1080 × 1080</div>
+            </div>
+            <div className="mb-5 overflow-hidden border border-neutral-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,.08)]">
+              {visualImageUrl ? (
+                <div className="relative aspect-[4/5] w-full">
+                  <NextImage src={visualImageUrl} alt={visualConcept || "Generated PostCraft visual"} fill sizes="(max-width: 1024px) 100vw, 50vw" unoptimized className="object-cover" />
+                  {motivationalSentence && (
+                    <div className="absolute bottom-0 left-0 max-w-[82%] p-6 text-2xl font-semibold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.55)]">
+                      {motivationalSentence}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex aspect-[4/5] items-center justify-center p-8 text-center text-sm text-neutral-400">
+                  Generate a visual to preview your 4:5 PostCard.
+                </div>
+              )}
             </div>
             <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
               <div className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg(background) }} />
