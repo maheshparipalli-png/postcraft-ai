@@ -599,11 +599,19 @@ export default function PostCardPage() {
       if (!analysisResponse.ok || !analysisData?.plan) {
         throw new Error(analysisData?.error || "Could not develop the visual direction.");
       }
-      const plan = analysisData.plan;
+
+      const plan = analysisData.plan as {
+        imagePrompt?: string;
+        visualConcept?: string;
+        motivationalSentence?: string;
+      };
+      if (!plan.imagePrompt || !plan.visualConcept || !plan.motivationalSentence) {
+        throw new Error("Visual storytelling AI returned an incomplete plan.");
+      }
+
       setVisualPrompt(plan.imagePrompt);
       setVisualConcept(plan.visualConcept);
       setMotivationalSentence(plan.motivationalSentence);
-
       const response = await fetch("/api/ai/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
