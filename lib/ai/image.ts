@@ -1,7 +1,10 @@
-import { getRuntimeAIConfig } from "./config";
+import { getRuntimeImageConfigs } from "./image-config";
 import { AIProviderError } from "./errors";
 
-export const DEFAULT_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
+export const DEFAULT_IMAGE_MODELS = {
+  freellmapi: "@cf/black-forest-labs/flux-2-klein-4b",
+  openai: "gpt-image-2",
+} as const;
 
 export type AIImageOptions = {
   model?: string;
@@ -11,12 +14,9 @@ export type AIImageOptions = {
 };
 
 export type AIImageResult = {
+  provider: string;
   model: string;
-  images: Array<{
-    url?: string;
-    b64Json?: string;
-    mimeType: string;
-  }>;
+  images: Array<{ url?: string; b64Json?: string; mimeType: string }>;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -38,162 +38,157 @@ function errorMessage(data: JsonRecord | null, fallback: string) {
 function validateDimension(value: number | undefined, fallback: number) {
   if (value === undefined) return fallback;
   if (!Number.isInteger(value) || value < 256 || value > 1536) {
-    throw new AIProviderError(
-      "bad_request",
-      "Image width and height must be whole numbers between 256 and 1536.",
-      { provider: "FreeLLMAPI" },
-    );
+    throw new AIProviderError("bad_request", "Image width and height must be whole numbers between 256 and 1536.", {
+      provider: "Image provider",
+    });
   }
   return value;
 }
 
-export async function generateAIImage(
-  prompt: string,
-  options: AIImageOptions = {},
-): Promise<AIImageResult> {
-  const cleanPrompt = prompt.trim();
-  if (!cleanPrompt) {
-    throw new AIProviderError("bad_request", "Image prompt is required.", { provider: "FreeLLMAPI" });
-  }
-  if (cleanPrompt.length > 8000) {
-    throw new AIProviderError("bad_request", "Image prompt is too long.", { provider: "FreeLLMAPI" });
-  }
-
-  const config = await getRuntimeAIConfig();
-  if (!config || config.provider !== "freellmapi") {
-    throw new AIProviderError(
-      "invalid_config",
-      "FreeLLMAPI must be the active PostCraft AI provider before image generation can run.",
-      { provider: "FreeLLMAPI" },
-    );
-  }
-  if (!config.baseUrl) {
-    throw new AIProviderError("invalid_config", "FreeLLMAPI Base URL is not configured.", { provider: "FreeLLMAPI" });
-  }
-  if (!config.apiKey) {
-    throw new AIProviderError("missing_api_key", "FreeLLMAPI API key is not configured.", { provider: "FreeLLMAPI" });
-  }
-
-  const model = options.model?.trim() || DEFAULT_IMAGE_MODEL;
-  if (!model.startsWith("@cf/")) {
-    throw new AIProviderError(
-      "bad_request",
-      "Image generation currently accepts Cloudflare Workers AI image models only.",
-      { provider: "FreeLLMAPI", model },
-    );
-  }
-
-  const width = validateDimension(options.width, 1024);
-  const height = validateDimension(options.height, 1024);
-  const numImages = options.numImages ?? 1;
-
-  if (!Number.isInteger(numImages) || numImages < 1 || numImages > 1) {
-    throw new AIProviderError("bad_request", "Only one image can be generated per request.", { provider: "FreeLLMAPI" });
-  }
-
+async function requestJson(url: string, apiKey: string, body: JsonRecord, provider: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 180_000);
   timer.unref?.();
 
-  let response: Response;
   try {
-    response = await fetch(`${normalizeBaseUrl(config.baseUrl)}/images/generations`, {
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        prompt: cleanPrompt,
-        width,
-        height,
-        num_images: numImages,
-      }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
       cache: "no-store",
       signal: controller.signal,
     });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new AIProviderError("timeout", "FreeLLMAPI image generation timed out.", {
-        provider: "FreeLLMAPI",
-        retryable: false,
-        cause: error,
-      });
+    const responseText = await response.text();
+    let data: JsonRecord | null = null;
+    try {
+      const parsed: unknown = JSON.parse(responseText);
+      data = parsed && typeof parsed === "object" ? parsed as JsonRecord : null;
+    } catch {}
+
+    if (!response.ok) {
+      const message = errorMessage(data, responseText.slice(0, 500));
+      if (response.status === 401 || response.status === 403) {
+        throw new AIProviderError("invalid_api_key", `${provider} rejected the configured API key.`, { provider, status: response.status });
+      }
+      if (response.status === 429) {
+        throw new AIProviderError("rate_limited", `${provider} image generation is rate-limited: ${message}`, { provider, status: response.status, retryable: true });
+      }
+      if ([502, 503, 504].includes(response.status)) {
+        throw new AIProviderError("gateway_unavailable", `${provider} image service is unavailable: ${message}`, { provider, status: response.status, retryable: true });
+      }
+      throw new AIProviderError("provider_error", `${provider} image request failed (${response.status}): ${message}`, { provider, status: response.status });
     }
-    throw new AIProviderError("network", "Could not reach FreeLLMAPI for image generation.", {
-      provider: "FreeLLMAPI",
-      retryable: false,
-      cause: error,
-    });
+
+    if (!data) {
+      throw new AIProviderError("malformed_response", `${provider} returned a non-JSON image response.`, { provider });
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof AIProviderError) throw error;
+    if (controller.signal.aborted) {
+      throw new AIProviderError("timeout", `${provider} image generation timed out.`, { provider });
+    }
+    throw new AIProviderError("network", `Could not reach ${provider} for image generation.`, { provider });
   } finally {
     clearTimeout(timer);
   }
+}
 
-  const responseText = await response.text();
-  let data: JsonRecord | null = null;
-  try {
-    const parsed: unknown = JSON.parse(responseText);
-    data = parsed && typeof parsed === "object" ? parsed as JsonRecord : null;
-  } catch {
-    // handled below
-  }
-
-  if (!response.ok) {
-    const message = errorMessage(data, responseText.slice(0, 500));
-    if (response.status === 401 || response.status === 403) {
-      throw new AIProviderError("invalid_api_key", "FreeLLMAPI rejected the configured API key.", {
-        provider: "FreeLLMAPI",
-        status: response.status,
-      });
-    }
-    if (response.status === 429) {
-      throw new AIProviderError("rate_limited", `FreeLLMAPI image generation is rate-limited: ${message}`, {
-        provider: "FreeLLMAPI",
-        status: response.status,
-        retryable: true,
-      });
-    }
-    if (response.status === 502 || response.status === 503 || response.status === 504) {
-      throw new AIProviderError("gateway_unavailable", `FreeLLMAPI image service is unavailable: ${message}`, {
-        provider: "FreeLLMAPI",
-        status: response.status,
-        retryable: true,
-      });
-    }
-    throw new AIProviderError("provider_error", `FreeLLMAPI image request failed (${response.status}): ${message}`, {
-      provider: "FreeLLMAPI",
-      status: response.status,
-    });
-  }
-
-  if (!data) {
-    throw new AIProviderError("malformed_response", "FreeLLMAPI returned a non-JSON image response.", {
-      provider: "FreeLLMAPI",
-    });
-  }
-
+function parseImages(data: JsonRecord, provider: string) {
   const rawImages = Array.isArray(data.data) ? data.data : [];
-  const images = rawImages
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const record = item as JsonRecord;
-      const b64Json = typeof record.b64_json === "string" ? record.b64_json : undefined;
-      const url = typeof record.url === "string" ? record.url : undefined;
-      if (!b64Json && !url) return null;
-      return {
-        ...(url ? { url } : {}),
-        ...(b64Json ? { b64Json } : {}),
-        mimeType: typeof record.mime_type === "string" ? record.mime_type : "image/jpeg",
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const images = rawImages.map((item) => {
+    if (!item || typeof item !== "object") return null;
+    const record = item as JsonRecord;
+    const b64Json = typeof record.b64_json === "string" ? record.b64_json : undefined;
+    const url = typeof record.url === "string" ? record.url : undefined;
+    if (!b64Json && !url) return null;
+    return {
+      ...(url ? { url } : {}),
+      ...(b64Json ? { b64Json } : {}),
+      mimeType: typeof record.mime_type === "string" ? record.mime_type : "image/png",
+    };
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   if (!images.length) {
-    throw new AIProviderError("malformed_response", "FreeLLMAPI returned no generated images.", {
-      provider: "FreeLLMAPI",
-    });
+    throw new AIProviderError("malformed_response", `${provider} returned no generated images.`, { provider });
+  }
+  return images;
+}
+
+async function generateWithProvider(config: {
+  provider: "freellmapi" | "openai";
+  baseUrl: string | null;
+  model: string;
+  apiKey: string;
+}, prompt: string, width: number, height: number) {
+  const provider = config.provider === "freellmapi" ? "FreeLLMAPI" : "OpenAI";
+  const baseUrl = normalizeBaseUrl(config.baseUrl || (config.provider === "openai" ? "https://api.openai.com/v1" : ""));
+  if (!baseUrl) {
+    throw new AIProviderError("invalid_config", `${provider} Base URL is not configured.`, { provider });
   }
 
-  return { model, images };
+  if (config.provider === "freellmapi") {
+    if (!config.model.startsWith("@cf/")) {
+      throw new AIProviderError("bad_request", "FreeLLMAPI image models must use a Cloudflare Workers AI model ID.", { provider, model: config.model });
+    }
+    const data = await requestJson(`${baseUrl}/images/generations`, config.apiKey, {
+      model: config.model,
+      prompt,
+      width,
+      height,
+      num_images: 1,
+    }, provider);
+    return parseImages(data, provider);
+  }
+
+  const data = await requestJson(`${baseUrl}/images/generations`, config.apiKey, {
+    model: config.model,
+    prompt,
+    size: `${width}x${height}`,
+    n: 1,
+  }, provider);
+  return parseImages(data, provider);
+}
+
+export async function generateAIImage(prompt: string, options: AIImageOptions = {}): Promise<AIImageResult> {
+  const cleanPrompt = prompt.trim();
+  if (!cleanPrompt) throw new AIProviderError("bad_request", "Image prompt is required.", { provider: "Image provider" });
+  if (cleanPrompt.length > 8000) throw new AIProviderError("bad_request", "Image prompt is too long.", { provider: "Image provider" });
+
+  const configs = await getRuntimeImageConfigs();
+  if (!configs.length) {
+    throw new AIProviderError(
+      "invalid_config",
+      "No image provider is configured. Configure FreeLLMAPI or OpenAI under AI Configuration.",
+      { provider: "Image Router" },
+    );
+  }
+
+  const width = validateDimension(options.width, 1200);
+  const height = validateDimension(options.height, 1500);
+  const candidates = options.model ? configs.filter((config) => config.model === options.model) : configs;
+
+  if (!candidates.length) {
+    throw new AIProviderError("invalid_config", `The requested image model "${options.model}" is not configured.`, { provider: "Image Router" });
+  }
+
+  const failures: string[] = [];
+  for (const config of candidates) {
+    try {
+      const images = await generateWithProvider(config, cleanPrompt, width, height);
+      return { provider: config.provider, model: config.model, images };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${config.provider}: ${message}`);
+      console.warn("[PostCraft] image provider failed; trying next provider", {
+        provider: config.provider,
+        model: config.model,
+        message,
+      });
+    }
+  }
+
+  throw new AIProviderError("provider_error", `All configured image providers failed. ${failures.join(" | ")}`, {
+    provider: "Image Router",
+  });
 }
