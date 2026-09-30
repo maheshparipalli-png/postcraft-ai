@@ -71,33 +71,36 @@ export async function POST() {
   const results = await Promise.all((sources ?? []).map(async (source) => {
     try {
       const items = await fetchFeed(source.url);
-    let added = 0;
-    for (const item of items.slice(0, 15)) {
-      const canonicalUrl = item.link.split("#")[0].trim();
-      const normalizedTitle = normalizeTitle(item.title);
-      const contentHash = normalizeTitle(item.title + " " + item.summary).slice(0, 500);
-      const { data: existing } = await admin
-        .from("idea_radar_feed_items")
-        .select("id")
-        .or("canonical_url.eq." + canonicalUrl + ",normalized_title.eq." + normalizedTitle)
-        .limit(1);
+      let added = 0;
 
-      if (existing?.length) continue;
+      for (const item of items.slice(0, 15)) {
+        const canonicalUrl = item.link.split("#")[0].trim();
+        const normalizedTitle = normalizeTitle(item.title);
+        const contentHash = normalizeTitle(item.title + " " + item.summary).slice(0, 500);
+        const { data: existing } = await admin
+          .from("idea_radar_feed_items")
+          .select("id")
+          .or("canonical_url.eq." + canonicalUrl + ",normalized_title.eq." + normalizedTitle)
+          .limit(1);
 
-      const { data: inserted } = await admin.from("idea_radar_feed_items").insert({
-        source_id: source.id,
-        canonical_url: canonicalUrl,
-        normalized_title: normalizedTitle,
-        title: item.title,
-        description: item.summary,
-        source_name: source.name,
-        source_url: canonicalUrl,
-        published_at: item.publishedAt,
-        category: source.category,
-        content_hash: contentHash,
-      }).select("id").single();
+        if (existing?.length) continue;
 
-      if (inserted) added += 1;
+        const { data: inserted } = await admin.from("idea_radar_feed_items").insert({
+          source_id: source.id,
+          canonical_url: canonicalUrl,
+          normalized_title: normalizedTitle,
+          title: item.title,
+          description: item.summary,
+          source_name: source.name,
+          source_url: canonicalUrl,
+          published_at: item.publishedAt,
+          category: source.category,
+          content_hash: contentHash,
+        }).select("id").single();
+
+        if (inserted) added += 1;
+      }
+
       return { source: source.name, added, ok: true };
     } catch (error) {
       return {
@@ -108,7 +111,6 @@ export async function POST() {
       };
     }
   }));
-
   const { data: candidates } = await admin
     .from("idea_radar_feed_items")
     .select("id,title,description,source_name,source_url,published_at,category")
