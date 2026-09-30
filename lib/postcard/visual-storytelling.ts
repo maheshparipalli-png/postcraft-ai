@@ -4,6 +4,8 @@ export type VisualStorytellingInput = {
   closing: string;
 };
 
+export type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor";
+
 export type VisualStorytellingPlan = {
   coreTheme: string;
   emotionalMessage: string;
@@ -26,7 +28,7 @@ function words(value: string) {
 }
 
 function sentenceFromClosing(closing: string, sourceText: string) {
-  const source = clean(closing).replace(/^["'“”]+|["'“”]+$/g, "");
+  const source = clean(closing).replace(/^[\"'“”]+|[\"'“”]+$/g, "");
   if (source) {
     const list = words(source).slice(0, 12);
     return list.join(" ").replace(/[.!?]+$/, "") + ".";
@@ -67,13 +69,44 @@ function inferCoreTheme(sourceText: string, headline: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function buildVisualStorytellingPlan(input: VisualStorytellingInput): VisualStorytellingPlan {
+const STYLE_DETAILS: Record<VisualStyle, { label: string; prompt: string }> = {
+  editorial: {
+    label: "Premium cinematic editorial photography",
+    prompt: "Photorealistic premium editorial photograph, natural textures, realistic human proportions, atmospheric depth, natural lighting, controlled depth of field.",
+  },
+  cartoon: {
+    label: "Sophisticated editorial cartoon illustration",
+    prompt: "Sophisticated editorial cartoon illustration, expressive but believable human forms, clean confident linework, refined shapes, subtle dimensional shading, restrained premium palette, intelligent visual storytelling, polished magazine illustration quality.",
+  },
+  "hand-drawn": {
+    label: "Hand-drawn editorial illustration",
+    prompt: "Hand-drawn editorial illustration, elegant ink and pencil texture, organic line variation, subtle paper grain, refined composition, human warmth, restrained sophisticated palette, polished magazine illustration quality.",
+  },
+  "3d": {
+    label: "Cinematic 3D illustration",
+    prompt: "Cinematic 3D illustration, believable stylized forms, refined materials, soft realistic lighting, subtle depth, premium visual design, restrained colors, sophisticated editorial advertising aesthetic.",
+  },
+  anime: {
+    label: "Cinematic anime illustration",
+    prompt: "Cinematic anime-inspired editorial illustration, expressive but restrained character design, elegant composition, refined linework, atmospheric depth, sophisticated lighting, mature magazine-art direction rather than childish cartoon styling.",
+  },
+  watercolor: {
+    label: "Editorial watercolor illustration",
+    prompt: "Editorial watercolor illustration, expressive brushwork, delicate paper texture, controlled washes, subtle ink accents, atmospheric depth, sophisticated muted palette, premium magazine illustration aesthetic.",
+  },
+};
+
+export function buildVisualStorytellingPlan(
+  input: VisualStorytellingInput,
+  visualStyle: VisualStyle = "editorial",
+): VisualStorytellingPlan {
   const headline = clean(input.headline);
   const body = clean(input.body);
   const closing = clean(input.closing);
   const source = [headline, body, closing].filter(Boolean).join(" ");
   const coreTheme = inferCoreTheme(source, headline || body || closing);
   const lower = source.toLowerCase();
+  const style = STYLE_DETAILS[visualStyle];
 
   let emotionalMessage = "The courage to act on what matters.";
   let visualConcept = "A lone person choosing a clear path while the world around them moves in another direction.";
@@ -104,18 +137,17 @@ export function buildVisualStorytellingPlan(input: VisualStorytellingInput): Vis
   }
 
   const imagePrompt = [
-    "Premium editorial photograph for a LinkedIn thought-leadership post.",
+    style.prompt,
     visualConcept,
     `Core idea: ${coreTheme}.`,
     `Emotional idea: ${emotionalMessage}`,
     "Communicate the idea visually without any words or typography inside the image.",
     "Absolutely no readable text, letters, numbers, captions, signs, posters, book pages, labels, logos, watermarks, or typographic marks anywhere in the image.",
     "Single dominant subject, strong visual hierarchy, meaningful movement or direction, subtle symbolism, cinematic composition.",
-    "Photorealistic, natural textures, realistic human proportions, atmospheric depth, natural lighting, controlled depth of field.",
     colorDirection,
     "Leave clean, visually simple negative space in the lower-left area for a short motivational sentence to be added later by PostCraft.",
-    "No signage, no written surfaces, no stock-photo look, no cartoon style, no excessive technology, no clutter.",
-    "Vertical 4:5 editorial composition, sophisticated and memorable.",
+    "No signage, no written surfaces, no stock-photo look, no clutter, no generic corporate imagery.",
+    "Vertical 4:5 composition, sophisticated and memorable.",
   ].join(" ");
 
   return {
@@ -125,7 +157,7 @@ export function buildVisualStorytellingPlan(input: VisualStorytellingInput): Vis
     imagePrompt,
     motivationalSentence: sentenceFromClosing(closing, source),
     textPlacement: "bottom-left",
-    visualStyle: "Premium cinematic editorial photography, photorealistic, natural textures, atmospheric depth.",
+    visualStyle: style.label,
     colorDirection,
     negativeSpaceLocation: "lower-left",
     aspectRatio: "4:5",
