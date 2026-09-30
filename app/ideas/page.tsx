@@ -64,8 +64,8 @@ export default function IdeasPage() {
       const failureSummary = data.sourceFailures || data.analysisErrors?.length
         ? ` ${data.sourceFailures ?? 0} feed failures, ${data.analysisErrors?.length ?? 0} analysis errors.`
         : "";
-      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}`);
       await loadIdeas();
+      setMessage(`Radar refreshed: ${sourceSummary}; ${analysisSummary}.${failureSummary}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Refresh failed.");
     } finally {
