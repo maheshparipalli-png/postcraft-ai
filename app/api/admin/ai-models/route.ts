@@ -38,8 +38,6 @@ export async function GET() {
   if (!access.allowed) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const textConfig = await getRuntimeAIConfig();
-  const imageConfigs = await getRuntimeImageConfigs();
-
   const textModels: Array<{ id: string; provider: string; source: string }> = [];
   const discoveryErrors: string[] = [];
 
@@ -60,8 +58,9 @@ export async function GET() {
     verified: boolean;
   }>();
 
-  for (const config of imageConfigs) {
-    for (const model of getVerifiedImageModels(config.provider)) {
+  // Inventory the verified catalog even before a provider is configured.
+  for (const provider of ["freellmapi", "openai"] as const) {
+    for (const model of getVerifiedImageModels(provider)) {
       imageModels.set(`${model.provider}:${model.id}`, {
         id: model.id,
         name: model.name,
