@@ -43,6 +43,10 @@ export default function AISettingsPage() {
   const [imagePriority, setImagePriority] = useState("10");
   const [imageEnabled, setImageEnabled] = useState(true);
   const [imageSaving, setImageSaving] = useState(false);
+  const [availableTextModels, setAvailableTextModels] = useState<Array<{ id: string; provider: string; source: string }>>([]);
+  const [availableImageModels, setAvailableImageModels] = useState<Array<{ id: string; name: string; provider: string; source: string; verified: boolean }>>([]);
+  const [modelDiscoveryLoading, setModelDiscoveryLoading] = useState(false);
+  const [modelDiscoveryMessage, setModelDiscoveryMessage] = useState("");
   const [provider, setProvider] = useState("ollama");
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
@@ -73,6 +77,32 @@ export default function AISettingsPage() {
       throw new Error(
         `Request failed (HTTP ${response.status}). The server returned an invalid response.`,
       );
+    }
+  }
+
+  async function discoverModels() {
+    setModelDiscoveryLoading(true);
+    setModelDiscoveryMessage("");
+    try {
+      const response = await fetch("/api/admin/ai-models", { cache: "no-store" });
+      const data = await response.json() as {
+        textModels?: Array<{ id: string; provider: string; source: string }>;
+        imageModels?: Array<{ id: string; name: string; provider: string; source: string; verified: boolean }>;
+        discoveryErrors?: string[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error || "Unable to discover models.");
+      setAvailableTextModels(data.textModels || []);
+      setAvailableImageModels(data.imageModels || []);
+      setModelDiscoveryMessage(
+        data.discoveryErrors?.length
+          ? data.discoveryErrors.join(" ")
+          : `Discovered ${data.textModels?.length || 0} live text models and ${data.imageModels?.length || 0} verified image models.`,
+      );
+    } catch (e) {
+      setModelDiscoveryMessage(e instanceof Error ? e.message : "Model discovery failed.");
+    } finally {
+      setModelDiscoveryLoading(false);
     }
   }
 
@@ -319,11 +349,22 @@ export default function AISettingsPage() {
                 </span>
                 <input
                   id="ai-model"
+                  list="available-text-models"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g. gpt-oss-120b"
+                  placeholder="Choose or enter a model ID"
                   className="border border-neutral-300 bg-white px-3 py-3 font-mono text-sm"
                 />
+                <datalist id="available-text-models">
+                  {availableTextModels
+                    .filter((item) => item.provider === provider)
+                    .map((item) => <option key={item.id} value={item.id} />)}
+                </datalist>
+                {availableTextModels.length > 0 && (
+                  <span className="text-xs text-neutral-500">
+                    {availableTextModels.filter((item) => item.provider === provider).length} live models discovered for {provider}.
+                  </span>
+                )}
               </label>
 
               {provider !== "ollama" && (
@@ -388,6 +429,26 @@ export default function AISettingsPage() {
             </section>
 
             <section className="border border-neutral-300 bg-white/60 p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Model catalogue</div>
+                  <p className="mt-2 text-xs leading-5 text-neutral-500">
+                    Discover the models exposed by your configured OpenAI-compatible provider. Image models are maintained as a verified catalogue.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={discoverModels}
+                  disabled={modelDiscoveryLoading || loading}
+                  className="border border-neutral-900 px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  {modelDiscoveryLoading ? "Discovering…" : "Discover models"}
+                </button>
+              </div>
+              {modelDiscoveryMessage && <div className="mt-3 border border-neutral-300 bg-white p-3 text-xs">{modelDiscoveryMessage}</div>}
+            </section>
+
+            <section className="border border-neutral-300 bg-white/60 p-6">
               <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Visual Storytelling · Image Providers</div>
               <h2 className="mt-2 text-xl font-medium">Image generation fallback</h2>
               <p className="mt-2 max-w-2xl text-xs leading-5 text-neutral-500">
@@ -431,12 +492,19 @@ export default function AISettingsPage() {
 
                 <label className="grid gap-2" htmlFor="image-model">
                   <span className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Image model</span>
-                  <input
+                  <select
                     id="image-model"
                     value={imageModel}
                     onChange={(e) => setImageModel(e.target.value)}
                     className="border border-neutral-300 bg-white px-3 py-3 font-mono text-sm"
-                  />
+                  >
+                    {availableImageModels.filter((item) => item.provider === imageProvider).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} — {item.id}</option>
+                    ))}
+                    {!availableImageModels.some((item) => item.provider === imageProvider && item.id === imageModel) && (
+                      <option value={imageModel}>{imageModel} — current</option>
+                    )}
+                  </select>
                 </label>
 
                 <div className="grid gap-5 sm:grid-cols-2">
