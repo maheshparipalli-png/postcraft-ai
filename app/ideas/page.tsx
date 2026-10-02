@@ -3,21 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { IDEA_CATEGORIES } from "@/lib/idea-radar/sources";
-import { buildIdeaRadarPostcardContent } from "@/lib/postcard/idea-radar";
 
 type Angle = { id: string; angle: string; why: string; evidence: string };
-type GeneratedContext = {
-  ideaId: string;
-  ideaTitle: string;
-  angleId: string;
-  angle: string;
-};
-type QualityCheck = {
-  key: string;
-  label: string;
-  passed: boolean;
-  detail: string;
-};
 type Idea = {
   id: string;
   title: string;
@@ -41,11 +28,6 @@ export default function IdeasPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState("");
-  const [selectedAngle, setSelectedAngle] = useState<Record<string, string>>({});
-  const [generatedPost, setGeneratedPost] = useState("");
-  const [generatedContext, setGeneratedContext] = useState<GeneratedContext | null>(null);
-  const [qualityChecks, setQualityChecks] = useState<QualityCheck[]>([]);
 
   async function loadIdeas() {
     setLoading(true);
@@ -87,8 +69,8 @@ export default function IdeasPage() {
     }
   }
 
-  async function action(ideaId: string, actionName: "save" | "hide" | "used" | "angles") {
-    setBusy(ideaId + actionName);
+  async function action(ideaId: string, actionName: "save" | "hide" | "used") {
+    setMessage("");
     try {
       const response = await fetch("/api/ideas", {
         method: "POST",
@@ -97,52 +79,9 @@ export default function IdeasPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Action failed.");
-      if (actionName === "angles") {
-        setIdeas((current) => current.map((idea) => idea.id === ideaId ? {
-          ...idea,
-          idea_radar_angles: data.angles ?? [],
-        } : idea));
-      } else {
-        await loadIdeas();
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Action failed.");
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function generatePost(idea: Idea, requestedAngleId?: string) {
-    const angleId = requestedAngleId || selectedAngle[idea.id] || idea.idea_radar_angles[0]?.id;
-    if (!angleId) {
-      setMessage("Select an angle first.");
-      return;
-    }
-    setBusy("post:" + idea.id);
-    setGeneratedPost("");
-    setQualityChecks([]);
-    try {
-      const response = await fetch("/api/ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate-post", ideaId: idea.id, angleId }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Post generation failed.");
-      setGeneratedPost(data.post || "");
-      setQualityChecks(data.quality ?? []);
-      const selected = idea.idea_radar_angles.find((item) => item.id === angleId);
-      setGeneratedContext({
-        ideaId: idea.id,
-        ideaTitle: idea.title,
-        angleId,
-        angle: selected?.angle || "Selected angle",
-      });
       await loadIdeas();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Post generation failed.");
-    } finally {
-      setBusy("");
+      setMessage(error instanceof Error ? error.message : "Action failed.");
     }
   }
 
@@ -167,13 +106,9 @@ export default function IdeasPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 border-b border-neutral-300 py-5">
-          {["All", ...IDEA_CATEGORIES].map((item) => (
+          {["All", ...IDEA_CATEGORIES.filter((item) => item !== "Business" && item !== "AI & Technology")].map((item) => (
             <button key={item} onClick={() => {
               setCategory(item);
-              setSelectedAngle({});
-              setGeneratedPost("");
-              setGeneratedContext(null);
-              setQualityChecks([]);
               setMessage("");
             }} className={category === item ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600 hover:border-neutral-900"}>
               {item}
@@ -181,10 +116,6 @@ export default function IdeasPage() {
           ))}
           <button onClick={() => {
             setSavedOnly((value) => !value);
-            setSelectedAngle({});
-            setGeneratedPost("");
-            setGeneratedContext(null);
-            setQualityChecks([]);
             setMessage("");
           }} className={savedOnly ? "rounded-full bg-neutral-900 px-3 py-2 text-xs text-white" : "rounded-full border border-neutral-300 px-3 py-2 text-xs text-neutral-600"}>
             Saved
@@ -193,80 +124,6 @@ export default function IdeasPage() {
 
         {message && <div className="my-5 rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-700">{message}</div>}
 
-        {generatedPost && generatedContext && (() => {
-          const postcard = buildIdeaRadarPostcardContent(generatedPost, generatedContext.angle);
-          const cardHeadline = postcard.headline;
-          const cardBody = postcard.body;
-          const cardClosing = postcard.closing;
-          return (
-            <section className="my-7 grid gap-6 lg:grid-cols-[1.05fr_.95fr]">
-              <div className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-8">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">Generated LinkedIn post</div>
-                <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
-                  <div className="font-medium text-neutral-900">Based on: {generatedContext.ideaTitle}</div>
-                  <div className="mt-1">Selected angle: {generatedContext.angle}</div>
-                </div>
-                <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7">{generatedPost}</div>
-                {qualityChecks.length > 0 && (
-                  <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-400">Quality checks</div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {qualityChecks.map((check) => (
-                        <div key={check.key} className="flex items-start gap-2 text-xs">
-                          <span className={check.passed ? "mt-0.5 text-green-700" : "mt-0.5 text-red-600"}>{check.passed ? "✓" : "!"}</span>
-                          <div>
-                            <div className="font-medium text-neutral-900">{check.label}</div>
-                            <div className="mt-0.5 text-neutral-500">{check.detail}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button onClick={() => navigator.clipboard?.writeText(generatedPost)} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-medium hover:border-neutral-900">Copy post</button>
-                  <button
-                    onClick={() => {
-                      window.sessionStorage.setItem(
-                        "postcraft-idea-radar-postcard",
-                        JSON.stringify({
-                          headline: cardHeadline,
-                          body: cardBody,
-                          closing: cardClosing,
-                          template: "thought",
-                          ideaId: generatedContext.ideaId,
-                          ideaTitle: generatedContext.ideaTitle,
-                          angleId: generatedContext.angleId,
-                          angle: generatedContext.angle,
-                        }),
-                      );
-                      window.location.href = "/postcard?source=idea-radar";
-                    }}
-                    className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white"
-                  >
-                    Open in PostCard Studio →
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-300 bg-[#151515] p-6 text-white sm:p-8">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-400">PostCard</div>
-                <div className="mt-12 flex min-h-[430px] flex-col justify-between">
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">THOUGHT EXPERIMENT</div>
-                    <h3 className="mt-7 font-serif text-4xl leading-[1.02] tracking-[-0.03em]">{cardHeadline}</h3>
-                    {cardBody && <p className="mt-7 whitespace-pre-wrap text-sm leading-6 text-neutral-300">{cardBody}</p>}
-                  </div>
-                  {cardClosing && (
-                    <div className="mt-8 border-t border-white/20 pt-5 text-sm font-medium leading-6 text-white">
-                      {cardClosing}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          );
-        })()}
 
         {loading ? (
           <div className="py-20 text-center text-sm text-neutral-500">Loading ideas…</div>
@@ -278,7 +135,7 @@ export default function IdeasPage() {
           </div>
         ) : (
           <div className="grid gap-5 pt-7 lg:grid-cols-2">
-            {ideas.map((idea) => (
+            {ideas.filter((idea) => idea.category !== "Business" && idea.category !== "AI & Technology").map((idea) => (
               <article key={idea.id} className="rounded-2xl border border-neutral-300 bg-white p-6 sm:p-7">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-wrap gap-2">
@@ -312,51 +169,12 @@ export default function IdeasPage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button onClick={() => action(idea.id, "angles")} disabled={busy === idea.id + "angles"} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium disabled:opacity-50">
-                    {busy === idea.id + "angles" ? "Generating…" : "Generate 5 Angles"}
-                  </button>
-                  <button onClick={() => action(idea.id, "save")} disabled={busy === idea.id + "save"} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium">
+                  <button onClick={() => action(idea.id, "save")} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium">
                     {idea.actions.includes("saved") ? "Saved" : "Save"}
                   </button>
                   <button onClick={() => action(idea.id, "hide")} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium">Hide</button>
                   <button onClick={() => action(idea.id, "used")} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-medium">Mark Used</button>
                 </div>
-
-                {idea.idea_radar_angles?.length > 0 && (
-                  <div className="mt-6 space-y-3">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-400">Possible angles</div>
-                    {idea.idea_radar_angles.map((angle) => (
-                      <label key={angle.id} className={selectedAngle[idea.id] === angle.id ? "block cursor-pointer rounded-xl border border-neutral-900 bg-neutral-50 p-3" : "block cursor-pointer rounded-xl border border-neutral-200 p-3 hover:border-neutral-400"}>
-                        <div className="flex gap-3">
-                          <input
-                            type="radio"
-                            name="idea-radar-angle"
-                            checked={selectedAngle[idea.id] === angle.id}
-                            onChange={() => {
-                              setSelectedAngle({ [idea.id]: angle.id });
-                              setGeneratedPost("");
-                              setGeneratedContext(null);
-                              setQualityChecks([]);
-                              setMessage("");
-                            }}
-                            className="mt-1"
-                          />
-                          <div>
-                            <div className="text-sm font-medium">{angle.angle}</div>
-                            <div className="mt-1 text-xs leading-5 text-neutral-500">{angle.why}</div>
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                    <button
-                      onClick={() => generatePost(idea)}
-                      disabled={busy === "post:" + idea.id || !selectedAngle[idea.id]}
-                      className="rounded-full bg-neutral-900 px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50"
-                    >
-                      {busy === "post:" + idea.id ? "Writing post…" : "Generate Post"}
-                    </button>
-                  </div>
-                )}
               </article>
             ))}
           </div>
