@@ -18,9 +18,10 @@ export async function POST(request: Request) {
     const sourceBody=typeof body?.body==="string"?body.body.trim():"";
     const closing=typeof body?.closing==="string"?body.closing.trim():"";
     const visualStyle=typeof body?.visualStyle==="string"?body.visualStyle as VisualStyle:"editorial";
+    const conceptIndex=Number.isInteger(body?.conceptIndex) && body.conceptIndex >= 0 && body.conceptIndex <= 3 ? body.conceptIndex : 0;
     if(!headline&&!sourceBody) return NextResponse.json({error:"Add an idea or LinkedIn post first."},{status:400});
     if(!styles.has(visualStyle)) return NextResponse.json({error:"Unsupported visual style."},{status:400});
-    const plan=await generateVisualStorytellingPlan({headline,body:sourceBody,closing},visualStyle);
+    const plan=await generateVisualStorytellingPlan({headline,body:sourceBody,closing},visualStyle,conceptIndex);
     return NextResponse.json({ok:true,plan},{headers:{"Cache-Control":"no-store"}});
   } catch(error) {
     console.error("[PostCraft] visual storytelling failed",{message:error instanceof Error?error.message:String(error)});

@@ -61,6 +61,7 @@ function field(value: unknown, name: string) {
 export async function generateVisualStorytellingPlan(
   input: VisualStorytellingInput,
   visualStyle: VisualStyle,
+  conceptIndex = 0,
 ): Promise<VisualStorytellingPlan> {
   const provider = await getAIProvider();
   const prompt = `You are PostCraft's Visual Storytelling Director.
@@ -73,6 +74,8 @@ Body: ${input.body}
 Closing: ${input.closing || "(none)"}
 
 VISUAL STYLE: ${visualStyle}
+
+CONCEPT VARIATION: ${conceptIndex + 1} of 4. Create a genuinely different visual metaphor from the other variations: variation 1 favors a human-scale intimate moment; variation 2 favors a striking environmental or architectural metaphor; variation 3 favors a meaningful object or symbolic transformation; variation 4 favors an unexpected perspective or visual contrast. Do not mention these labels in the result. Avoid common stock metaphors.
 
 Identify ONE core idea, ONE human insight, ONE central tension or contrast when it naturally exists, ONE original visual metaphor, and ONE motivational sentence specific to this input.
 The visual metaphor must be a concrete scene, not an abstract concept. Prefer a central subject, meaningful movement or direction, contrast, symbolism, depth, and a memorable moment.

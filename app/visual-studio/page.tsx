@@ -11,6 +11,7 @@ type SourceMode = "linkedin" | "idea";
 type QuoteOption = { text: string; author: string; hash?: string; category?: string; source?: string };
 
 type VisualPlan = VisualStorytellingPlan;
+type GeneratedOption = { plan: VisualPlan; imageUrl: string; storagePath: string | null; model: string | null };
 
 function deriveContent(source: string, mode: SourceMode) {
   const clean = source.trim();
@@ -44,6 +45,9 @@ export default function VisualStudioPage() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
+  const [plans, setPlans] = useState<VisualPlan[]>([]);
+  const [imageOptions, setImageOptions] = useState<GeneratedOption[]>([]);
+  const [selectedOption, setSelectedOption] = useState(0);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [storagePath, setStoragePath] = useState<string | null>(null);
   const [generatedModel, setGeneratedModel] = useState<string | null>(null);
@@ -98,58 +102,48 @@ export default function VisualStudioPage() {
     setMessage("Understanding your idea and developing the visual directionâ€¦");
 
     try {
-      const response = await fetch("/api/ai/visual-storytelling", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          headline: derived.headline,
-          body: derived.body,
-          closing: derived.closing,
-          visualStyle,
-        }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.plan) {
-        throw new Error(data?.error || "Could not develop the visual direction.");
-      }
-      setPlan(data.plan);
-      setMessage("AI developed one visual direction. Review it before generating the visual.");
+      const responses = await Promise.all([0, 1, 2, 3].map(async (conceptIndex) => {
+        const response = await fetch("/api/ai/visual-storytelling", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ headline: derived.headline, body: derived.body, closing: derived.closing, visualStyle, conceptIndex }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.plan) throw new Error(data?.error || `Could not develop visual concept ${conceptIndex + 1}.`);
+        return data.plan as VisualPlan;
+      }));
+      setPlans(responses); setPlan(responses[0]);
+      setMessage("Four distinct visual directions are ready. Generate all four options below.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not develop the visual direction.");
     }
   }
 
   async function generateVisual() {
-    if (!plan) return;
-    setGenerating(true);
-    setMessage("");
-
+    if (!plans.length) return;
+    setGenerating(true); setMessage("Generating four visual options…");
     try {
-      const response = await fetch("/api/ai/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: plan.imagePrompt,
-          model: plan.preferredModel,
-          width: 1200,
-          height: 1500,
-        }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || "Could not generate the visual.");
+      const generated = await Promise.all(plans.map(async (concept) => {
+        const response = await fetch("/api/ai/image", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: concept.imagePrompt, model: concept.preferredModel, width: 1200, height: 1500 }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || "Could not generate one of the visuals.");
+        const image = data?.images?.[0];
+        if (!image?.url) throw new Error("An image was generated without a stored URL.");
+        return { plan: concept, imageUrl: image.url, storagePath: image.storagePath || null, model: data?.model || null };
+      }));
+      setImageOptions(generated); setSelectedOption(0); setPlan(generated[0].plan);
+      setImageUrl(generated[0].imageUrl); setStoragePath(generated[0].storagePath); setGeneratedModel(generated[0].model);
+      setMessage("Four visual options generated. Choose the one you want to use.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not generate the visuals."); }
+    finally { setGenerating(false); }
+  }
 
-      const image = data?.images?.[0];
-      if (!image?.url) throw new Error("The image was generated but no stored image URL was returned.");
-
-      setImageUrl(image.url);
-      setStoragePath(image.storagePath || null);
-      setGeneratedModel(data?.model || null);
-      setMessage("Visual generated and stored. The motivational sentence stays outside the image.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not generate the visual.");
-    } finally {
-      setGenerating(false);
-    }
+  function chooseOption(index: number) {
+    const option = imageOptions[index]; if (!option) return;
+    setSelectedOption(index); setPlan(option.plan); setImageUrl(option.imageUrl);
+    setStoragePath(option.storagePath); setGeneratedModel(option.model); setSavedId(null);
   }
 
   async function savePostCard() {
@@ -242,29 +236,6 @@ export default function VisualStudioPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
-                {VISUAL_STYLE_OPTIONS.map((style) => (
-                  <button
-                    key={style.id}
-                    type="button"
-                    onClick={() => {
-                      setVisualStyle(style.id);
-                      setImageUrl(null);
-                      setStoragePath(null);
-                      setSavedId(null);
-                      setGeneratedModel(null);
-                      setPlan(null);
-                      setMessage(source.trim()
-                        ? "Style changed. Extract the visual idea again so AI can develop the direction for this style."
-                        : "Style selected. Extract the visual idea when you are ready.");
-                    }}
-                    className={visualStyle === style.id
-                      ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white"
-                      : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900 hover:text-neutral-950"}
-                  >
-                    {style.label}
-                  </button>
-                ))}
               </div>
 
               <div className="mt-5 rounded-xl border border-neutral-200 bg-white p-4">
@@ -301,6 +272,11 @@ export default function VisualStudioPage() {
                 className="mt-4 w-full resize-y rounded-xl border border-neutral-300 bg-white p-4 text-[15px] leading-6 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
               />
 
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
+                {VISUAL_STYLE_OPTIONS.map((style) => <button key={style.id} type="button" onClick={() => { setVisualStyle(style.id); setImageOptions([]); setPlans([]); setPlan(null); setImageUrl(null); setStoragePath(null); setSavedId(null); setGeneratedModel(null); setMessage("Style changed. Extract the visual idea again."); }} className={visualStyle === style.id ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900"}>{style.label}</button>)}
+              </div>
+
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -319,7 +295,7 @@ export default function VisualStudioPage() {
                 <div className="mb-3 flex items-end justify-between">
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Creative direction</div>
-                    <p className="mt-1 text-xs text-neutral-500">One message. One human insight. One visual metaphor.</p>
+                    <p className="mt-1 text-xs text-neutral-500">Four concepts. One original quote. Choose the visual that fits.</p>
                   </div>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Ready</span>
                 </div>
@@ -344,13 +320,14 @@ export default function VisualStudioPage() {
                     <p className="mt-2 text-xs text-neutral-500">Added by PostCraft after the image is generated.</p>
                   </div>
                 </div>
+                {plans.length > 1 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{plans.map((concept, index) => <div key={index} className="rounded-xl border border-neutral-200 bg-white p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Concept {index + 1}</div><p className="mt-2 text-sm leading-6 text-neutral-700">{concept.visualConcept}</p></div>)}</div>}
                 <button
                   type="button"
                   onClick={generateVisual}
                   disabled={generating}
                   className="w-full rounded-2xl bg-neutral-900 px-5 py-4 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
                 >
-                  {generating ? `Generating ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"}â€¦` : imageUrl ? "Regenerate visual â†’" : `Generate ${VISUAL_STYLE_OPTIONS.find((style) => style.id === visualStyle)?.label.toLowerCase() || "visual"} â†’`}
+                  {generating ? "Generating 4 visuals…" : imageOptions.length ? "Regenerate all 4 visuals →" : "Generate 4 visual options →"}
                 </button>
               </div>
             )}
@@ -373,6 +350,7 @@ export default function VisualStudioPage() {
               {imageUrl ? (
                 <div className="relative aspect-[4/5]">
                   <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 320px" unoptimized className="object-cover" />
+                  {source.trim() && <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/25 to-transparent px-5 pb-12 pt-6 sm:px-6"><div className="font-serif text-xl leading-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.65)] sm:text-2xl">“{source.trim()}”</div></div>}
                   {plan?.motivationalSentence && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pb-7 pt-20 sm:px-7 sm:pb-8">
                       <div className="max-w-[78%] font-serif text-2xl leading-[1.05] tracking-[-0.025em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.55)] sm:text-3xl">
@@ -392,6 +370,7 @@ export default function VisualStudioPage() {
               )}
             </div>
 
+            {imageOptions.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3">{imageOptions.map((option, index) => <button key={option.imageUrl} type="button" onClick={() => chooseOption(index)} className={selectedOption === index ? "overflow-hidden rounded-xl border-2 border-neutral-900 bg-white text-left" : "overflow-hidden rounded-xl border border-neutral-300 bg-white text-left hover:border-neutral-900"}><div className="relative aspect-[4/5]"><NextImage src={option.imageUrl} alt={option.plan.visualConcept} fill sizes="(max-width: 1024px) 45vw, 240px" unoptimized className="object-cover"/><div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-3 text-left font-serif text-xs leading-tight text-white">“{source.trim()}”</div></div><div className="p-3"><div className="text-xs font-semibold">Option {index + 1} {selectedOption === index ? "· Selected" : ""}</div><p className="mt-1 line-clamp-3 text-xs leading-5 text-neutral-600">{option.plan.visualConcept}</p><span className="mt-2 inline-block text-xs font-semibold underline">Use this image</span></div></button>)}</div>}
             {plan && imageUrl && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
