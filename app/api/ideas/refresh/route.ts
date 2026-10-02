@@ -77,13 +77,20 @@ export async function POST() {
         const canonicalUrl = item.link.split("#")[0].trim();
         const normalizedTitle = normalizeTitle(item.title);
         const contentHash = normalizeTitle(item.title + " " + item.summary).slice(0, 500);
-        const { data: existing } = await admin
-          .from("idea_radar_feed_items")
-          .select("id")
-          .or("canonical_url.eq." + canonicalUrl + ",normalized_title.eq." + normalizedTitle)
-          .limit(1);
+        // Use separate equality filters instead of interpolating untrusted feed
+        // values into PostgREST's .or() expression syntax. URLs/titles may contain
+        // commas, parentheses, or other filter characters.
+        const [{ data: existingUrl, error: urlCheckError }, { data: existingTitle, error: titleCheckError }] = await Promise.all([
+          admin.from("idea_radar_feed_items").select("id").eq("canonical_url", canonicalUrl).limit(1),
+          normalizedTitle
+            ? admin.from("idea_radar_feed_items").select("id").eq("normalized_title", normalizedTitle).limit(1)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
 
-        if (existing?.length) continue;
+        if (urlCheckError || titleCheckError) {
+          throw urlCheckError || titleCheckError;
+        }
+        if (existingUrl?.length || existingTitle?.length) continue;
 
         const { data: inserted } = await admin.from("idea_radar_feed_items").insert({
           source_id: source.id,
