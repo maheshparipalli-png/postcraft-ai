@@ -1,4 +1,5 @@
-import { searchNews, type ResearchItem } from "@/lib/research/news";
+import type { ResearchItem } from "@/lib/research/news";
+import { discoverFromRss } from "@/lib/research/rss-discovery";
 import type { ContentInterest } from "@/lib/content-interests";
 
 export type InterestResearchItem = ResearchItem & {
@@ -26,8 +27,10 @@ export function selectInterestAwareCandidates(
   const selected: InterestResearchItem[] = [];
   const covered = new Set<string>();
 
-  // Coverage pass: take the strongest available story for each interest.
+  // Coverage pass: reserve a slot for each interest, but never exceed the
+  // requested limit when a user has more interests than available slots.
   for (const candidate of sorted) {
+    if (selected.length >= limit) break;
     if (covered.has(candidate.interest)) continue;
     selected.push(candidate);
     covered.add(candidate.interest);
@@ -46,72 +49,8 @@ export function selectInterestAwareCandidates(
 export async function discoverAcrossInterests(
   interests: ContentInterest[],
 ): Promise<InterestDiscoveryResult> {
-  const discoveryResults = await Promise.allSettled(
-    interests.map((interest) => searchNews(interest)),
-  );
-
-  const failedInterests = discoveryResults
-    .map((result, index) =>
-      result.status === "rejected"
-        ? {
-            interest: interests[index],
-            error: result.reason instanceof Error
-              ? result.reason.message
-              : "Content source lookup failed",
-          }
-        : null,
-    )
-    .filter(
-      (item): item is { interest: ContentInterest; error: string } =>
-        item !== null,
-    );
-
-  const byUrl = new Map<string, InterestResearchItem>();
-
-  discoveryResults.forEach((result, index) => {
-    if (result.status !== "fulfilled") return;
-
-    for (const rawItem of result.value) {
-      // Search providers are external inputs. Runtime data can contain null or
-      // non-string fields even though the internal ResearchItem type is strict.
-      // Normalize at this boundary so one malformed result cannot crash the
-      // entire Discover request.
-      if (!rawItem || typeof rawItem !== "object") continue;
-
-      const title = typeof rawItem.title === "string" ? rawItem.title.trim() : "";
-      const source = typeof rawItem.source === "string" ? rawItem.source.trim() : "";
-      const url = typeof rawItem.url === "string" ? rawItem.url.trim() : "";
-      const publishedAt = typeof rawItem.publishedAt === "string" ? rawItem.publishedAt : "";
-      const snippet = typeof rawItem.snippet === "string" ? rawItem.snippet.trim() : "";
-      const imageUrl = typeof rawItem.imageUrl === "string" && rawItem.imageUrl.trim()
-        ? rawItem.imageUrl.trim()
-        : undefined;
-
-      if (!title || !source || !url || !snippet) continue;
-
-      const key = url.toLowerCase().replace(/\/$/, "");
-
-      const tagged: InterestResearchItem = {
-        ...rawItem,
-        title,
-        source,
-        url,
-        publishedAt,
-        snippet,
-        imageUrl,
-        interest: interests[index],
-      };
-
-      const existing = byUrl.get(key);
-      if (!existing || (tagged.score ?? 0) > (existing.score ?? 0)) {
-        byUrl.set(key, tagged);
-      }
-    }
-  });
-
-  const candidates = Array.from(byUrl.values()).sort(
-    (a, b) => (b.score ?? 0) - (a.score ?? 0),
-  );
-
+  // Discover reads curated publisher RSS feeds. Evergreen Idea Radar does not
+  // call this function and therefore cannot absorb current-news items.
+  const { candidates, failedInterests } = await discoverFromRss(interests);
   return { candidates, failedInterests };
 }

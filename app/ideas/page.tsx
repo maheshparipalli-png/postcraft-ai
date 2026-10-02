@@ -74,20 +74,12 @@ export default function IdeasPage() {
       const response = await fetch("/api/ideas/refresh", { method: "POST" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Refresh failed.");
-      const sourceSummary = `${data.sourceSuccesses ?? 0}/${data.sources ?? 0} sources returned stories`;
-      const currentSummary = `${data.currentIdeasCreated ?? 0} current stories added`;
       const evergreenSummary = `${data.evergreenIdeasCreated ?? 0} evergreen ideas added`;
-      const failedSources = (data.sourceResults ?? [])
-        .filter((result: { ok?: boolean }) => !result.ok)
-        .map((result: { source?: string; error?: string }) => result.source || result.error || "Unknown source");
-      const failureSummary = data.sourceFailures || data.ideaErrors?.length
-        ? ` ${data.sourceFailures ?? 0} feed failures${failedSources.length ? ` (${failedSources.join(", ")})` : ""}, ${data.ideaErrors?.length ?? 0} idea errors.`
-        : "";
-      const aiSummary = data.aiAnalysisDisabled
-        ? " AI enrichment is temporarily disabled; ready-made angles are still available."
+      const failureSummary = data.ideaErrors?.length
+        ? ` ${data.ideaErrors.length} ideas could not be added.`
         : "";
       await loadIdeas();
-      setMessage(`Radar refreshed: ${sourceSummary}; ${currentSummary}; ${evergreenSummary}.${failureSummary}${aiSummary}`);
+      setMessage(`Evergreen library refreshed: ${evergreenSummary}.${failureSummary}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Refresh failed.");
     } finally {

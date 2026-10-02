@@ -61,114 +61,26 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const admin = createAdminClient();
-  const { data: sources, error: sourceError } = await admin
-    .from("idea_radar_sources")
-    .select("id,name,url,category,type")
-    .eq("enabled", true);
-
-  if (sourceError) return NextResponse.json({ error: "Unable to load Idea Radar sources. Apply the database migration first." }, { status: 500 });
-
-  const results = await Promise.all((sources ?? []).map(async (source) => {
-    try {
-      const items = await fetchFeed(source.url);
-      let added = 0;
-
-      for (const item of items.slice(0, 15)) {
-        const canonicalUrl = item.link.split("#")[0].trim();
-        const normalizedTitle = normalizeTitle(item.title);
-        const contentHash = normalizeTitle(item.title + " " + item.summary).slice(0, 500);
-        const { data: existing } = await admin
-          .from("idea_radar_feed_items")
-          .select("id")
-          .or("canonical_url.eq." + canonicalUrl + ",normalized_title.eq." + normalizedTitle)
-          .limit(1);
-
-        if (existing?.length) continue;
-
-        const { data: inserted } = await admin.from("idea_radar_feed_items").insert({
-          source_id: source.id,
-          canonical_url: canonicalUrl,
-          normalized_title: normalizedTitle,
-          title: item.title,
-          description: item.summary,
-          source_name: source.name,
-          source_url: canonicalUrl,
-          published_at: item.publishedAt,
-          category: source.category,
-          content_hash: contentHash,
-        }).select("id").single();
-
-        if (inserted) added += 1;
-      }
-
-      return { source: source.name, added, ok: true };
-    } catch (error) {
-      return {
-        source: source.name,
-        added: 0,
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }));
-  const { data: candidates } = await admin
-    .from("idea_radar_feed_items")
-    .select("id,title,description,source_name,source_url,published_at,category")
-    .order("published_at", { ascending: false })
-    .limit(16);
-
-  let currentIdeasCreated = 0;
-  const ideaErrors: { title: string; error: string }[] = [];
-
-  for (const item of candidates ?? []) {
-    const { data: already } = await admin
-      .from("idea_radar_ideas")
-      .select("id")
-      .eq("feed_item_id", item.id)
-      .limit(1);
-
-    if (already?.length) continue;
-
-    const { data: idea, error: ideaError } = await admin.from("idea_radar_ideas").insert({
-      feed_item_id: item.id,
-      title: item.title,
-      description: item.description || "",
-      why_interesting: item.description
-        ? "This story is interesting because its source material points to a real question, comparison, behavior, or change that professionals can examine beyond the headline."
-        : "This story is worth exploring for the broader professional lesson behind the headline.",
-      insight: item.description
-        ? "Look for the underlying question, tension, behavior, or business lesson in the source rather than simply repeating the article."
-        : "Look beyond the headline for the broader lesson the story can reveal.",
-      category: item.category,
-      source_name: item.source_name,
-      source_url: item.source_url,
-      published_at: item.published_at,
-      analysis: { generated_by: "idea-radar", keep: true, ai_analysis_disabled: true, content_type: "current" },
-    }).select("id").single();
-
-    if (ideaError) {
-      ideaErrors.push({ title: item.title, error: ideaError.message });
-      continue;
-    }
-
-    if (idea) {
-      await addAngles(admin, idea.id, fallbackAngles(item.title, item.description || ""));
-      currentIdeasCreated += 1;
-    }
-  }
-
-  const { data: existingEvergreen } = await admin
+  const { data: existingEvergreen, error: existingError } = await admin
     .from("idea_radar_ideas")
     .select("analysis")
     .is("feed_item_id", null);
 
+  if (existingError) {
+    return NextResponse.json({ error: "Unable to load existing evergreen ideas." }, { status: 500 });
+  }
+
   const existingKeys = new Set(
     (existingEvergreen ?? [])
-      .map((row) => (row.analysis as { evergreen_key?: string } | null)?.evergreen_key)
-      .filter(Boolean),
+      .map((row) => (row.analysis as { evergreen_key?: string; content_type?: string } | null))
+      .filter((analysis) => analysis?.content_type === "evergreen")
+      .map((analysis) => analysis?.evergreen_key)
+      .filter((key): key is string => Boolean(key)),
   );
 
   let evergreenCreated = 0;
+  const ideaErrors: { title: string; error: string }[] = [];
+
   for (const evergreen of EVERGREEN_IDEAS) {
     if (existingKeys.has(evergreen.key)) continue;
 
@@ -185,7 +97,6 @@ export async function POST() {
       analysis: {
         generated_by: "idea-radar",
         keep: true,
-        ai_analysis_disabled: true,
         content_type: "evergreen",
         evergreen_key: evergreen.key,
       },
@@ -202,22 +113,12 @@ export async function POST() {
     }
   }
 
-  const sourceResults = results;
-
-  const sourceFailures = sourceResults.filter((result) => !result.ok).length;
-  const sourceSuccesses = sourceResults.length - sourceFailures;
-
   return NextResponse.json({
     ok: true,
-    sources: (sources ?? []).length,
-    sourceSuccesses,
-    sourceFailures,
-    sourceResults,
-    currentStoriesChecked: (candidates ?? []).length,
-    currentIdeasCreated,
+    mode: "evergreen-only",
     evergreenIdeasCreated: evergreenCreated,
-    ideasCreated: currentIdeasCreated + evergreenCreated,
-    aiAnalysisDisabled: true,
+    currentIdeasCreated: 0,
+    ideasCreated: evergreenCreated,
     ideaErrors,
     refreshedBy: user.id,
   });

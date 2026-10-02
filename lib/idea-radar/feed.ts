@@ -34,8 +34,16 @@ export function parseFeed(xml: string): FeedItem[] {
   return blocks.map((block) => {
     const title = firstTag(block, "title");
     const linkTag = /<link(?:\s[^>]*)?>([\s\S]*?)<\/link>/i.exec(block);
-    const hrefTag = /<link[^>]+href=["']([^"']+)["'][^>]*\/?\s*>/i.exec(block);
-    const link = decodeXml(hrefTag?.[1] || linkTag?.[1] || "");
+    const linkElements = Array.from(block.matchAll(/<link\b([^>]*)\/?\s*>/gi));
+    const alternateLink = linkElements.find((match) => {
+      const attributes = match[1];
+      const rel = /\brel=["']([^"']+)["']/i.exec(attributes)?.[1]?.toLowerCase();
+      return !rel || rel === "alternate";
+    });
+    const href = alternateLink
+      ? /\bhref=["']([^"']+)["']/i.exec(alternateLink[1])?.[1]
+      : undefined;
+    const link = decodeXml(href || linkTag?.[1] || "");
     const summary = firstTag(block, "description") || firstTag(block, "summary") || firstTag(block, "content:encoded") || "";
     const published = firstTag(block, "pubDate") || firstTag(block, "published") || firstTag(block, "updated");
     const date = published ? new Date(published) : null;
