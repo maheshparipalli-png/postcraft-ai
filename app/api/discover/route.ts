@@ -9,7 +9,7 @@ function isAggregatorStory(source: string | null | undefined, url: string | null
   if (typeof url !== "string" || !url.trim()) return true;
 
   try {
-    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\\./, "");
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
     return new Set(["news.google.com", "bing.com", "news.yahoo.com"]).has(hostname);
   } catch {
     return true;
