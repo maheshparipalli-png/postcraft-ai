@@ -26,8 +26,10 @@ export function selectInterestAwareCandidates(
   const selected: InterestResearchItem[] = [];
   const covered = new Set<string>();
 
-  // Coverage pass: take the strongest available story for each interest.
+  // Coverage pass: reserve a slot for each interest, but never exceed the
+  // requested limit when a user has more interests than available slots.
   for (const candidate of sorted) {
+    if (selected.length >= limit) break;
     if (covered.has(candidate.interest)) continue;
     selected.push(candidate);
     covered.add(candidate.interest);
