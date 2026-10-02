@@ -85,14 +85,32 @@ Return ONLY one valid JSON object, with no Markdown fences or text before or aft
 {"coreTheme":"one clear sentence","emotionalMessage":"one clear sentence","visualConcept":"one detailed visual metaphor/scene","motivationalSentence":"5-12 words, simple English, specific to the idea","colorDirection":"one concise visual direction"}
 
 Before returning, check: the image would communicate the idea without text; the metaphor expresses this exact idea rather than a generic life lesson; the sentence comes from the user's meaning; there is one dominant visual idea; the scene suits a premium editorial composition.`;
-  const raw = await provider.generateText(prompt, { format: "json", temperature: 0.2, numPredict: 900 });
-  const parsed = parseJson(raw);
+  const options = { format: "json" as const, temperature: 0.1, numPredict: 1400 };
+  let raw = await provider.generateText(prompt, options);
+  let parsed = parseJson(raw);
+
+  // Some compatible providers ignore response_format. Retry once with a strict JSON-only prompt.
+  if (!parsed) {
+    const retryPrompt = [
+      "Return only one valid JSON object. No Markdown or commentary. No trailing commas.",
+      "Use exactly these five non-empty string keys: coreTheme, emotionalMessage, visualConcept, motivationalSentence, colorDirection.",
+      "motivationalSentence must contain 5-12 simple English words.",
+      `User idea: ${input.headline} ${input.body} ${input.closing}` ,
+      `Visual style: ${visualStyle}. Concept variation: ${conceptIndex + 1} of 4.`,
+      "Create one specific visual metaphor faithful to the user idea.",
+      `Required shape: {"coreTheme":"...","emotionalMessage":"...","visualConcept":"...","motivationalSentence":"...","colorDirection":"..."}` ,
+    ].join("\\n");
+    raw = await provider.generateText(retryPrompt, { temperature: 0, numPredict: 1000 });
+    parsed = parseJson(raw);
+  }
+
   if (!parsed) {
     console.error("[PostCraft] Visual storytelling provider returned non-JSON output", {
       outputLength: raw.length,
-      startsWithFence: /^\s*```/.test(raw),
+      startsWithFence: /^\\s*\\x60\\x60\\x60/.test(raw),
+      preview: raw.slice(0, 120).replace(/[\\r\\n]+/g, " "),
     });
-    throw new Error("The AI provider returned an unreadable visual plan. Please try again.");
+    throw new Error("The AI provider could not return a valid visual plan after retry. Please try again.");
   }
   return createVisualStorytellingPlan({
     coreTheme: field(parsed.coreTheme, "core idea"),
