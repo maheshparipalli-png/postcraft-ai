@@ -8,6 +8,8 @@ import { VISUAL_STYLES, VISUAL_STYLE_OPTIONS, type VisualStyle } from "@/lib/pos
 
 type SourceMode = "linkedin" | "idea";
 
+type QuoteOption = { text: string; author: string; hash?: string; category?: string; source?: string };
+
 type VisualPlan = VisualStorytellingPlan;
 
 function deriveContent(source: string, mode: SourceMode) {
@@ -37,6 +39,9 @@ export default function VisualStudioPage() {
   const [mode, setMode] = useState<SourceMode>("idea");
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
+  const [quote, setQuote] = useState<QuoteOption | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteMessage, setQuoteMessage] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [storagePath, setStoragePath] = useState<string | null>(null);
@@ -47,6 +52,35 @@ export default function VisualStudioPage() {
   const [savedId, setSavedId] = useState<string | null>(null);
 
   const derived = useMemo(() => deriveContent(source, mode), [source, mode]);
+
+  async function fetchQuote() {
+    setQuoteLoading(true);
+    setQuoteMessage("");
+    try {
+      const field = "life";
+      const response = await fetch(`/api/postcard/quote?field=${field}&next=${Date.now()}`, { cache: "no-store" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.quote?.text) throw new Error(data?.error || "Could not get a quote. Please try again.");
+      setQuote({ ...data.quote, text: data.quote.text.trim() });
+      setQuoteMessage("Choose this quote to add it to your message.");
+    } catch (error) {
+      setQuoteMessage(error instanceof Error ? error.message : "Could not get a quote.");
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
+
+  function useQuote() {
+    if (!quote) return;
+    setMode("idea");
+    setSource(quote.text);
+    setPlan(null);
+    setImageUrl(null);
+    setStoragePath(null);
+    setGeneratedModel(null);
+    setSavedId(null);
+    setMessage("Quote added to “What do you want to say?”. Choose a visual style, then extract the visual idea.");
+  }
 
   async function analyzeIdea() {
     if (!source.trim()) return;
@@ -225,6 +259,30 @@ export default function VisualStudioPage() {
                     {style.label}
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-5 rounded-xl border border-neutral-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Quote inspiration</div>
+                    <p className="mt-1 text-xs text-neutral-500">Find a fresh quote, then choose it to fill your message.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={fetchQuote} disabled={quoteLoading} className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                      {quoteLoading ? "Finding quote…" : quote ? "Generate quote" : "Generate quotes"}
+                    </button>
+                    <button type="button" onClick={fetchQuote} disabled={quoteLoading} className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-700 disabled:opacity-50">
+                      Next →
+                    </button>
+                  </div>
+                </div>
+                {quote && (
+                  <button type="button" onClick={useQuote} className="mt-4 w-full rounded-lg border border-neutral-200 bg-[#f7f6f2] p-4 text-left transition hover:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20">
+                    <span className="block font-serif text-lg leading-6">“{quote.text}”</span>
+                    <span className="mt-2 block text-xs text-neutral-500">— {quote.author || "Unknown"} · Click to use this quote</span>
+                  </button>
+                )}
+                {quoteMessage && <p className="mt-3 text-xs leading-5 text-neutral-500" role="status">{quoteMessage}</p>}
               </div>
 
               <textarea
