@@ -279,7 +279,7 @@ export default function VisualStudioPage() {
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={analyzeIdea}
+                  onClick={() => analyzeIdea()}
                   disabled={!source.trim()}
                   className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
