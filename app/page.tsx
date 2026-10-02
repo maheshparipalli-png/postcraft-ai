@@ -1083,8 +1083,23 @@ function resetFromStory() {
                     {postCardImage ? (
                       <Image src={postCardImage} alt="PostCraft LinkedIn infographic PostCard" width={800} height={1000} unoptimized className="w-full rounded-lg" />
                     ) : (
-                      <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-500">
-                        Creating your infographic…
+                      <div
+                        className="flex aspect-[4/5] flex-col items-center justify-center gap-4 rounded-lg bg-neutral-900 text-sm text-neutral-300"
+                        role="status"
+                        aria-live="polite"
+                        aria-label={postCardRendering ? "Creating infographic" : "Infographic preview unavailable"}
+                      >
+                        <span className="inline-flex items-center gap-1.5" aria-hidden="true">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-neutral-200 [animation-delay:-0.3s]" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-neutral-200 [animation-delay:-0.15s]" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-neutral-200" />
+                        </span>
+                        <span>{postCardRendering ? "Creating your infographic…" : "Infographic preview unavailable"}</span>
+                        {!postCardRendering && (
+                          <span className="max-w-[240px] text-center text-xs leading-5 text-neutral-500">
+                            Select a story and finish generating your post to build the infographic.
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
