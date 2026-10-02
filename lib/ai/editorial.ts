@@ -388,7 +388,7 @@ export async function generateEditorialDraft(
 
   for (const selected of candidates) {
     try {
-      const post = await generateEditorialPost(
+      const generated = await generateEditorialPost(
         normalizedStory,
         selected.angle,
         selected.why,
@@ -396,6 +396,9 @@ export async function generateEditorialDraft(
         editorial.evidence,
         onPostToken,
       );
+      // generateEditorialPost returns { post, quality }, not a plain string.
+      // Expose the actual post text to API routes and the Discover streaming UI.
+      const post = generated.post;
 
       console.info(
         "[PostCraft] editorial_pipeline_ms=" +
