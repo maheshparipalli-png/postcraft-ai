@@ -62,8 +62,10 @@ export async function GET(request: Request) {
   const savedOnly = params.get("saved") === "true";
   const admin = createAdminClient();
 
+  // Idea Radar is intentionally evergreen-only. Current news belongs in Discover.
   let query = admin.from("idea_radar_ideas")
     .select("id,title,description,why_interesting,insight,category,source_name,source_url,published_at,status,created_at,idea_radar_angles(id,angle,why,evidence)")
+    .contains("analysis", { content_type: "evergreen" })
     .order("created_at", { ascending: false })
     .limit(60);
 
