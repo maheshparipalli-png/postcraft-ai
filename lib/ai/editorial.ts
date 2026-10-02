@@ -731,7 +731,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
   }
 
   const hasForbiddenFormatting =
-    /(?:^|\n)\s*(?:#{1,6}\s|[-*•]\s|\d+[.)]\s)|\*\*|__|[\x60]|https?:\/\/|[\u{1F300}-\u{1FAFF}]/u.test(post);
+    /(?:^|\n)\s*(?:#{1,6}\s|[-*•]\s|\d+[.)]\s)|\*\*|__|[\x60]|https?:\/\/|[\u{1F300}-\u{1FAFF}]|[^\x09\x0A\x0D\x20-\x7E]/u.test(post);
 
   const sourceText = normalizeQualityText(
     story.topic + " " + story.headline + " " + story.summary + " " + angle,
@@ -762,7 +762,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       key: "specialCharacters",
       label: "Formatting checked",
       passed: !hasForbiddenFormatting,
-      detail: hasForbiddenFormatting ? "Markdown, URLs, bullets, or emoji detected." : "No unwanted formatting characters detected.",
+      detail: hasForbiddenFormatting ? "Markdown, URLs, bullets, emoji, control characters, or non-ASCII symbols detected." : "Plain text formatting check passed.",
     },
     {
       key: "relevance",
@@ -938,7 +938,7 @@ REPAIR INSTRUCTIONS
 - If relevance failed, strengthen connections to the supplied headline, summary, evidence, and selected angle. Use concrete source terms naturally; do not merely repeat the angle.
 - If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
 - If completeness failed, finish every incomplete sentence and make the final thought complete.
-- If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, or other prohibited formatting.
+- If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, control characters, and non-ASCII symbols. Use plain ASCII punctuation only (periods, commas, apostrophes, quotation marks, colons, semicolons, question marks, exclamation marks, and hyphens).
 - Keep the result between 200 and 300 words and under 3,000 characters.
 - Do not introduce new unsupported facts, numbers, quotes, examples, motives, or claims.
 - The repaired post must still read naturally as a human LinkedIn post, not as a quality-check response.
@@ -954,7 +954,7 @@ ${post}
   // Treat quality checks as a repair mechanism rather than a hard rejection.
   // Every failed check is sent to the repair pass together so the model can
   // correct multiple problems in one revision while preserving good content.
-  const maxRepairPasses = 2;
+  const maxRepairPasses = 3;
 
   for (let repairPass = 1; repairPass <= maxRepairPasses; repairPass += 1) {
     const failures = failedChecks(result.quality);
@@ -1018,7 +1018,7 @@ ${post}
       .join("; ");
 
     throw new Error(
-      `The generated post could not pass PostCraft's quality checks after two repair passes. ${details}`,
+      `The generated post could not pass PostCraft's quality checks after ${maxRepairPasses} repair passes. ${details}`,
     );
   }
 
