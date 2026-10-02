@@ -41,6 +41,7 @@ export default function VisualStudioPage() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
   const [quote, setQuote] = useState<QuoteOption | null>(null);
+  const [quoteAttribution, setQuoteAttribution] = useState("");
   const [seenQuoteHashes, setSeenQuoteHashes] = useState<string[]>([]);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
@@ -84,6 +85,7 @@ export default function VisualStudioPage() {
     if (!quote) return;
     setMode("idea");
     setSource(quote.text);
+    setQuoteAttribution(quote.author && quote.author !== "Unknown" ? quote.author : "Unknown");
     setPlan(null);
     setImageUrl(null);
     setStoragePath(null);
@@ -266,7 +268,7 @@ export default function VisualStudioPage() {
 
               <textarea
                 value={source}
-                onChange={(event) => { setSource(event.target.value); setPlan(null); setImageUrl(null); setStoragePath(null); setGeneratedModel(null); setSavedId(null); }}
+                onChange={(event) => { setSource(event.target.value); setQuoteAttribution(""); setPlan(null); setImageUrl(null); setStoragePath(null); setGeneratedModel(null); setSavedId(null); }}
                 placeholder={mode === "idea"
                   ? "Example: Progress is not always about moving faster. Sometimes it is about staying on the path when nobody is watching."
                   : "Paste your LinkedIn post here..."}
@@ -352,7 +354,7 @@ export default function VisualStudioPage() {
               {imageUrl ? (
                 <div className="relative aspect-[4/5]">
                   <NextImage src={imageUrl} alt={plan?.visualConcept || "PostCraft generated visual"} fill sizes="(max-width: 1024px) 100vw, 320px" unoptimized className="object-cover" />
-                  {source.trim() && <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/25 to-transparent px-5 pb-12 pt-6 sm:px-6"><div className="font-serif text-xl leading-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.65)] sm:text-2xl">“{source.trim()}”</div></div>}
+                  {source.trim() && <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/25 to-transparent px-5 pb-12 pt-6 sm:px-6"><div className="font-serif text-xl leading-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.65)] sm:text-2xl">“{source.trim()}”</div>{quoteAttribution && <div className="mt-2 text-xs font-medium tracking-wide text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,.7)]">— {quoteAttribution}</div>}</div>}
                   {plan?.motivationalSentence && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pb-7 pt-20 sm:px-7 sm:pb-8">
                       <div className="max-w-[78%] font-serif text-2xl leading-[1.05] tracking-[-0.025em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,.55)] sm:text-3xl">
@@ -372,7 +374,7 @@ export default function VisualStudioPage() {
               )}
             </div>
 
-            {imageOptions.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3">{imageOptions.map((option, index) => <button key={option.imageUrl} type="button" onClick={() => chooseOption(index)} className={selectedOption === index ? "overflow-hidden rounded-xl border-2 border-neutral-900 bg-white text-left" : "overflow-hidden rounded-xl border border-neutral-300 bg-white text-left hover:border-neutral-900"}><div className="relative aspect-[4/5]"><NextImage src={option.imageUrl} alt={option.plan.visualConcept} fill sizes="(max-width: 1024px) 45vw, 240px" unoptimized className="object-cover"/><div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-3 text-left font-serif text-xs leading-tight text-white">“{source.trim()}”</div></div><div className="p-3"><div className="text-xs font-semibold">Option {index + 1} {selectedOption === index ? "· Selected" : ""}</div><p className="mt-1 line-clamp-3 text-xs leading-5 text-neutral-600">{option.plan.visualConcept}</p><span className="mt-2 inline-block text-xs font-semibold underline">Use this image</span></div></button>)}</div>}
+            {imageOptions.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3">{imageOptions.map((option, index) => <button key={option.imageUrl} type="button" onClick={() => chooseOption(index)} className={selectedOption === index ? "overflow-hidden rounded-xl border-2 border-neutral-900 bg-white text-left" : "overflow-hidden rounded-xl border border-neutral-300 bg-white text-left hover:border-neutral-900"}><div className="relative aspect-[4/5]"><NextImage src={option.imageUrl} alt={option.plan.visualConcept} fill sizes="(max-width: 1024px) 45vw, 240px" unoptimized className="object-cover"/><div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-3 text-left font-serif text-xs leading-tight text-white">“{source.trim()}”{quoteAttribution && <span className="mt-1 block font-sans text-[10px]">— {quoteAttribution}</span>}</div></div><div className="p-3"><div className="text-xs font-semibold">Option {index + 1} {selectedOption === index ? "· Selected" : ""}</div><p className="mt-1 line-clamp-3 text-xs leading-5 text-neutral-600">{option.plan.visualConcept}</p><span className="mt-2 inline-block text-xs font-semibold underline">Use this image</span></div></button>)}</div>}
             {plan && imageUrl && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
