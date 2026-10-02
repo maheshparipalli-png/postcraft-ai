@@ -1,4 +1,4 @@
-export type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor";
+export type VisualStyle = "editorial" | "cartoon" | "hand-drawn" | "3d" | "anime" | "watercolor" | "cinematic";
 
 export type VisualStyleConfig = {
   id: VisualStyle;
@@ -38,6 +38,11 @@ export const VISUAL_STYLES: Record<VisualStyle, VisualStyleConfig> = {
     label: "Anime",
     prompt: `${CINEMATIC_DIRECTION} Cinematic anime-inspired editorial illustration, expressive but restrained character design, elegant composition, refined linework, atmospheric depth, sophisticated lighting, mature magazine-art direction rather than childish cartoon styling.`,
     preferredModel: "@cf/lykon/dreamshaper-8-lcm",
+  },
+  cinematic: {
+    id: "cinematic",
+    label: "Cinematic",
+    prompt: `${CINEMATIC_DIRECTION} Premium cinematic film still, realistic atmospheric lighting, expressive composition, filmic color grading, rich tonal depth, subtle grain, emotionally resonant storytelling, carefully directed camera framing.`,
   },
   watercolor: {
     id: "watercolor",
