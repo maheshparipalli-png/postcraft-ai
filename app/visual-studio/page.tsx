@@ -384,7 +384,7 @@ export default function VisualStudioPage() {
                   {savedId ? "Saved" : saving ? "Saving..." : "Save PostCard"}
                 </button>
                 {savedId ? (
-                  <Link href={`/postcard/${savedId}`} className="rounded-xl bg-neutral-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-700">Open card -></Link>
+                  <Link href={`/postcard/${savedId}`} className="rounded-xl bg-neutral-900 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-700">Open card</Link>
                 ) : (
                   <a href={imageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-center text-sm font-semibold hover:border-neutral-900">Open image</a>
                 )}
