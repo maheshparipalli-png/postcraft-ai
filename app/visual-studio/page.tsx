@@ -40,6 +40,7 @@ export default function VisualStudioPage() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("editorial");
   const [source, setSource] = useState("");
   const [quote, setQuote] = useState<QuoteOption | null>(null);
+  const [seenQuoteHashes, setSeenQuoteHashes] = useState<string[]>([]);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
   const [plan, setPlan] = useState<VisualPlan | null>(null);
@@ -58,10 +59,15 @@ export default function VisualStudioPage() {
     setQuoteMessage("");
     try {
       const field = "life";
-      const response = await fetch(`/api/postcard/quote?field=${field}&next=${Date.now()}`, { cache: "no-store" });
+      const excluded = seenQuoteHashes.join(",");
+      const url = "/api/postcard/quote?field=" + field + "&exclude=" + encodeURIComponent(excluded) + "&next=" + Date.now();
+      const response = await fetch(url, { cache: "no-store" });
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.quote?.text) throw new Error(data?.error || "Could not get a quote. Please try again.");
-      setQuote({ ...data.quote, text: data.quote.text.trim() });
+      if (!response.ok || !data?.quote?.text) throw new Error(data?.error || "No new quotes are available. Try again later.");
+      const nextQuote = { ...data.quote, text: data.quote.text.trim() } as QuoteOption;
+      if (nextQuote.hash && seenQuoteHashes.includes(nextQuote.hash)) throw new Error("This quote was already shown. Please try Next again.");
+      setQuote(nextQuote);
+      if (nextQuote.hash) setSeenQuoteHashes((previous) => [...previous, nextQuote.hash!].slice(-200));
       setQuoteMessage("Choose this quote to add it to your message.");
     } catch (error) {
       setQuoteMessage(error instanceof Error ? error.message : "Could not get a quote.");
