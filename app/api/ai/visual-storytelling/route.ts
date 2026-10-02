@@ -5,7 +5,7 @@ import { generateVisualStorytellingPlan } from "@/lib/ai/visual-storytelling";
 import type { VisualStyle } from "@/lib/postcard/visual-styles";
 
 export const maxDuration = 120;
-const styles = new Set<VisualStyle>(["editorial","cartoon","hand-drawn","3d","anime","watercolor"]);
+const styles = new Set<VisualStyle>(["editorial","cartoon","hand-drawn","3d","anime","watercolor","cinematic"]);
 
 export async function POST(request: Request) {
   const access=await getBillingAccess();
