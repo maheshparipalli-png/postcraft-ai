@@ -65,6 +65,7 @@ export async function GET(request: Request) {
     if (!billing.allowed) return NextResponse.json({ error: "Start your free trial or subscribe to continue." }, { status: 402 });
 
     const params = new URL(request.url).searchParams;
+    const excludedHashes = new Set((params.get("exclude") || "").split(",").filter(Boolean).slice(0, 200));
     const requestedField = params.get("field") || "resilience";
     const field = FIELDS[requestedField] ? requestedField : DEFAULT_FIELDS[0];
 
@@ -122,7 +123,7 @@ export async function GET(request: Request) {
     );
 
     const candidates = (pool ?? [])
-      .filter((quote) => !blocked.has(quote.quote_hash))
+      .filter((quote) => !blocked.has(quote.quote_hash) && !excludedHashes.has(quote.quote_hash))
       .map((quote) => ({ quote, score: scoreQuote(quote.quote_text, field) }))
       .sort((a, b) => b.score - a.score);
 
