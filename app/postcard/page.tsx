@@ -764,14 +764,14 @@ export default function PostCardPage() {
           </nav>
         </header>
 
-        <section className="grid gap-12 py-12 lg:grid-cols-[1fr_540px] lg:items-start lg:py-16">
+        <section className="mx-auto grid max-w-5xl grid-cols-1 gap-8 py-8 lg:py-10">
           <div>
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Visual studio</div>
             <h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[.98] tracking-[-0.045em] sm:text-7xl">
-              Turn ideas into visuals.
+              Turn a story into a beautiful LinkedIn PostCard.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-neutral-600">
-              Create clean, professional social cards from a quote, story, success, person, historical moment, or thought experiment.
+              Generate a short motivational or success story, choose a template, and publish to LinkedIn.
             </p>
 
             <div className="mt-10 border-t border-neutral-900 pt-7">
@@ -912,7 +912,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Write the card</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Edit your story</div>
 
               {template === "quote" ? (
                 <div className="mt-5 space-y-5">
@@ -969,7 +969,7 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">5 / Choose a background</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">4 / Choose a template</div>
               <div className="mt-4 grid grid-cols-4 gap-3">
                 {backgrounds.map((item) => (
                   <button key={item.id} type="button" onClick={() => setBackground(item.id)} className="group text-left">
@@ -1009,37 +1009,12 @@ export default function PostCardPage() {
                 {linkedinLoading ? "Publishing..." : linkedinPublished ? "✓ Published to LinkedIn" : linkedinConnected ? "Publish to LinkedIn →" : "Connect LinkedIn →"}
               </button>
               <Link href="/postcard/saved" className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900">📁 Saved PostCards</Link>
-              <span className="text-xs text-neutral-500">1080 × 1080 · Square social card</span>
+              <span className="text-xs text-neutral-500">Ready for your LinkedIn feed</span>
               {(linkedinMessage || linkedinNotice) && <span className="w-full text-xs text-neutral-600">{linkedinMessage || linkedinNotice}</span>}
             </div>
           </div>
 
-          <div className="lg:sticky lg:top-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">6 / Live preview</div>
-                <p className="mt-1 text-sm text-neutral-500">Choose a background on the left to update this preview.</p>
-              </div>
-              <div className="text-xs text-neutral-400">1080 × 1080</div>
-            </div>
-            <div className="mb-5 overflow-hidden border border-neutral-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,.08)]">
-              {visualImageUrl ? (
-                <div className="relative aspect-[4/5] w-full">
-                  <NextImage src={visualImageUrl} alt={visualConcept || "Generated PostCraft visual"} fill sizes="(max-width: 1024px) 100vw, 50vw" unoptimized className="object-cover" />
-                  {motivationalSentence && (
-                    <div className="absolute bottom-0 left-0 max-w-[82%] p-6 text-2xl font-semibold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.55)]">
-                      {motivationalSentence}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="aspect-[4/5] bg-[#f7f6f2]" aria-label="PostCard preview" />
-              )}
-            </div>
-            <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
-              <div className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg(background) }} />
-            </div>
-          </div>
+
         </section>
       </div>
     </main>
