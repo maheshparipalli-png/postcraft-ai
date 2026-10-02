@@ -15,9 +15,6 @@ const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
   { id: "story", name: "Motivational Story", description: "Short story with a life lesson" },
   { id: "success", name: "Success Story", description: "Achievement, comeback, or breakthrough" },
-  { id: "person", name: "Person of the Day", description: "An inspiring person and their lesson" },
-  { id: "history", name: "Historical Moment", description: "A moment from history with a modern lesson" },
-  { id: "thought", name: "Thought Experiment", description: "A question that makes people think" },
 ];
 
 const backgrounds: { id: BackgroundId; name: string; className: string }[] = [
