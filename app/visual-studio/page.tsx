@@ -94,7 +94,7 @@ export default function VisualStudioPage() {
     setMessage("Quote added to “What do you want to say?”. Choose a visual style, then extract the visual idea.");
   }
 
-  async function analyzeIdea() {
+  async function analyzeIdea(styleOverride: VisualStyle = visualStyle) {
     if (!source.trim()) return;
     setPlan(null);
     setPlans([]);
@@ -109,7 +109,7 @@ export default function VisualStudioPage() {
       const responses = await Promise.all([0, 1, 2, 3].map(async (conceptIndex) => {
         const response = await fetch("/api/ai/visual-storytelling", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ headline: derived.headline, body: derived.body, closing: derived.closing, visualStyle, conceptIndex }),
+          body: JSON.stringify({ headline: derived.headline, body: derived.body, closing: derived.closing, visualStyle: styleOverride, conceptIndex }),
         });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.plan) throw new Error(data?.error || `Could not develop visual concept ${conceptIndex + 1}.`);
@@ -276,15 +276,10 @@ export default function VisualStudioPage() {
                 className="mt-4 w-full resize-y rounded-xl border border-neutral-300 bg-white p-4 text-[15px] leading-6 outline-none transition focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/5"
               />
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
-                {VISUAL_STYLE_OPTIONS.map((style) => <button key={style.id} type="button" onClick={() => { setVisualStyle(style.id); setImageOptions([]); setPlans([]); setPlan(null); setImageUrl(null); setStoragePath(null); setSavedId(null); setGeneratedModel(null); setMessage("Style changed. Extract the visual idea again."); }} className={visualStyle === style.id ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900"}>{style.label}</button>)}
-              </div>
-
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={analyzeIdea}
+                  onClick={() => analyzeIdea()}
                   disabled={!source.trim()}
                   className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -325,6 +320,10 @@ export default function VisualStudioPage() {
                   </div>
                 </div>
                 {plans.length > 1 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{plans.map((concept, index) => <div key={index} className="rounded-xl border border-neutral-200 bg-white p-4"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Concept {index + 1}</div><p className="mt-2 text-sm leading-6 text-neutral-700">{concept.visualConcept}</p></div>)}</div>}
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Visual style</span>
+                  {VISUAL_STYLE_OPTIONS.map((style) => <button key={style.id} type="button" onClick={() => { if (style.id !== visualStyle) { setVisualStyle(style.id); analyzeIdea(style.id); } }} className={visualStyle === style.id ? "rounded-full bg-neutral-900 px-3 py-1.5 text-[11px] font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 hover:border-neutral-900"}>{style.label}</button>)}
+                </div>
                 <button
                   type="button"
                   onClick={generateVisual}
