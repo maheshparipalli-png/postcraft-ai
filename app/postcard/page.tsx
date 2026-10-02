@@ -981,29 +981,6 @@ export default function PostCardPage() {
                 ))}
               </div>
             </div>
-            <div className="mt-8 border-t border-neutral-300 pt-7">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">4 / Create the visual</div>
-              <p className="mt-2 max-w-2xl text-xs leading-5 text-neutral-500">
-                PostCraft extracts one dominant idea, turns it into a visual metaphor, and generates a 4:5 editorial image. The motivational sentence is kept separate from the image so the design layer can control typography.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={generateVisual}
-                  disabled={visualGenerating || !headline.trim()}
-                  className="rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-                >
-                  {visualGenerating ? "Generating visual..." : visualImageUrl ? "Regenerate visual →" : "Generate visual →"}
-                </button>
-                {visualImageUrl && <span className="text-xs text-green-700">✓ Stored in PostCraft</span>}
-              </div>
-              {motivationalSentence && (
-                <div className="mt-4 border border-neutral-200 bg-white p-4">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Motivational sentence</div>
-                  <div className="mt-2 text-lg font-medium">{motivationalSentence}</div>
-                </div>
-              )}
-            </div>
 
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <button
@@ -1056,8 +1033,9 @@ export default function PostCardPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex aspect-[4/5] items-center justify-center p-8 text-center text-sm text-neutral-400">
-                  Generate a visual to preview your 4:5 PostCard.
+                <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 bg-[#f7f6f2] p-8 text-center text-neutral-500">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em]">Live card preview</div>
+                  <div className="max-w-xs text-sm">Choose a background and edit your story to preview the card design.</div>
                 </div>
               )}
             </div>
