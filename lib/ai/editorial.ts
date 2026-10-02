@@ -981,6 +981,35 @@ ${post}
     });
   }
 
+  // Models can ignore length/duplication repair instructions. Apply a conservative
+  // deterministic final pass: remove near-duplicate sentences and keep complete
+  // sentences within the product's 300-word ceiling before the final validation.
+  function compactPost(post: string) {
+    const sentences = post.match(/[^.!?]+[.!?]+(?:["')\]]*)|[^.!?]+$/g) || [];
+    const kept: string[] = [];
+    for (const candidate of sentences) {
+      const sentence = candidate.trim();
+      if (!sentence) continue;
+      const duplicate = kept.some((existing) => sentenceSimilarity(existing, sentence) >= 0.82);
+      if (duplicate) continue;
+      const currentWords = kept.join(" ").split(/\s+/).filter(Boolean).length;
+      const sentenceWords = sentence.split(/\s+/).filter(Boolean).length;
+      if (currentWords + sentenceWords > 300) break;
+      kept.push(sentence);
+    }
+    return kept.join(" ").trim();
+  }
+
+  if (result.quality.some((check) => !check.passed && ["duplication", "completeness", "length"].includes(check.key))) {
+    const compacted = compactPost(result.post);
+    if (compacted) {
+      result = {
+        post: compacted,
+        quality: evaluatePostQuality(compacted, story, angle),
+      };
+    }
+  }
+
   const finalFailures = failedChecks(result.quality);
 
   if (finalFailures.length) {
