@@ -1033,10 +1033,7 @@ export default function PostCardPage() {
                   )}
                 </div>
               ) : (
-                <div className="flex aspect-[4/5] flex-col items-center justify-center gap-2 bg-[#f7f6f2] p-8 text-center text-neutral-500">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em]">Live card preview</div>
-                  <div className="max-w-xs text-sm">Choose a background and edit your story to preview the card design.</div>
-                </div>
+                <div className="aspect-[4/5] bg-[#f7f6f2]" aria-label="PostCard preview" />
               )}
             </div>
             <div className="aspect-square w-full overflow-hidden border border-neutral-200 bg-[#f7f6f2] shadow-[0_20px_60px_rgba(0,0,0,.08)]">
