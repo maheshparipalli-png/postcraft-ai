@@ -286,7 +286,7 @@ export default function VisualStudioPage() {
                   disabled={!source.trim()}
                   className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Extract visual idea ->
+                  Extract visual idea
                 </button>
                 <span className="text-xs text-neutral-500">AI analysis - one idea - one tension - one visual metaphor</span>
               </div>
