@@ -769,8 +769,8 @@ export default function PostCardPage() {
           </nav>
         </header>
 
-        <section className="mx-auto grid max-w-5xl grid-cols-1 gap-8 py-8 lg:py-10">
-          <div>
+        <section className="mx-auto grid max-w-7xl grid-cols-1 gap-8 py-8 lg:py-10">
+          <div className="lg:max-w-[calc(100%-520px)]">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">Visual studio</div>
             <h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[.98] tracking-[-0.045em] sm:text-7xl">
               Turn a story into a beautiful LinkedIn PostCard.
@@ -918,21 +918,22 @@ export default function PostCardPage() {
             </div>
 
             {cardGenerated && (
-              <section className="mt-8 border border-neutral-200 bg-white p-4 sm:p-6" aria-live="polite">
+              <section className="mt-8 border border-neutral-200 bg-white p-4 sm:p-6 lg:fixed lg:right-8 lg:top-32 lg:z-20 lg:mt-0 lg:w-[min(38vw,480px)] lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:shadow-xl" aria-live="polite">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Your generated PostCard</div>
                     <p className="mt-1 text-xs text-neutral-500">Preview updates as you edit the text or choose a different background.</p>
                   </div>
                   <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
-                    {downloading ? "Creating PNG..." : "Download PostCard PNG"}
+                    {downloading ? "Creating PNG..." : "Download PNG"}
                   </button>
+                  <button type="button" onClick={() => document.getElementById("postcard-editor")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="ml-2 rounded-full bg-[#1677e8] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0f67cf]">Next →</button>
                 </div>
                 <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-lg border border-neutral-100 shadow-sm [&>svg]:block [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg() }} />
               </section>
             )}
 
-            <div className="mt-10 border-t border-neutral-300 pt-7">
+            <div className="mt-10 scroll-mt-8 border-t border-neutral-300 pt-7" id="postcard-editor">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Edit your story</div>
 
               {template === "quote" ? (
