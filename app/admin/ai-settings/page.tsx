@@ -47,9 +47,9 @@ export default function AISettingsPage() {
   const [availableImageModels, setAvailableImageModels] = useState<Array<{ id: string; name: string; provider: string; source: string; verified: boolean }>>([]);
   const [modelDiscoveryLoading, setModelDiscoveryLoading] = useState(false);
   const [modelDiscoveryMessage, setModelDiscoveryMessage] = useState("");
-  const [provider, setProvider] = useState("ollama");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [model, setModel] = useState("");
+  const [provider, setProvider] = useState("freellmapi");
+  const [baseUrl, setBaseUrl] = useState("https://freellmapi.ninety6ai.online/v1");
+  const [model, setModel] = useState("auto:smart");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,7 +121,9 @@ export default function AISettingsPage() {
           setBaseUrl(data.config.baseUrl || "");
           setModel(data.config.model || "");
         } else {
-          setModel("qwen2.5:7b");
+          setProvider("freellmapi");
+          setBaseUrl("https://freellmapi.ninety6ai.online/v1");
+          setModel("auto:smart");
         }
       })
       .catch((e) => {
