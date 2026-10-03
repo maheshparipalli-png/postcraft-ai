@@ -12,7 +12,6 @@ const primaryLinks: NavLink[] = [
   { label: "Idea Radar", href: "/ideas" },
   { label: "Write", href: "/create" },
   { label: "Visual Studio", href: "/visual-studio" },
-  { label: "CommentCraft (Old)", href: "/commentcraft_old" },
   { label: "CommentCraft", href: "https://commentcraft.ninety6ai.online/" },
   { label: "Workspace", href: "/workspace" },
 ];
