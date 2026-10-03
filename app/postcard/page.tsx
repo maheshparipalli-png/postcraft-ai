@@ -155,6 +155,7 @@ export default function PostCardPage() {
   const [saved, setSaved] = useState(false);
   const [savedCardId, setSavedCardId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [cardGenerated, setCardGenerated] = useState(false);
   const [generateMessage, setGenerateMessage] = useState("");
   const [generationCount, setGenerationCount] = useState(0);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
@@ -484,6 +485,7 @@ export default function PostCardPage() {
 
   async function generateCardCopy() {
     setGenerating(true);
+    setCardGenerated(false);
     setGenerateMessage("");
     const nextCount = generationCount + 1;
 
@@ -504,7 +506,8 @@ export default function PostCardPage() {
         setStorySourceUrl("");
         setStoryCategory("");
         setGenerationCount(nextCount);
-        setGenerateMessage(`Fresh ${data.quote.category || quoteField} quote selected.`);
+        setCardGenerated(true);
+        setGenerateMessage(`Your PostCard is ready. Fresh ${data.quote.category || quoteField} quote selected.`);
       } catch (error) {
         setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational quote.");
       } finally {
@@ -532,7 +535,8 @@ export default function PostCardPage() {
         setQuoteHash(null);
         setQuoteAuthor("");
         setGenerationCount(nextCount);
-        setGenerateMessage(`Fresh ${data.story.category || category} story selected.`);
+        setCardGenerated(true);
+        setGenerateMessage(`Your PostCard is ready. Fresh ${data.story.category || category} story selected.`);
       } catch (error) {
         setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational story.");
       } finally {
@@ -574,7 +578,8 @@ export default function PostCardPage() {
       if (data.headline) setHeadline(data.headline);
       if (data.body) setBody(data.body);
       if (data.closing) setClosing(data.closing);
-      setGenerateMessage("Generated a fresh, human-sounding version.");
+      if (data.headline || data.body || data.closing) setCardGenerated(true);
+      setGenerateMessage("Your PostCard is ready. You can edit the text or background before downloading.");
     } catch (error) {
       setGenerateMessage(error instanceof Error ? error.message : "Could not generate the card copy.");
     } finally {
@@ -842,6 +847,7 @@ export default function PostCardPage() {
                     type="button"
                     onClick={() => {
                       setTemplate(item.id);
+                      setCardGenerated(false);
                       setGenerateMessage("");
                       setSaved(false);
                       setSavedCardId(null);
@@ -910,6 +916,21 @@ export default function PostCardPage() {
               </button>
               <p className="mt-2 text-center text-[11px] text-neutral-400">Quotes use curated feeds; stories use source material; factual formats should be verified before publishing.</p>
             </div>
+
+            {cardGenerated && (
+              <section className="mt-8 border border-neutral-200 bg-white p-4 sm:p-6" aria-live="polite">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Your generated PostCard</div>
+                    <p className="mt-1 text-xs text-neutral-500">Preview updates as you edit the text or choose a different background.</p>
+                  </div>
+                  <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50">
+                    {downloading ? "Creating PNG..." : "Download PostCard PNG"}
+                  </button>
+                </div>
+                <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-lg border border-neutral-100 shadow-sm [&>svg]:block [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg() }} />
+              </section>
+            )}
 
             <div className="mt-10 border-t border-neutral-300 pt-7">
               <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">3 / Edit your story</div>
