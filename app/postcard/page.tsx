@@ -538,7 +538,50 @@ export default function PostCardPage() {
         setCardGenerated(true);
         setGenerateMessage(`Your PostCard is ready. Fresh ${data.story.category || category} story selected.`);
       } catch (error) {
-        setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational story.");
+        // If the RSS-backed story pool is empty or temporarily unavailable,
+        // fall back to PostCard's normal AI writer so Generate still produces a card.
+        try {
+          const fallbackResponse = await fetch("/api/ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "postcard",
+              template: "story",
+              idea: "",
+              category: `motivational story focused on ${category}`,
+              variationSeed: Math.random().toString(36).slice(2, 10),
+              previousHeadline: headline,
+              previousBody: body,
+              previousClosing: closing,
+              headline: "",
+              supportingThought: "",
+              closing: "",
+              source: "",
+            }),
+          });
+          const fallbackData = await fallbackResponse.json().catch(() => null);
+          if (!fallbackResponse.ok || !fallbackData?.headline || !fallbackData?.body || !fallbackData?.closing) {
+            throw new Error(fallbackData?.error || "AI story fallback did not return a complete story.");
+          }
+          setHeadline(fallbackData.headline);
+          setBody(fallbackData.body);
+          setClosing(fallbackData.closing);
+          setStoryHash(null);
+          setStorySourceName("");
+          setStorySourceTitle("");
+          setStorySourceUrl("");
+          setStoryCategory(category);
+          setSource("Source: PostCard AI");
+          setQuoteHash(null);
+          setQuoteAuthor("");
+          setGenerationCount(nextCount);
+          setCardGenerated(true);
+          setGenerateMessage("Your motivational story is ready. The live story feed was unavailable, so PostCard AI created an original story instead.");
+        } catch (fallbackError) {
+          const primaryMessage = error instanceof Error ? error.message : "Motivational story feed unavailable.";
+          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "AI story generation failed.";
+          setGenerateMessage(`Could not generate a motivational story. ${primaryMessage} ${fallbackMessage}`);
+        }
       } finally {
         setGenerating(false);
       }
