@@ -1081,7 +1081,7 @@ export default function PostCardPage() {
               </div>
               <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 shadow-sm [&>svg]:block [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: buildSvg() }} />
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => document.getElementById("postcard-editor")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="rounded-full bg-[#1677e8] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#0f67cf]">Next: Edit content →</button>
+                <button type="button" onClick={generateCardCopy} disabled={generating} className="rounded-full bg-[#1677e8] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#0f67cf] disabled:cursor-not-allowed disabled:opacity-60">{generating ? "Generating..." : "Next Post →"}</button>
                 <button type="button" onClick={() => downloadPng()} disabled={downloading} className="rounded-full border border-neutral-300 px-4 py-2.5 text-xs font-semibold text-neutral-800 transition hover:border-neutral-900 disabled:opacity-50">
                   {downloading ? "Creating PNG..." : "Download PNG"}
                 </button>
