@@ -126,8 +126,11 @@ Overall score must be the average of the five qualities, rounded to one decimal.
     const valid = scores.every((score) => Number.isFinite(score) && score >= 0 && score <= 10);
     if (!valid) return { pass: false, score: 0, reasons: ["quality_judge_invalid"] };
     const score = Math.round((scores.reduce((sum, value) => sum + value, 0) / scores.length) * 10) / 10;
-    const reasons = scores.some((value) => value < 7) ? ["quality_judge_below_threshold"] : [];
-    if (score < 8) reasons.push("quality_score_below_threshold");
+    const qualityKeys = ["human", "simple", "emotional", "story", "distinct"];
+    const reasons = qualityKeys
+      .filter((key, index) => scores[index] < 7)
+      .map((key) => `quality_${key}_below_7`);
+    if (score < 8) reasons.push("quality_average_below_8");
     return { pass: reasons.length === 0, score, reasons };
   } catch {
     return deterministic;
