@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 
 type Card = {
@@ -132,13 +132,14 @@ function buildSvg(card: Card) {
   </svg>`;
 }
 
-export default function SavedPostcardPage({ params }: { params: { id: string } }) {
+export default function SavedPostcardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [card, setCard] = useState<Card | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/postcard/cards/${encodeURIComponent(params.id)}`, { cache: "no-store" })
+    fetch(`/api/postcard/cards/${encodeURIComponent(id)}`, { cache: "no-store" })
       .then(async r => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || "Could not load this PostCard.");
@@ -146,7 +147,7 @@ export default function SavedPostcardPage({ params }: { params: { id: string } }
       })
       .catch(e => setError(e instanceof Error ? e.message : "Could not load this PostCard."))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   const svg = useMemo(() => card ? buildSvg(card) : "", [card]);
 

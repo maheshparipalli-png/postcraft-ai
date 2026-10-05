@@ -161,7 +161,9 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
-  const linkedinCommentary = (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
+  const [linkedinPost, setLinkedinPost] = useState("");
+  const [quoteStoryGenerating, setQuoteStoryGenerating] = useState(false);
+  const linkedinCommentary = linkedinPost.trim() || (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const [linkedinNotice, setLinkedinNotice] = useState("");
@@ -500,6 +502,7 @@ export default function PostCardPage() {
         setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
         setQuoteHash(data.quote.hash || null);
         setQuoteAuthor(data.quote.author || "");
+        setLinkedinPost("");
         setStoryHash(null);
         setStorySourceName("");
         setStorySourceTitle("");
@@ -526,6 +529,7 @@ export default function PostCardPage() {
         setHeadline(data.story.title || "");
         setBody(data.story.body || "");
         setClosing(data.story.lesson || "");
+        setLinkedinPost(data.story.linkedinPost || "");
         setStoryHash(data.story.hash || null);
         setStorySourceName(data.story.sourceName || "");
         setStorySourceTitle(data.story.sourceTitle || "");
@@ -566,6 +570,7 @@ export default function PostCardPage() {
           setHeadline(fallbackData.headline);
           setBody(fallbackData.body);
           setClosing(fallbackData.closing);
+          setLinkedinPost(fallbackData.linkedinPost || "");
           setStoryHash(null);
           setStorySourceName("");
           setStorySourceTitle("");
@@ -621,6 +626,7 @@ export default function PostCardPage() {
       if (data.headline) setHeadline(data.headline);
       if (data.body) setBody(data.body);
       if (data.closing) setClosing(data.closing);
+      setLinkedinPost(data.linkedinPost || "");
       if (data.headline || data.body || data.closing) setCardGenerated(true);
       setGenerateMessage("Your PostCard is ready. You can edit the text or background before downloading.");
     } catch (error) {
@@ -629,6 +635,37 @@ export default function PostCardPage() {
       setGenerating(false);
     }
   }
+  async function generateQuoteLinkedinStory() {
+    if (quoteStoryGenerating || !headline.trim()) return;
+
+    setQuoteStoryGenerating(true);
+    setGenerateMessage("");
+
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "quoteStory",
+          quote: headline.trim(),
+          author: quoteAuthor.trim(),
+          category: quoteField,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.linkedinPost) {
+        throw new Error(data?.error || "Could not create the LinkedIn story.");
+      }
+
+      setLinkedinPost(data.linkedinPost);
+      setGenerateMessage("Smart LinkedIn story created from the quote. Edit it before publishing if you like.");
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not create the LinkedIn story.");
+    } finally {
+      setQuoteStoryGenerating(false);
+    }
+  }
+
   async function generateVisual() {
     if (visualGenerating) return;
     setVisualGenerating(true);
@@ -902,6 +939,7 @@ export default function PostCardPage() {
                       setVisualPrompt("");
                       setVisualConcept("");
                       setMotivationalSentence("");
+                      setLinkedinPost("");
                       setQuoteHash(null);
                       setQuoteAuthor("");
                       setStoryHash(null);
@@ -967,15 +1005,15 @@ export default function PostCardPage() {
 
               {template === "quote" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Quote" value={headline} onChange={setHeadline} textarea />
-                  <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); }} />
+                  <Field label="Quote" value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); setLinkedinPost(""); }} />
                   <p className="text-[11px] leading-5 text-neutral-500">Quotes come from an external feed. Once you save or publish one, it is excluded from your future selections for 90 days.</p>
                 </div>
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Story title" value={headline} onChange={setHeadline} />
-                  <Field label="Story" value={body} onChange={setBody} textarea />
-                  <Field label="Lesson" value={closing} onChange={setClosing} textarea />
+                  <Field label="Story title" value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} />
+                  <Field label="Story" value={body} onChange={(value) => { setBody(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); setLinkedinPost(""); }} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving.
                   </p>
@@ -992,18 +1030,18 @@ export default function PostCardPage() {
                   <Field
                     label={template === "success" ? "Story title" : template === "person" ? "Person" : template === "history" ? "Historical moment" : template === "thought" ? "Thought experiment" : "PostCard"}
                     value={headline}
-                    onChange={setHeadline}
+                    onChange={(value) => { setHeadline(value); setLinkedinPost(""); }}
                   />
                   <Field
                     label={template === "success" ? "Story" : template === "person" ? "Why this person matters" : template === "history" ? "What happened" : template === "thought" ? "Explore the idea" : "Practice"}
                     value={body}
-                    onChange={setBody}
+                    onChange={(value) => { setBody(value); setLinkedinPost(""); }}
                     textarea
                   />
                   <Field
                     label={template === "success" ? "Lesson" : template === "person" ? "Takeaway" : template === "history" ? "Why it matters today" : template === "thought" ? "Question to leave with the reader" : "Reflection"}
                     value={closing}
-                    onChange={setClosing}
+                    onChange={(value) => { setClosing(value); setLinkedinPost(""); }}
                     textarea
                   />
                   <p className="text-[11px] leading-5 text-neutral-500">
@@ -1013,6 +1051,42 @@ export default function PostCardPage() {
               )}
 
               {generateMessage && <div className="mt-5 text-xs text-neutral-600">{generateMessage}</div>}
+
+              <div className="mt-8 border-t border-neutral-200 pt-7" id="linkedin-text-post">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">LinkedIn text post</div>
+                    <h3 className="mt-1 font-serif text-xl tracking-tight">The text behind your PostCard</h3>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      {template === "quote"
+                        ? "Turn the quote into a small human story with a natural lesson. The story is interpretive and does not invent facts about the quote author."
+                        : "This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card."}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    {template === "quote" && (
+                      <button
+                        type="button"
+                        onClick={generateQuoteLinkedinStory}
+                        disabled={quoteStoryGenerating || !headline.trim()}
+                        className="rounded-full border border-neutral-900 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white disabled:opacity-50"
+                      >
+                        {quoteStoryGenerating ? "Creating story..." : linkedinPost.trim() ? "Regenerate story" : "Create smart story"}
+                      </button>
+                    )}
+                    {linkedinPost.trim() && (
+                      <button type="button" onClick={() => navigator.clipboard?.writeText(linkedinPost)} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:border-neutral-900 hover:text-neutral-900">
+                        Copy text
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea value={linkedinPost} onChange={(event) => setLinkedinPost(event.target.value)} placeholder={template === "quote" ? "Click “Create smart story” to turn this quote into a LinkedIn story." : "Generate a PostCard to create the LinkedIn text post."} rows={10} className="mt-4 w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-800 outline-none transition focus:border-neutral-900 focus:bg-white" aria-label="LinkedIn text post" />
+                <div className="mt-2 flex items-center justify-between gap-4 text-[11px] text-neutral-400">
+                  <span>{linkedinPost.trim() ? linkedinPost.trim().split(/\s+/).filter(Boolean).length + " words" : "No LinkedIn text generated yet."}</span>
+                  {linkedinPost.trim() && <span>Edit it here before publishing.</span>}
+                </div>
+              </div>
 
               <div className="mt-5">
                 <Field label="Source / footer" value={source} onChange={setSource} />

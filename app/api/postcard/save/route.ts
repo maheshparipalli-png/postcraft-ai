@@ -37,8 +37,6 @@ export async function POST(request: Request) {
     const visualPrompt = typeof body?.visualPrompt === "string" ? body.visualPrompt.trim() : "";
     const motivationalSentence = typeof body?.motivationalSentence === "string" ? body.motivationalSentence.trim() : "";
     const visualConcept = typeof body?.visualConcept === "string" ? body.visualConcept.trim() : "";
-    const visualStyle = typeof body?.visualStyle === "string" ? body.visualStyle.trim() : "";
-    const imageModel = typeof body?.imageModel === "string" ? body.imageModel.trim() : "";
 
     const validTemplates = new Set(["quote", "story", "success", "person", "history", "thought"]);
     const validBackgrounds = new Set(["gradient", "dark", "photo", "minimal", "abstract", "ink", "nature"]);
@@ -82,8 +80,6 @@ export async function POST(request: Request) {
         visual_prompt: visualPrompt || null,
         motivational_sentence: motivationalSentence || null,
         visual_concept: visualConcept || null,
-        visual_style: visualStyle || null,
-        image_model: imageModel || null,
       })
       .select("id, created_at")
       .single();
