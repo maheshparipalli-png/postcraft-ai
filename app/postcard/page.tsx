@@ -1020,6 +1020,26 @@ export default function PostCardPage() {
 
               {generateMessage && <div className="mt-5 text-xs text-neutral-600">{generateMessage}</div>}
 
+              <div className="mt-8 border-t border-neutral-200 pt-7" id="linkedin-text-post">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">LinkedIn text post</div>
+                    <h3 className="mt-1 font-serif text-xl tracking-tight">The text behind your PostCard</h3>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card.</p>
+                  </div>
+                  {linkedinPost.trim() && (
+                    <button type="button" onClick={() => navigator.clipboard?.writeText(linkedinPost)} className="shrink-0 rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:border-neutral-900 hover:text-neutral-900">
+                      Copy text
+                    </button>
+                  )}
+                </div>
+                <textarea value={linkedinPost} onChange={(event) => setLinkedinPost(event.target.value)} placeholder="Generate a PostCard to create the LinkedIn text post." rows={10} className="mt-4 w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-800 outline-none transition focus:border-neutral-900 focus:bg-white" aria-label="LinkedIn text post" />
+                <div className="mt-2 flex items-center justify-between gap-4 text-[11px] text-neutral-400">
+                  <span>{linkedinPost.trim() ? linkedinPost.trim().split(/\s+/).filter(Boolean).length + " words" : "No LinkedIn text generated yet."}</span>
+                  {linkedinPost.trim() && <span>Edit it here before publishing.</span>}
+                </div>
+              </div>
+
               <div className="mt-5">
                 <Field label="Source / footer" value={source} onChange={setSource} />
               </div>
