@@ -1,5 +1,4 @@
 export const POSTCARD_FIELDS = [
-  "resilience",
   "leadership",
   "entrepreneurship",
   "discipline",
@@ -13,8 +12,11 @@ export const POSTCARD_FIELDS = [
 
 export type PostCardField = (typeof POSTCARD_FIELDS)[number];
 
+export function randomPostCardField(): PostCardField {
+  return POSTCARD_FIELDS[Math.floor(Math.random() * POSTCARD_FIELDS.length)];
+}
+
 export const POSTCARD_FIELD_TERMS: Record<PostCardField, string[]> = {
-  resilience: ["resilience", "failure", "fail", "setback", "overcome", "challenge", "comeback", "hard"],
   leadership: ["leadership", "leader", "team", "responsibility", "service", "example"],
   entrepreneurship: ["business", "entrepreneur", "startup", "founder", "build", "create", "risk"],
   discipline: ["discipline", "habit", "practice", "consistency", "persistence", "routine"],
