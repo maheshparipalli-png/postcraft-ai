@@ -228,7 +228,10 @@ Return ONLY valid JSON:
       let bestPost = "";
       let bestScore = -1;
       let bestReasons: string[] = [];
-      const maxAttempts = 3;
+      // Keep the strict independent quality gate, but cap the route at two
+      // candidate passes so one click cannot consume six long LLM calls.
+      const maxAttempts = 2;
+      const provider = await getAIProvider();
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const prompt = attempt === 0
@@ -245,10 +248,11 @@ ${bestPost}
 
 Regenerate from a genuinely different angle. Fix every failed parameter. Keep the story concrete, human, simple, emotionally natural, and tightly connected to the quote without merely explaining it.`;
 
-        const provider = await getAIProvider();
         const raw = await provider.generateText(prompt, {
           temperature: attempt === 0 ? 0.78 : 0.88,
-          numPredict: 700,
+          // The post is only 130-220 words; avoid letting the model spend
+          // hundreds of extra tokens before the independent judge runs.
+          numPredict: 500,
           format: "json",
         });
         const generated = parseJsonObject(raw, "Quote LinkedIn story");
