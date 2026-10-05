@@ -162,6 +162,7 @@ export default function PostCardPage() {
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
   const [linkedinPost, setLinkedinPost] = useState("");
+  const [quoteStoryGenerating, setQuoteStoryGenerating] = useState(false);
   const linkedinCommentary = linkedinPost.trim() || (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
@@ -634,6 +635,37 @@ export default function PostCardPage() {
       setGenerating(false);
     }
   }
+  async function generateQuoteLinkedinStory() {
+    if (quoteStoryGenerating || !headline.trim()) return;
+
+    setQuoteStoryGenerating(true);
+    setGenerateMessage("");
+
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "quoteStory",
+          quote: headline.trim(),
+          author: quoteAuthor.trim(),
+          category: quoteField,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.linkedinPost) {
+        throw new Error(data?.error || "Could not create the LinkedIn story.");
+      }
+
+      setLinkedinPost(data.linkedinPost);
+      setGenerateMessage("Smart LinkedIn story created from the quote. Edit it before publishing if you like.");
+    } catch (error) {
+      setGenerateMessage(error instanceof Error ? error.message : "Could not create the LinkedIn story.");
+    } finally {
+      setQuoteStoryGenerating(false);
+    }
+  }
+
   async function generateVisual() {
     if (visualGenerating) return;
     setVisualGenerating(true);
@@ -1025,15 +1057,31 @@ export default function PostCardPage() {
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">LinkedIn text post</div>
                     <h3 className="mt-1 font-serif text-xl tracking-tight">The text behind your PostCard</h3>
-                    <p className="mt-1 text-xs leading-5 text-neutral-500">This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card.</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      {template === "quote"
+                        ? "Turn the quote into a small human story with a natural lesson. The story is interpretive and does not invent facts about the quote author."
+                        : "This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card."}
+                    </p>
                   </div>
-                  {linkedinPost.trim() && (
-                    <button type="button" onClick={() => navigator.clipboard?.writeText(linkedinPost)} className="shrink-0 rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:border-neutral-900 hover:text-neutral-900">
-                      Copy text
-                    </button>
-                  )}
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    {template === "quote" && (
+                      <button
+                        type="button"
+                        onClick={generateQuoteLinkedinStory}
+                        disabled={quoteStoryGenerating || !headline.trim()}
+                        className="rounded-full border border-neutral-900 bg-white px-3 py-2 text-xs font-semibold text-neutral-900 hover:bg-neutral-900 hover:text-white disabled:opacity-50"
+                      >
+                        {quoteStoryGenerating ? "Creating story..." : linkedinPost.trim() ? "Regenerate story" : "Create smart story"}
+                      </button>
+                    )}
+                    {linkedinPost.trim() && (
+                      <button type="button" onClick={() => navigator.clipboard?.writeText(linkedinPost)} className="rounded-full border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:border-neutral-900 hover:text-neutral-900">
+                        Copy text
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <textarea value={linkedinPost} onChange={(event) => setLinkedinPost(event.target.value)} placeholder="Generate a PostCard to create the LinkedIn text post." rows={10} className="mt-4 w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-800 outline-none transition focus:border-neutral-900 focus:bg-white" aria-label="LinkedIn text post" />
+                <textarea value={linkedinPost} onChange={(event) => setLinkedinPost(event.target.value)} placeholder={template === "quote" ? "Click “Create smart story” to turn this quote into a LinkedIn story." : "Generate a PostCard to create the LinkedIn text post."} rows={10} className="mt-4 w-full resize-y rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-800 outline-none transition focus:border-neutral-900 focus:bg-white" aria-label="LinkedIn text post" />
                 <div className="mt-2 flex items-center justify-between gap-4 text-[11px] text-neutral-400">
                   <span>{linkedinPost.trim() ? linkedinPost.trim().split(/\s+/).filter(Boolean).length + " words" : "No LinkedIn text generated yet."}</span>
                   {linkedinPost.trim() && <span>Edit it here before publishing.</span>}
