@@ -7,6 +7,7 @@ import { getAIProvider } from "@/lib/ai/provider";
 import { POSTCARD_FIELD_TERMS, POSTCARD_FIELDS, type PostCardField } from "@/lib/postcard/categories";
 import { parseJsonObject } from "@/lib/ai/json";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
+import { judgePostcardQuality } from "@/lib/postcard/quality";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -192,11 +193,11 @@ export async function GET(request: Request) {
 
     const prompt = `You are PostCard's motivational story writer.
 
-Turn the SOURCE MATERIAL below into an original, short motivational story for a social card.
+Turn the SOURCE MATERIAL below into a warm, original, easy-to-understand story for a social card and a fuller LinkedIn post.
 
-The source is the creative foundation. Preserve at least two concrete elements from it: the central situation, action, challenge, setting, subject, or lesson. Do not replace the source situation with a generic motivational scenario. If it describes a real person or event, do not invent facts. If it is a personal or fictional story, retell its situation in original language without adding a new character, setting, or event that changes what happened. If it is general advice, create a clearly illustrative example and do not present it as a verified event. Do not copy sentences or distinctive phrasing.
+The source is a creative starting point, not a fact-checking requirement. Preserve the central feeling or situation, but the final story may be simplified, imagined, metaphorical, or loosely inspired. Do not copy sentences or distinctive phrasing.
 
-Write 100-180 words. Use a compact narrative arc: situation, difficulty or turning point, choice or realization, and outcome. Keep it concrete and avoid generic motivational filler.
+Create two related but deliberately different outputs. The postcard body should be 35-80 words. The LinkedIn post should be 80-180 words with a human hook, simple story or observation, and warm takeaway. The postcard must not copy or closely paraphrase the LinkedIn post. Keep both concrete, simple, warm, and human.
 
 Category: ${category}
 
@@ -210,34 +211,62 @@ ${selected.source_summary || "(No summary supplied; use only the title and sourc
 Return ONLY valid JSON:
 {
   "headline": "short story title, 4-9 words",
-  "body": "100-180 word original story grounded in the source",
-  "closing": "one memorable lesson, 8-18 words"
+  "body": "35-80 word short postcard story",
+  "closing": "one memorable lesson, 6-18 words",
+  "linkedinPost": "80-180 word human LinkedIn story"
 }
 
-Do not add hashtags, emojis, citations, or markdown.`;
+Do not add hashtags, emoji spam, citations, or markdown. Use simple everyday English and avoid AI meta-language.`;
 
     const provider = await getAIProvider();
-    // Do not force the OpenAI-compatible response_format here. FreeLLMAPI may
-    // route gpt-oss models to providers such as Groq that can reject otherwise
-    // valid prompts with structured-output validation errors. The prompt still
-    // requires JSON, and the parser below safely extracts and validates it.
-    const raw = await provider.generateText(prompt, {
-      temperature: 0.82,
-      numPredict: 420,
-    });
+    let best: { candidate: { headline: string; body: string; closing: string; linkedinPost: string }; quality: Awaited<ReturnType<typeof judgePostcardQuality>> } | null = null;
 
-    const generated = parseJsonObject(raw, "PostCard story AI");
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const attemptPrompt = attempt === 0
+        ? prompt
+        : prompt + "\n\nQUALITY RETRY " + attempt + ": The previous draft failed. Write a completely fresh version with simpler language, a more human voice, stronger emotional warmth, no repetition, and clear separation between postcard and LinkedIn post.";
 
-    const headline = typeof generated.headline === "string" ? generated.headline.trim() : "";
-    const body = typeof generated.body === "string" ? generated.body.trim() : "";
-    const closing = typeof generated.closing === "string" ? generated.closing.trim() : "";
-    const bodyWords = body ? body.split(/\s+/).filter(Boolean).length : 0;
-    const headlineWords = headline ? headline.split(/\s+/).filter(Boolean).length : 0;
-    const closingWords = closing ? closing.split(/\s+/).filter(Boolean).length : 0;
+      const raw = await provider.generateText(attemptPrompt, {
+        temperature: attempt === 0 ? 0.82 : 0.9,
+        numPredict: 900,
+      });
 
-    if (!headline || headlineWords < 4 || headlineWords > 12 ||
-        bodyWords < 90 || bodyWords > 190 ||
-        !closing || closingWords < 6 || closingWords > 24) {
+      const generated = parseJsonObject(raw, "PostCard story AI");
+      const candidate = {
+        headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
+        body: typeof generated.body === "string" ? generated.body.trim() : "",
+        closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
+        linkedinPost: typeof generated.linkedinPost === "string" ? generated.linkedinPost.trim() : "",
+      };
+
+      const quality = await judgePostcardQuality(candidate);
+      if (!best || quality.score > best.quality.score) best = { candidate, quality };
+
+      console.info("[PostCraft] story_quality", {
+        attempt: attempt + 1,
+        score: quality.score,
+        pass: quality.pass,
+        reasons: quality.reasons,
+      });
+
+      if (quality.pass) {
+        best = { candidate, quality };
+        break;
+      }
+    }
+
+    if (!best || !best.quality.pass) {
+      throw new Error("PostCard story could not meet the human-writing quality bar after three attempts. Please try again.");
+    }
+
+    const { candidate } = best;
+    const bodyWords = candidate.body.split(/\s+/).filter(Boolean).length;
+    const headlineWords = candidate.headline.split(/\s+/).filter(Boolean).length;
+    const closingWords = candidate.closing.split(/\s+/).filter(Boolean).length;
+    if (!candidate.headline || headlineWords < 3 || headlineWords > 12 ||
+        bodyWords < 35 || bodyWords > 110 ||
+        !candidate.closing || closingWords < 5 || closingWords > 24 ||
+        !candidate.linkedinPost) {
       throw new Error("PostCard story generation returned content outside the required story format. Please try again.");
     }
     return NextResponse.json({
