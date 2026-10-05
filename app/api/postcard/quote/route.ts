@@ -65,8 +65,7 @@ export async function GET(request: Request) {
 
     const params = new URL(request.url).searchParams;
     const excludedHashes = new Set((params.get("exclude") || "").split(",").filter(Boolean).slice(0, 200));
-    const requestedField = params.get("field") || "resilience";
-    const field = FIELDS[requestedField] ? requestedField : DEFAULT_FIELDS[0];
+    const field = DEFAULT_FIELDS[Math.floor(Math.random() * DEFAULT_FIELDS.length)];
 
     const admin = createAdminClient();
 
