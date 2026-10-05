@@ -6,6 +6,7 @@ import { normalizeStatisticContent } from "@/lib/postcard/content";
 import { parseJsonObject } from "@/lib/ai/json";
 import { judgeQuoteLinkedinQuality } from "@/lib/postcard/quality";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
+import { randomPostCardField } from "@/lib/postcard/categories";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       const startedAt = Date.now();
       const template = typeof body?.template === "string" ? body.template : "editorial";
       const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
-      const category = typeof body?.category === "string" ? body.category.trim() : "general motivation";
+      const category = randomPostCardField();
       const variationSeed = typeof body?.variationSeed === "string" ? body.variationSeed.trim() : "";
       const previousHeadline = typeof body?.previousHeadline === "string" ? body.previousHeadline.trim() : "";
       const previousBody = typeof body?.previousBody === "string" ? body.previousBody.trim() : "";
