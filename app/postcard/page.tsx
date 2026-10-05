@@ -518,7 +518,6 @@ export default function PostCardPage() {
     }
 
     if (template === "story") {
-      const categories = ["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"];
       const category = storyCategory || "random";
       try {
         const response = await fetch(`/api/postcard/story?category=${encodeURIComponent(category)}`, { cache: "no-store" });
