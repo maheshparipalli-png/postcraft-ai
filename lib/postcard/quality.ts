@@ -201,7 +201,9 @@ Return ONLY valid JSON:
 The score must be the average of all eight parameters, rounded to one decimal.`;
 
   try {
-    const raw = await provider.generateText(prompt, { temperature: 0, numPredict: 280 });
+    // The judge only needs a compact JSON score object; keep this call small
+    // so the independent quality check does not become the bottleneck.
+    const raw = await provider.generateText(prompt, { temperature: 0, numPredict: 180 });
     const parsed = parseJsonObject(raw, "Quote LinkedIn quality judge");
     const keys = [
       "human",
