@@ -54,16 +54,18 @@ export async function POST(request: Request) {
       const currentStat = typeof body?.stat === "string" ? body.stat.trim() : "";
 
       const formatInstructions = ({
-        success: `Create a compact success/comeback story. Use an identifiable human situation, a setback or obstacle, a turning point, and a useful lesson. Do not invent a named person or claim a real event unless source material is supplied.`,
-        person: `Create a Person of the Day card. Choose a widely known inspiring person only when you can state broadly established facts. Do not invent dates, achievements, quotes, or personal details. Focus on one defining contribution and one practical lesson.`,
-        history: `Create a Historical Moment card. Use a well-established historical event or moment and explain why it still matters. Do not invent dates, participants, quotations, or outcomes. If factual certainty is not possible, keep the wording general rather than making a specific claim.`,
-        thought: `Create a Thought Experiment. Present a surprising hypothetical question, a short setup, and a useful reflection. It must be clearly hypothetical, not presented as a fact or prediction.`,
-        mindful: `Create a Mindful Movement card. Give the reader one small physical or attention-based action they can do today, such as a slow walk, stretch, breath, pause, or deliberate observation. Keep it practical and non-medical.`,
-      } as Record<string, string>)[template] || "Create one practical motivational idea.";
+        success: "Create a compact, uplifting success or comeback story. Use a relatable human situation, a setback or obstacle, a turning point, and a hopeful lesson. It may be fictional or inspired; do not present fiction as verified fact.",
+        person: "Create an inspiring person-centered story. Focus on one human quality, challenge, choice, or contribution and the feeling it leaves with the reader. It may be a broadly inspired story rather than a factual biography.",
+        history: "Create a warm story inspired by a historical moment or human experience. Focus on the human meaning rather than fact-heavy detail. It may be simplified or illustrative and does not need fact verification.",
+        thought: "Create a gentle thought experiment with a surprising but useful question, a simple setup, and a hopeful reflection. Keep it clearly hypothetical.",
+        mindful: "Create a small, practical moment of attention, movement, pause, or observation that feels calming and encouraging. Avoid medical claims.",
+      } as Record<string, string>)[template] || "Create one practical, feel-good motivational idea.";
 
-      const prompt = `You are PostCard, the human-sounding visual writing assistant inside PostCraft.
+      const basePrompt = `You are PostCraft's human-sounding story writer.
 
-Create a FRESH social-card idea for the selected format. Every Generate click should be genuinely different from the previous card.
+Create a FRESH idea for the selected format. Every Generate click must feel genuinely different from the previous card.
+
+The goal is not factual reporting. Fictional, imagined, metaphorical, or loosely inspired stories are allowed. Do not waste words qualifying them as facts. What matters is that the story feels warm, human, easy to understand, and leaves the reader with a good feeling or useful thought.
 
 FORMAT: ${template}
 EDITORIAL DIRECTION: ${category}
@@ -78,47 +80,108 @@ Closing: ${previousClosing || "(none)"}
 
 Do NOT reuse the previous card's topic, metaphor, message, structure, or wording. Start with a different underlying idea.
 
-For the selected format:
-- headline: 6-12 words, clear and specific
-- body: 2-4 short sentences, roughly 80-150 words for story-based formats and 35-80 words for the other formats
-- closing: one memorable takeaway, 8-18 words
+Create TWO related but deliberately different outputs:
+1. POSTCARD: short visual copy. It should work on an image without becoming a full article.
+2. LINKEDIN POST: the fuller human story. It should add context, emotion, and a natural takeaway.
 
-For Person of the Day and Historical Moment, do not fabricate factual details. If source material is absent, prefer broadly established facts and avoid precise claims you cannot support.
-For Thought Experiment, make the hypothetical nature unmistakable.
-For Mindful Movement, avoid medical claims or promises.
-For Success Story, do not present an invented story as a verified real event.
+The postcard and LinkedIn post must share the same core idea, but the postcard must NOT copy, quote, or closely paraphrase the LinkedIn post.
 
-Avoid corporate clichés, generic motivational filler, hashtags, emojis, and phrases like "in today's rapidly changing world", "game changer", "revolutionary", or "it is important to note".
+POSTCARD:
+- headline: 4-10 words, clear, memorable, human
+- body: 35-80 words, 2-4 short sentences
+- closing: 6-18 words, memorable and simple
 
-Keep the language conversational, concrete, and human. Do not pretend to have personal experiences.
+LINKEDIN POST:
+- 80-180 words
+- natural paragraphs with breathing room
+- a human hook, a simple story or observation, and a warm takeaway
+- use everyday English
+- prefer short sentences
+- make the reader feel something
+- do not sound like an advertisement, essay, or AI response
+
+STYLE:
+- simple enough to understand on the first read
+- warm, conversational, concrete, and human
+- avoid corporate clichés, jargon, generic motivational filler, hashtags, emoji spam, and excessive punctuation
+- never say "As an AI", "Here's a post", "I hope this helps", "Let me know", or similar meta-language
+- do not use garbled or unusual control characters
+- do not repeat sentences or the same idea unnecessarily
+- do not make the postcard a shortened copy of the LinkedIn post
 
 USER IDEA:
 ${idea || "(No separate idea provided.)"}
 
-Return ONLY valid JSON with keys: headline, body, closing.`;
-
+Return ONLY valid JSON:
+{
+  "headline": "postcard headline",
+  "body": "short postcard body",
+  "closing": "short postcard takeaway",
+  "linkedinPost": "full human LinkedIn post"
+}`;
 
       const provider = await getAIProvider();
-      const raw = await provider.generateText(prompt, {
-        temperature: 0.72,
-        // GPT-OSS models can spend part of their output budget on reasoning before producing the JSON.\n        // 220 tokens is too tight for the requested card content and can truncate the JSON.\n        numPredict: 500,\n        format: "json",
-      });
+      let best: { candidate: { headline: string; body: string; closing: string; linkedinPost: string }; quality: Awaited<ReturnType<typeof import("@/lib/postcard/quality").judgePostcardQuality>> } | null = null;
+      const maxAttempts = 3;
 
-      const generated = parseJsonObject(raw, "PostCard AI");
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const prompt = attempt === 0
+          ? basePrompt
+          : `${basePrompt}
+
+QUALITY RETRY ${attempt}: The previous draft failed the quality gate. Produce a completely fresh version. Pay particular attention to human voice, simple language, emotional warmth, no repetition, and making the postcard clearly different from the LinkedIn post.`;
+
+        const raw = await provider.generateText(prompt, {
+          temperature: attempt === 0 ? 0.78 : 0.88,
+          numPredict: 900,
+          format: "json",
+        });
+        const generated = parseJsonObject(raw, "PostCard AI");
+
+        const candidate = {
+          headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
+          body: typeof generated.body === "string" ? generated.body.trim() : "",
+          closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
+          linkedinPost: typeof generated.linkedinPost === "string" ? generated.linkedinPost.trim() : "",
+        };
+
+        const { judgePostcardQuality } = await import("@/lib/postcard/quality");
+        const quality = await judgePostcardQuality(candidate);
+        if (!best || quality.score > best.quality.score) best = { candidate, quality };
+
+        console.info("[PostCraft] postcard_quality", {
+          attempt: attempt + 1,
+          score: quality.score,
+          pass: quality.pass,
+          reasons: quality.reasons,
+        });
+
+        if (quality.pass) {
+          best = { candidate, quality };
+          break;
+        }
+      }
+
+      if (!best) throw new Error("PostCard generation did not return usable content.");
+      if (!best.quality.pass) {
+        throw new Error("PostCard could not meet the human-writing quality bar after three attempts. Please try again.");
+      }
 
       const statistic = normalizeStatisticContent(
         currentStat,
-        typeof generated.stat === "string" ? generated.stat : "",
-        typeof generated.statLabel === "string" ? generated.statLabel : "",
+        "",
+        "",
       );
 
       console.info("[PostCraft] postcard_generation_ms=" + (Date.now() - startedAt));
       return NextResponse.json({
-        headline: typeof generated.headline === "string" ? generated.headline.trim() : "",
-        body: typeof generated.body === "string" ? generated.body.trim() : "",
-        closing: typeof generated.closing === "string" ? generated.closing.trim() : "",
+        headline: best.candidate.headline,
+        body: best.candidate.body,
+        closing: best.candidate.closing,
+        linkedinPost: best.candidate.linkedinPost,
         stat: statistic.stat,
         statLabel: statistic.statLabel,
+        qualityScore: best.quality.score,
       });
     }
 
