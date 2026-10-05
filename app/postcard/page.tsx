@@ -161,7 +161,8 @@ export default function PostCardPage() {
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinMessage, setLinkedinMessage] = useState("");
-  const linkedinCommentary = (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
+  const [linkedinPost, setLinkedinPost] = useState("");
+  const linkedinCommentary = linkedinPost.trim() || (template === "quote" ? [headline.trim(), body.trim()].filter(Boolean).join("\n\n") : body.trim() || headline.trim());
   const [linkedinPublished, setLinkedinPublished] = useState(false);
   const router = useRouter();
   const [linkedinNotice, setLinkedinNotice] = useState("");
@@ -500,6 +501,7 @@ export default function PostCardPage() {
         setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
         setQuoteHash(data.quote.hash || null);
         setQuoteAuthor(data.quote.author || "");
+        setLinkedinPost("");
         setStoryHash(null);
         setStorySourceName("");
         setStorySourceTitle("");
@@ -526,6 +528,7 @@ export default function PostCardPage() {
         setHeadline(data.story.title || "");
         setBody(data.story.body || "");
         setClosing(data.story.lesson || "");
+        setLinkedinPost(data.story.linkedinPost || "");
         setStoryHash(data.story.hash || null);
         setStorySourceName(data.story.sourceName || "");
         setStorySourceTitle(data.story.sourceTitle || "");
@@ -566,6 +569,7 @@ export default function PostCardPage() {
           setHeadline(fallbackData.headline);
           setBody(fallbackData.body);
           setClosing(fallbackData.closing);
+          setLinkedinPost(fallbackData.linkedinPost || "");
           setStoryHash(null);
           setStorySourceName("");
           setStorySourceTitle("");
@@ -621,6 +625,7 @@ export default function PostCardPage() {
       if (data.headline) setHeadline(data.headline);
       if (data.body) setBody(data.body);
       if (data.closing) setClosing(data.closing);
+      setLinkedinPost(data.linkedinPost || "");
       if (data.headline || data.body || data.closing) setCardGenerated(true);
       setGenerateMessage("Your PostCard is ready. You can edit the text or background before downloading.");
     } catch (error) {
@@ -902,6 +907,7 @@ export default function PostCardPage() {
                       setVisualPrompt("");
                       setVisualConcept("");
                       setMotivationalSentence("");
+                      setLinkedinPost("");
                       setQuoteHash(null);
                       setQuoteAuthor("");
                       setStoryHash(null);
