@@ -4,12 +4,9 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { POSTCARD_FIELDS } from "@/lib/postcard/categories";
 
 type Template = "quote" | "story" | "success" | "person" | "history" | "thought";
 type BackgroundId = "gradient" | "dark" | "photo" | "minimal" | "abstract" | "ink" | "nature";
-
-const quoteFields = POSTCARD_FIELDS;
 
 const templates: { id: Template; name: string; description: string }[] = [
   { id: "quote", name: "Motivational Quote", description: "Real quote from a curated feed" },
@@ -131,9 +128,9 @@ export default function PostCardPage() {
   const [closing, setClosing] = useState(
     "Work earns a seat, but people-centered impact builds a legacy."
   );
-  const [quoteField, setQuoteField] = useState<(typeof quoteFields)[number]>("resilience");
   const [quoteHash, setQuoteHash] = useState<string | null>(null);
   const [quoteAuthor, setQuoteAuthor] = useState("");
+  const [currentCategory, setCurrentCategory] = useState("");
   const [storyHash, setStoryHash] = useState<string | null>(null);
   const [storySourceName, setStorySourceName] = useState("");
   const [storySourceTitle, setStorySourceTitle] = useState("");
@@ -493,7 +490,7 @@ export default function PostCardPage() {
 
     if (template === "quote") {
       try {
-        const response = await fetch(`/api/postcard/quote?field=${encodeURIComponent(quoteField)}`, { cache: "no-store" });
+        const response = await fetch("/api/postcard/quote", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || !data?.quote) throw new Error(data?.error || "Could not retrieve a motivational quote.");
         setHeadline(data.quote.text || "");
@@ -502,6 +499,7 @@ export default function PostCardPage() {
         setSource(data.attribution || "Inspirational quotes provided by ZenQuotes API");
         setQuoteHash(data.quote.hash || null);
         setQuoteAuthor(data.quote.author || "");
+        setCurrentCategory(data.quote.category || "");
         setLinkedinPost("");
         setStoryHash(null);
         setStorySourceName("");
@@ -510,7 +508,7 @@ export default function PostCardPage() {
         setStoryCategory("");
         setGenerationCount(nextCount);
         setCardGenerated(true);
-        setGenerateMessage(`Your PostCard is ready. Fresh ${data.quote.category || quoteField} quote selected.`);
+        setGenerateMessage(`Your PostCard is ready. Fresh ${data.quote.category || "topic"} quote selected.`);
       } catch (error) {
         setGenerateMessage(error instanceof Error ? error.message : "Could not retrieve a motivational quote.");
       } finally {
@@ -520,8 +518,7 @@ export default function PostCardPage() {
     }
 
     if (template === "story") {
-      const categories = ["resilience", "courage", "discipline", "leadership", "entrepreneurship", "learning", "life", "achievement", "sports"];
-      const category = storyCategory || quoteField || categories[(nextCount - 1) % categories.length];
+      const category = storyCategory || "random";
       try {
         const response = await fetch(`/api/postcard/story?category=${encodeURIComponent(category)}`, { cache: "no-store" });
         const data = await response.json();
@@ -610,7 +607,7 @@ export default function PostCardPage() {
           action: "postcard",
           template,
           idea: "",
-          category: `${direction} Focus the content on the ${quoteField} field.`,
+          category: direction,
           variationSeed: seed,
           previousHeadline: headline,
           previousBody: body,
@@ -649,7 +646,7 @@ export default function PostCardPage() {
           action: "quoteStory",
           quote: headline.trim(),
           author: quoteAuthor.trim(),
-          category: quoteField,
+          category: currentCategory || "general motivation",
         }),
       });
       const data = await response.json().catch(() => null);
@@ -740,7 +737,7 @@ export default function PostCardPage() {
           quoteHash: template === "quote" ? quoteHash : null,
           quoteText: template === "quote" ? headline : "",
           quoteAuthor: template === "quote" ? quoteAuthor : "",
-          quoteCategory: template === "quote" ? quoteField : "",
+          quoteCategory: template === "quote" ? currentCategory : "",
           storyHash: template === "story" ? storyHash : null,
           storySourceName: template === "story" ? storySourceName : "",
           storySourceTitle: template === "story" ? storySourceTitle : "",
@@ -965,25 +962,9 @@ export default function PostCardPage() {
             </div>
 
             <div className="mt-5 border border-neutral-200 bg-white px-4 py-4">
-              <label className="block">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Choose a field</span>
-                <select
-                  value={quoteField}
-                  onChange={(e) => {
-                    const field = e.target.value as (typeof quoteFields)[number];
-                    setQuoteField(field);
-                    if (template === "story") setStoryCategory(field);
-                  }}
-                  className="mt-2 w-full border-b border-neutral-300 bg-transparent px-0 py-2 text-sm outline-none focus:border-neutral-900"
-                >
-                  {quoteFields.map((field) => (
-                    <option key={field} value={field}>{field.charAt(0).toUpperCase() + field.slice(1)}</option>
-                  ))}
-                </select>
-                <span className="mt-2 block text-[11px] leading-5 text-neutral-500">
-                  Choose the theme or subject area for your PostCard.
-                </span>
-              </label>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">3 / Topic</div>
+              <p className="mt-2 text-sm text-neutral-700">PostCraft randomly selects one of 9 topics for every new PostCard.</p>
+              <p className="mt-1 text-[11px] leading-5 text-neutral-500">Leadership · Entrepreneurship · Discipline · Creativity · Learning · Courage · Success · Life · Sports</p>
             </div>
 
             <div className="mt-5">

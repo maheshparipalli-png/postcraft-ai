@@ -6,6 +6,7 @@ import { normalizeStatisticContent } from "@/lib/postcard/content";
 import { parseJsonObject } from "@/lib/ai/json";
 import { judgeQuoteLinkedinQuality } from "@/lib/postcard/quality";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
+import { randomPostCardField } from "@/lib/postcard/categories";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -40,14 +41,14 @@ export async function POST(request: Request) {
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (!prompt && action !== "postcard") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+    if (!prompt && action !== "postcard" && action !== "quoteStory") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
     if (action === "postcard") {
       const startedAt = Date.now();
       const template = typeof body?.template === "string" ? body.template : "editorial";
       const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
-      const category = typeof body?.category === "string" ? body.category.trim() : "general motivation";
+      const category = randomPostCardField();
       const variationSeed = typeof body?.variationSeed === "string" ? body.variationSeed.trim() : "";
       const previousHeadline = typeof body?.previousHeadline === "string" ? body.previousHeadline.trim() : "";
       const previousBody = typeof body?.previousBody === "string" ? body.previousBody.trim() : "";
@@ -130,7 +131,7 @@ Return ONLY valid JSON:
           ? basePrompt
           : `${basePrompt}
 
-QUALITY RETRY ${attempt}: The previous draft failed the quality gate. Produce a completely fresh version. Pay particular attention to human voice, simple language, emotional warmth, no repetition, and making the postcard clearly different from the LinkedIn post.`;
+QUALITY RETRY ${attempt}: The previous draft failed the quality gate.\n\nFAILED QUALITY CHECKS:\n${best?.quality.reasons.join(", ") || "unknown"}\n\nPREVIOUS DRAFT:\nHeadline: ${best?.candidate.headline || "(none)"}\nBody: ${best?.candidate.body || "(none)"}\nClosing: ${best?.candidate.closing || "(none)"}\nLinkedIn post:\n${best?.candidate.linkedinPost || "(none)"}\n\nProduce a genuinely different version and specifically fix every failed quality check. Do not merely reword the previous draft. Pay particular attention to human voice, simple language, emotional warmth, clear story movement, and making the postcard clearly different from the LinkedIn post.`;
 
         const raw = await provider.generateText(prompt, {
           temperature: attempt === 0 ? 0.78 : 0.88,
@@ -228,7 +229,10 @@ Return ONLY valid JSON:
       let bestPost = "";
       let bestScore = -1;
       let bestReasons: string[] = [];
-      const maxAttempts = 3;
+      // Keep the strict independent quality gate, but cap the route at two
+      // candidate passes so one click cannot consume six long LLM calls.
+      const maxAttempts = 2;
+      const provider = await getAIProvider();
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const prompt = attempt === 0
@@ -245,10 +249,11 @@ ${bestPost}
 
 Regenerate from a genuinely different angle. Fix every failed parameter. Keep the story concrete, human, simple, emotionally natural, and tightly connected to the quote without merely explaining it.`;
 
-        const provider = await getAIProvider();
         const raw = await provider.generateText(prompt, {
           temperature: attempt === 0 ? 0.78 : 0.88,
-          numPredict: 700,
+          // The post is only 130-220 words; avoid letting the model spend
+          // hundreds of extra tokens before the independent judge runs.
+          numPredict: 500,
           format: "json",
         });
         const generated = parseJsonObject(raw, "Quote LinkedIn story");

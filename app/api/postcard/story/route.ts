@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingAccess } from "@/lib/billing/access";
 import { getAIProvider } from "@/lib/ai/provider";
-import { POSTCARD_FIELD_TERMS, POSTCARD_FIELDS, type PostCardField } from "@/lib/postcard/categories";
+import { POSTCARD_FIELD_TERMS, POSTCARD_FIELDS, randomPostCardField, type PostCardField } from "@/lib/postcard/categories";
 import { parseJsonObject } from "@/lib/ai/json";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 import { judgePostcardQuality } from "@/lib/postcard/quality";
@@ -28,7 +28,7 @@ const DEFAULT_FEEDS = [
 
 const CATEGORY_TERMS = POSTCARD_FIELD_TERMS;
 
-const DEFAULT_CATEGORY: PostCardField = "resilience";
+const DEFAULT_CATEGORY: PostCardField = POSTCARD_FIELDS[0];
 
 function decodeXml(value: string) {
   return value
@@ -143,8 +143,7 @@ export async function GET(request: Request) {
     }
 
     const params = new URL(request.url).searchParams;
-    const requestedCategory = params.get("category") || DEFAULT_CATEGORY;
-    const category = POSTCARD_FIELDS.includes(requestedCategory as PostCardField) ? requestedCategory as PostCardField : DEFAULT_CATEGORY;
+    const category = randomPostCardField();
     const admin = createAdminClient();
 
     let { data: pool } = await admin

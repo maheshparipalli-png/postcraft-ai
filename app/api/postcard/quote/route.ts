@@ -7,7 +7,6 @@ import { getBillingAccess } from "@/lib/billing/access";
 export const dynamic = "force-dynamic";
 
 const FIELDS: Record<string, string[]> = {
-  resilience: ["failure", "fail", "overcome", "courage", "try", "change", "challenge", "strength", "difficult"],
   leadership: ["lead", "leadership", "people", "team", "service", "responsibility", "example"],
   entrepreneurship: ["business", "work", "success", "risk", "opportunity", "create", "build", "enterprise"],
   discipline: ["discipline", "habit", "work", "effort", "practice", "consistency", "persistence"],
@@ -66,8 +65,7 @@ export async function GET(request: Request) {
 
     const params = new URL(request.url).searchParams;
     const excludedHashes = new Set((params.get("exclude") || "").split(",").filter(Boolean).slice(0, 200));
-    const requestedField = params.get("field") || "resilience";
-    const field = FIELDS[requestedField] ? requestedField : DEFAULT_FIELDS[0];
+    const field = DEFAULT_FIELDS[Math.floor(Math.random() * DEFAULT_FIELDS.length)];
 
     const admin = createAdminClient();
 
