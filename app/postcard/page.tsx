@@ -973,15 +973,15 @@ export default function PostCardPage() {
 
               {template === "quote" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Quote" value={headline} onChange={setHeadline} textarea />
-                  <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); }} />
+                  <Field label="Quote" value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Author" value={body.replace(/^—\s*/, "")} onChange={(value) => { setBody(value ? `— ${value}` : ""); setQuoteAuthor(value); setLinkedinPost(""); }} />
                   <p className="text-[11px] leading-5 text-neutral-500">Quotes come from an external feed. Once you save or publish one, it is excluded from your future selections for 90 days.</p>
                 </div>
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label="Story title" value={headline} onChange={setHeadline} />
-                  <Field label="Story" value={body} onChange={setBody} textarea />
-                  <Field label="Lesson" value={closing} onChange={setClosing} textarea />
+                  <Field label="Story title" value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} />
+                  <Field label="Story" value={body} onChange={(value) => { setBody(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); setLinkedinPost(""); }} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving.
                   </p>
@@ -998,18 +998,18 @@ export default function PostCardPage() {
                   <Field
                     label={template === "success" ? "Story title" : template === "person" ? "Person" : template === "history" ? "Historical moment" : template === "thought" ? "Thought experiment" : "PostCard"}
                     value={headline}
-                    onChange={setHeadline}
+                    onChange={(value) => { setHeadline(value); setLinkedinPost(""); }}
                   />
                   <Field
                     label={template === "success" ? "Story" : template === "person" ? "Why this person matters" : template === "history" ? "What happened" : template === "thought" ? "Explore the idea" : "Practice"}
                     value={body}
-                    onChange={setBody}
+                    onChange={(value) => { setBody(value); setLinkedinPost(""); }}
                     textarea
                   />
                   <Field
                     label={template === "success" ? "Lesson" : template === "person" ? "Takeaway" : template === "history" ? "Why it matters today" : template === "thought" ? "Question to leave with the reader" : "Reflection"}
                     value={closing}
-                    onChange={setClosing}
+                    onChange={(value) => { setClosing(value); setLinkedinPost(""); }}
                     textarea
                   />
                   <p className="text-[11px] leading-5 text-neutral-500">
