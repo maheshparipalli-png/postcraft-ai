@@ -133,3 +133,103 @@ Overall score must be the average of the five qualities, rounded to one decimal.
     return deterministic;
   }
 }
+
+
+export async function judgeQuoteLinkedinQuality(
+  post: string,
+  quote: string,
+  author: string,
+): Promise<QualityResult> {
+  const reasons: string[] = [];
+  const words = tokens(post).length;
+
+  if (!post) reasons.push("empty_post");
+  if (words < 130 || words > 220) reasons.push("linkedin_length");
+  if (hasSuspiciousCharacters(post)) reasons.push("suspicious_characters");
+  if (hasExcessivePunctuation(post)) reasons.push("excessive_punctuation");
+  if (repeatedSentence(post)) reasons.push("repeated_sentences");
+  if (containsMetaLanguage(post)) reasons.push("ai_meta_language");
+  if (/^\s*#|\n\s*#/m.test(post)) reasons.push("hashtags");
+  if (/\p{Extended_Pictographic}/u.test(post)) reasons.push("emoji");
+
+  if (reasons.length) {
+    return { pass: false, score: Math.max(0, 10 - reasons.length * 1.5), reasons };
+  }
+
+  const provider = await getAIProvider();
+  const prompt = `You are PostCraft's strict final quality editor for a motivational LinkedIn story.
+
+The post was created from a motivational quote. It must pass EVERY quality parameter below before it can be shown to the user.
+
+QUOTE:
+${quote}
+
+QUOTE AUTHOR:
+${author || "(unknown)"}
+
+LINKEDIN POST:
+${post}
+
+Score each parameter from 0 to 10:
+- human: sounds like a thoughtful real person sharing an observation, not AI or corporate copy
+- simple: clear on the first read, everyday language, no unnecessary jargon
+- emotional: creates a genuine human feeling without becoming sentimental or cheesy
+- story: contains a concrete situation, movement/tension, a natural turning point, and a meaningful takeaway
+- quote_fit: captures the deeper idea of the supplied quote without merely explaining or repeating it
+- originality: feels specific and fresh, not like a generic motivational template
+- factual_safety: does not invent facts about the quote author, their life, achievements, employer, dates, statistics, or other real-world claims; an imagined example is acceptable when it is not presented as fact
+- linkedin_fit: reads naturally as a LinkedIn text post with short paragraphs and a strong but non-clickbait opening
+
+STRICT RULE:
+PASS ONLY if EVERY parameter is >= 8 AND the overall average is >= 8.5.
+If even ONE parameter is below 8, FAIL.
+
+Return ONLY valid JSON:
+{
+  "human": 0,
+  "simple": 0,
+  "emotional": 0,
+  "story": 0,
+  "quote_fit": 0,
+  "originality": 0,
+  "factual_safety": 0,
+  "linkedin_fit": 0,
+  "score": 0,
+  "reason": "short reason"
+}
+
+The score must be the average of all eight parameters, rounded to one decimal.`;
+
+  try {
+    const raw = await provider.generateText(prompt, { temperature: 0, numPredict: 280 });
+    const parsed = parseJsonObject(raw, "Quote LinkedIn quality judge");
+    const keys = [
+      "human",
+      "simple",
+      "emotional",
+      "story",
+      "quote_fit",
+      "originality",
+      "factual_safety",
+      "linkedin_fit",
+    ];
+    const scores = keys.map((key) => Number(parsed[key]));
+    const valid = scores.every((score) => Number.isFinite(score) && score >= 0 && score <= 10);
+
+    if (!valid) {
+      return { pass: false, score: 0, reasons: ["quality_judge_invalid"] };
+    }
+
+    const score = Math.round((scores.reduce((sum, value) => sum + value, 0) / scores.length) * 10) / 10;
+    const belowThreshold = keys.filter((key, index) => scores[index] < 8).map((key) => `quality_${key}_below_8`);
+    if (score < 8.5) belowThreshold.push("quality_average_below_8_5");
+
+    return {
+      pass: belowThreshold.length === 0,
+      score,
+      reasons: belowThreshold,
+    };
+  } catch {
+    return { pass: false, score: 0, reasons: ["quality_judge_unavailable"] };
+  }
+}
