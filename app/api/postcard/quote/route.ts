@@ -7,7 +7,6 @@ import { getBillingAccess } from "@/lib/billing/access";
 export const dynamic = "force-dynamic";
 
 const FIELDS: Record<string, string[]> = {
-  resilience: ["failure", "fail", "overcome", "courage", "try", "change", "challenge", "strength", "difficult"],
   leadership: ["lead", "leadership", "people", "team", "service", "responsibility", "example"],
   entrepreneurship: ["business", "work", "success", "risk", "opportunity", "create", "build", "enterprise"],
   discipline: ["discipline", "habit", "work", "effort", "practice", "consistency", "persistence"],
