@@ -272,9 +272,10 @@ Do not add hashtags, emoji spam, citations, or markdown. Use simple everyday Eng
     return NextResponse.json({
       story: {
         hash: selected.story_hash,
-        title: headline,
-        body,
-        lesson: closing,
+        title: candidate.headline,
+        body: candidate.body,
+        lesson: candidate.closing,
+        linkedinPost: candidate.linkedinPost,
         category,
         sourceName: selected.source_name,
         sourceTitle: selected.source_title,
