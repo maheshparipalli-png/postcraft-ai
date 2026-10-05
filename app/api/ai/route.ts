@@ -130,7 +130,7 @@ Return ONLY valid JSON:
           ? basePrompt
           : `${basePrompt}
 
-QUALITY RETRY ${attempt}: The previous draft failed the quality gate. Produce a completely fresh version. Pay particular attention to human voice, simple language, emotional warmth, no repetition, and making the postcard clearly different from the LinkedIn post.`;
+QUALITY RETRY ${attempt}: The previous draft failed the quality gate.\n\nFAILED QUALITY CHECKS:\n${best?.quality.reasons.join(", ") || "unknown"}\n\nPREVIOUS DRAFT:\nHeadline: ${best?.candidate.headline || "(none)"}\nBody: ${best?.candidate.body || "(none)"}\nClosing: ${best?.candidate.closing || "(none)"}\nLinkedIn post:\n${best?.candidate.linkedinPost || "(none)"}\n\nProduce a genuinely different version and specifically fix every failed quality check. Do not merely reword the previous draft. Pay particular attention to human voice, simple language, emotional warmth, clear story movement, and making the postcard clearly different from the LinkedIn post.`;
 
         const raw = await provider.generateText(prompt, {
           temperature: attempt === 0 ? 0.78 : 0.88,
