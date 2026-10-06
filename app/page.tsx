@@ -920,15 +920,20 @@ function resetFromStory() {
                   </div>
                 </div>
 
-                <div className="border-y border-neutral-300/80 py-6">
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-8 border-t border-neutral-300/80 pt-8">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">PostCard</div>
-                      <h3 className="mt-2 font-serif text-2xl">Turn this post into a PostCard.</h3>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        POSTCARD
+                      </div>
+                      <h3 className="mt-2 font-serif text-2xl">
+                        Content ready for PostCard
+                      </h3>
                       <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
-                        Discover handles the story and LinkedIn post. PostCard handles the visual design, content layout, preview, saving, and publishing.
+                        Review the content below. This is what will be sent to PostCard.
                       </p>
                     </div>
+
                     <button
                       type="button"
                       onClick={openPostCard}
@@ -937,6 +942,46 @@ function resetFromStory() {
                     >
                       Open in PostCard →
                     </button>
+                  </div>
+
+                  <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-300/80 bg-[#f1efe9]">
+                    <div className="border-b border-neutral-300/80 px-6 py-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        HEADLINE
+                      </div>
+                      <h4 className="mt-2 font-serif text-2xl leading-tight">
+                        {newsTitle || selectedIdea?.title || "LinkedIn Post"}
+                      </h4>
+                    </div>
+
+                    <div className="px-6 py-6">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        LINKEDIN POST
+                      </div>
+                      <div className="mt-4 whitespace-pre-wrap text-base leading-7 text-neutral-800">
+                        {post || "Your generated LinkedIn post will appear here."}
+                      </div>
+                    </div>
+
+                    {(angle || selectedIdea?.whyItMatters) && (
+                      <div className="border-t border-neutral-300/80 px-6 py-5">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                          KEY TAKEAWAY
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-neutral-700">
+                          {angle || selectedIdea?.whyItMatters}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="border-t border-neutral-300/80 px-6 py-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        SOURCE
+                      </div>
+                      <p className="mt-2 text-sm text-neutral-700">
+                        {newsSource || selectedIdea?.source || "PostCraft Discover"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
