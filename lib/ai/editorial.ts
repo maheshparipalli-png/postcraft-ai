@@ -702,7 +702,7 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
 }
 
 export type PostQualityCheck = {
-  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length";
+  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length" | "filler";
   label: string;
   passed: boolean;
   detail: string;
@@ -743,6 +743,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
   const relevanceRatio = sourceTerms.size ? shared / Math.min(sourceTerms.size, 12) : 0;
 
   const wordCount = post.split(/\s+/).filter(Boolean).length;
+  const genericFiller = getGenericFillerPhrases(post);
   const trimmedPost = post.trim();
   const complete =
     Boolean(trimmedPost) &&
@@ -781,6 +782,14 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       label: "Length checked",
       passed: wordCount >= 125 && wordCount <= 150 && post.length <= 3000,
       detail: wordCount + " words; target is 125–150 and under 3,000 characters.",
+    },
+    {
+      key: "filler",
+      label: "No generic filler",
+      passed: genericFiller.length === 0,
+      detail: genericFiller.length === 0
+        ? "No known generic filler phrases detected."
+        : "Generic or repetitive filler detected: " + genericFiller.join(", ") + ".",
     },
   ];
 }
@@ -1011,7 +1020,42 @@ ${post}
     }
   }
 
-  const finalFailures = failedChecks(result.quality);
+  let finalFailures = failedChecks(result.quality);
+
+  // If the full quality/repair cycle still fails, discard the candidate and
+  // regenerate from the source rather than publishing or returning a bad draft.
+  // This gives the model a clean second chance instead of endlessly repairing
+  // the same weak wording.
+  for (let regeneration = 1; finalFailures.length && regeneration <= 2; regeneration += 1) {
+    const retryRaw = await aiProvider.generateText(
+      basePrompt + `
+
+REGENERATION REQUIREMENT
+The previous candidate failed PostCraft quality validation. Generate a completely fresh post.
+Do not repeat the previous wording or sentence structure.
+It MUST pass every quality rule before you return it:
+- 125–150 words total; aim for 135–140.
+- Plain ASCII text only. No emojis, Markdown, bullets, URLs, hashtags, or decorative symbols.
+- No duplicated or near-duplicated sentences or ideas.
+- Stay tightly grounded in the supplied story and selected angle.
+- Every sentence must be complete.
+- The final sentence must end naturally with a complete thought.
+Return ONLY the finished LinkedIn post.`,
+      { temperature: 0.2, numPredict: 700 },
+    );
+
+    const retryPost = normalizeGeneratedPost(retryRaw);
+    result = {
+      post: retryPost,
+      quality: evaluatePostQuality(retryPost, story, angle),
+    };
+    finalFailures = failedChecks(result.quality);
+
+    console.info("[PostCraft] editorial_quality_regeneration", {
+      attempt: regeneration,
+      remainingFailures: finalFailures.map((check) => check.key),
+    });
+  }
 
   if (finalFailures.length) {
     const details = finalFailures
@@ -1019,7 +1063,7 @@ ${post}
       .join("; ");
 
     throw new Error(
-      `The generated post could not pass PostCraft's quality checks after ${maxRepairPasses} repair passes. ${details}`,
+      `The generated post could not pass PostCraft's quality checks after repair and regeneration. ${details}`,
     );
   }
 
