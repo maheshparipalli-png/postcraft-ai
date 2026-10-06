@@ -10,7 +10,6 @@ import MarketingHome from "./ui/marketing-home";
 
 type Idea = { title: string; description: string; whyItMatters: string; sourceIndexes: number[]; source: string; url: string; imageUrl?: string | null; publishedAt: string; interest?: string };
 type Perspective = "agree" | "disagree" | "mixed" | "curious";
-type PublishFormat = "combined" | "text" | "image";
 
 function formatPublishedAtIST(value: string) {
   const date = new Date(value);
@@ -47,113 +46,6 @@ function cleanGeneratedPost(value: string) {
     .trim();
 }
 
-function renderPostCardImage(title: string, post: string, _angle: string, source: string) {
-  const width = 1080;
-  const height = 1350;
-  const margin = 78;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Could not create the PostCard infographic.");
-
-  ctx.fillStyle = "#171717";
-  ctx.fillRect(0, 0, width, height);
-
-  const wrap = (text: string, maxWidth: number, font: string) => {
-    ctx.font = font;
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    const lines: string[] = [];
-    let line = "";
-    for (const word of words) {
-      const next = line ? line + " " + word : word;
-      if (line && ctx.measureText(next).width > maxWidth) {
-        lines.push(line);
-        line = word;
-      } else line = next;
-    }
-    if (line) lines.push(line);
-    return lines;
-  };
-
-  const fit = (text: string, maxWidth: number, start: number, min: number, maxLines: number, family = "Arial", weight = "700") => {
-    for (let size = start; size >= min; size -= 1) {
-      const font = `${weight} ${size}px ${family}`;
-      const lines = wrap(text, maxWidth, font);
-      if (lines.length <= maxLines) return { size, lines };
-    }
-    return { size: min, lines: wrap(text, maxWidth, `${weight} ${min}px ${family}`).slice(0, maxLines) };
-  };
-
-  ctx.fillStyle = "#a3a3a3";
-  ctx.font = "700 16px Arial";
-  ctx.fillText("POSTCRAFT · LINKEDIN INFOCARD", margin, 72);
-
-  const titleFit = fit(title, width - margin * 2, 52, 30, 4, "Georgia", "700");
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${titleFit.size}px Georgia`;
-  let y = 155;
-  titleFit.lines.forEach((line) => { ctx.fillText(line, margin, y); y += titleFit.size * 1.2; });
-
-  y += 38;
-  ctx.strokeStyle = "#3f3f46";
-  ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(width - margin, y); ctx.stroke();
-
-  const cleaned = post
-    .replace(/^.*?\n\s*\n/, "")
-    .replace(/\bhttps?:\/\/\S+/gi, "")
-    .trim();
-  const sentences = cleaned.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()).filter(Boolean) || [];
-  const normalizeSentence = (value: string) =>
-    value.replace(/[.!?]+$/, "").replace(/\s+/g, " ").trim().toLowerCase();
-
-  const uniqueSentences = sentences.filter((sentence, index, all) =>
-    index === all.findIndex((candidate) => normalizeSentence(candidate) === normalizeSentence(sentence))
-  );
-  const points = uniqueSentences.slice(0, 3);
-  points.forEach((point, index) => {
-    y += 55;
-    ctx.fillStyle = "#a3a3a3";
-    ctx.font = "700 18px Arial";
-    ctx.fillText(String(index + 1).padStart(2, "0"), margin, y);
-    const p = fit(point.replace(/[.!?]+$/, ""), width - margin * 2 - 65, 25, 18, 4, "Arial", "400");
-    ctx.fillStyle = "#f5f5f5";
-    ctx.font = `400 ${p.size}px Arial`;
-    let py = y;
-    p.lines.forEach((line) => { ctx.fillText(line, margin + 58, py); py += p.size * 1.3; });
-    y = py;
-  });
-
-  const angleKey = normalizeSentence(_angle);
-  const candidateTakeaway = uniqueSentences[uniqueSentences.length - 1] || "";
-  const takeaway =
-    candidateTakeaway &&
-    !points.some((point) => normalizeSentence(point) === normalizeSentence(candidateTakeaway)) &&
-    normalizeSentence(candidateTakeaway) !== angleKey
-      ? candidateTakeaway.replace(/[.!?]+$/, "")
-      : "";
-
-  if (takeaway.trim()) {
-    y += 32;
-    ctx.fillStyle = "#737373";
-    ctx.font = "700 15px Arial";
-    ctx.fillText("THE TAKEAWAY", margin, y);
-    y += 30;
-    const t = fit(takeaway, width - margin * 2, 28, 19, 4, "Georgia", "700");
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `700 ${t.size}px Georgia`;
-    t.lines.forEach((line) => { ctx.fillText(line, margin, y); y += t.size * 1.3; });
-  }
-
-  const footerY = height - 72;
-  ctx.strokeStyle = "#3f3f46";
-  ctx.beginPath(); ctx.moveTo(margin, footerY - 22); ctx.lineTo(width - margin, footerY - 22); ctx.stroke();
-  ctx.fillStyle = "#a3a3a3";
-  ctx.font = "14px Arial";
-  ctx.fillText(source ? `Source: ${source}` : "PostCraft AI", margin, footerY);
-  return canvas.toDataURL("image/png");
-}
-
 export default function Home() {
   const router = useRouter();
   const [topic, setTopic] = useState("AI & Technology");
@@ -171,9 +63,6 @@ export default function Home() {
   const [verifiedSummary, setVerifiedSummary] = useState("");
   const [perspective, setPerspective] = useState<Perspective>("mixed");
   const [post, setPost] = useState("");
-  const [postCardImage, setPostCardImage] = useState("");
-  const [postCardRendering, setPostCardRendering] = useState(false);
-  const [publishFormat, setPublishFormat] = useState<PublishFormat>("combined");
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -345,29 +234,6 @@ async function discoverIdeas() {
     return () => { cancelled = true; };
   }, [authReady, authUser?.id, appAccessAllowed]);
 
-  useEffect(() => {
-    if (angleLoading || !post.trim() || !selectedIdea) {
-      setPostCardImage("");
-      return;
-    }
-    let cancelled = false;
-    setPostCardRendering(true);
-    try {
-      const image = renderPostCardImage(
-        decodeHtmlEntities(selectedIdea.title),
-        post,
-        angle,
-        decodeHtmlEntities(selectedIdea.source),
-      );
-      if (!cancelled) setPostCardImage(image);
-    } catch (err) {
-      if (!cancelled) setError(err instanceof Error ? err.message : "Could not create the PostCard infographic.");
-    } finally {
-      if (!cancelled) setPostCardRendering(false);
-    }
-    return () => { cancelled = true; };
-  }, [post, selectedIdea, angle]);
-
   if (!authReady) {
     return <MarketingHome />;
   }
@@ -384,11 +250,28 @@ function resetFromStory() {
     setNewsTitle("");
     setNewsSource("");
     setVerifiedSummary("");
-    setPublishFormat("combined");
-    setPostCardImage("");
       }
 
 
+
+  function openPostCard() {
+    if (!selectedIdea || !post.trim()) return;
+
+    window.sessionStorage.setItem(
+      "postcraft-idea-radar-postcard",
+      JSON.stringify({
+        headline: (newsTitle || selectedIdea.title || "LinkedIn Post").trim(),
+        body: post.trim(),
+        closing: (angle || selectedIdea.whyItMatters || "").trim(),
+        template: "story",
+        source: newsSource || selectedIdea.source || "PostCraft Discover",
+        sourceUrl: sourceUrl || selectedIdea.url || "",
+        origin: "discover",
+      }),
+    );
+
+    router.push("/postcard");
+  }
 
   async function selectIdea(idea: Idea) {
     const requestId = ++angleRequestRef.current;
@@ -576,7 +459,6 @@ function resetFromStory() {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
         setPost("");
-        setPostCardImage("");
         setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
       }
     } finally {
@@ -633,8 +515,8 @@ function resetFromStory() {
           commentary: post.trim(),
           sourceUrl: selectedIdea?.url || null,
           sourceTitle: decodeHtmlEntities(selectedIdea?.title || newsTitle || ""),
-          imageUrl: publishFormat === "text" ? null : (selectedIdea?.imageUrl || null),
-          imageDataUrl: publishFormat === "text" ? undefined : (postCardImage || undefined),
+          imageUrl: null,
+          imageDataUrl: undefined,
           includeSourceImage: false,
         }),
       });
@@ -1038,60 +920,68 @@ function resetFromStory() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-300/80 py-5">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Publishing format</div>
-                    <p className="mt-1 text-xs text-neutral-500">Choose what will be sent to LinkedIn.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {([["combined", "Text + visual"], ["text", "Text only"], ["image", "Visual only"]] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setPublishFormat(value)}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium ${publishFormat === value ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-600 hover:border-neutral-600"}`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-y border-neutral-300/80 py-6">
-                  <label htmlFor="post-editor" className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                    {editingPostId ? "Edit your saved post" : "Your editable post"}
-                  </label>
-                  <textarea
-                    id="post-editor"
-                    value={post}
-                    onChange={(event) => setPost(event.target.value)}
-                    rows={14}
-                    spellCheck
-                    className="w-full resize-y bg-transparent px-0 py-2 font-serif text-xl leading-8 tracking-[-0.01em] outline-none placeholder:text-neutral-400 focus:ring-0 sm:text-2xl sm:leading-9"
-                    aria-label="Post editor"
-                  />
-                </div>
-                {publishFormat !== "image" && <div className="mt-8">
-                  <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">Draft commentary</div>
-                </div>}
-                <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
-                  <div className="rounded-2xl border border-neutral-300/80 bg-[#171717] p-4">
-                    <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                      <span>PostCard · Infographic</span>
-                      <span>{postCardRendering ? "Creating…" : "Ready"}</span>
+                <div className="mt-8 border-t border-neutral-300/80 pt-8">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        POSTCARD
+                      </div>
+                      <h3 className="mt-2 font-serif text-2xl">
+                        Content ready for PostCard
+                      </h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+                        Review the content below. This is what will be sent to PostCard.
+                      </p>
                     </div>
-                    {postCardImage ? (
-                      <Image src={postCardImage} alt="PostCraft LinkedIn infographic PostCard" width={800} height={1000} unoptimized className="w-full rounded-lg" />
-                    ) : (
-                      <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-500">
-                        Creating your infographic…
+
+                    <button
+                      type="button"
+                      onClick={openPostCard}
+                      disabled={!post.trim() || angleLoading}
+                      className="shrink-0 rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Open in PostCard →
+                    </button>
+                  </div>
+
+                  <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-300/80 bg-[#f1efe9]">
+                    <div className="border-b border-neutral-300/80 px-6 py-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        HEADLINE
+                      </div>
+                      <h4 className="mt-2 font-serif text-2xl leading-tight">
+                        {newsTitle || selectedIdea?.title || "LinkedIn Post"}
+                      </h4>
+                    </div>
+
+                    <div className="px-6 py-6">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        LINKEDIN POST
+                      </div>
+                      <div className="mt-4 whitespace-pre-wrap text-base leading-7 text-neutral-800">
+                        {post || "Your generated LinkedIn post will appear here."}
+                      </div>
+                    </div>
+
+                    {(angle || selectedIdea?.whyItMatters) && (
+                      <div className="border-t border-neutral-300/80 px-6 py-5">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                          KEY TAKEAWAY
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-neutral-700">
+                          {angle || selectedIdea?.whyItMatters}
+                        </p>
                       </div>
                     )}
-                  </div>
-                  <div className="self-start rounded-2xl border border-neutral-300/80 bg-[#f1efe9] p-6">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">PostCard content</div>
-                    <h3 className="mt-3 font-serif text-2xl leading-tight">{selectedIdea?.title || newsTitle}</h3>
-                    <p className="mt-4 text-sm leading-6 text-neutral-600">The infographic is built from the LinkedIn post itself, with duplicate points removed.</p>
+
+                    <div className="border-t border-neutral-300/80 px-6 py-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        SOURCE
+                      </div>
+                      <p className="mt-2 text-sm text-neutral-700">
+                        {newsSource || selectedIdea?.source || "PostCraft Discover"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

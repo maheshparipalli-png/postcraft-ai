@@ -286,6 +286,9 @@ export default function PostCardPage() {
           body?: string;
           closing?: string;
           template?: Template;
+          source?: string;
+          sourceUrl?: string;
+          origin?: string;
         };
 
         if (imported.template && templates.some((item) => item.id === imported.template)) {
@@ -294,9 +297,14 @@ export default function PostCardPage() {
         if (imported.headline) setHeadline(imported.headline);
         if (imported.body) setBody(imported.body);
         if (imported.closing) setClosing(imported.closing);
+        if (imported.source) setSource(imported.source.startsWith("Source:") ? imported.source : `Source: ${imported.source}`);
 
         if (imported.headline || imported.body || imported.closing) {
-          setGenerateMessage("Imported from Idea Radar. Refine the visual, then save or publish.");
+          setGenerateMessage(
+            imported.origin === "discover"
+              ? "Imported from Discover. Your PostCard preview is ready — refine the visual, then save or publish."
+              : "Imported from Idea Radar. Refine the visual, then save or publish."
+          );
         }
 
         window.sessionStorage.removeItem("postcraft-idea-radar-postcard");

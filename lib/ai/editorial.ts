@@ -702,7 +702,7 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
 }
 
 export type PostQualityCheck = {
-  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length";
+  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length" | "filler";
   label: string;
   passed: boolean;
   detail: string;
@@ -743,6 +743,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
   const relevanceRatio = sourceTerms.size ? shared / Math.min(sourceTerms.size, 12) : 0;
 
   const wordCount = post.split(/\s+/).filter(Boolean).length;
+  const genericFiller = getGenericFillerPhrases(post);
   const trimmedPost = post.trim();
   const complete =
     Boolean(trimmedPost) &&
@@ -779,8 +780,16 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "length",
       label: "Length checked",
-      passed: wordCount >= 200 && wordCount <= 300 && post.length <= 3000,
-      detail: wordCount + " words; target is 200–300 and under 3,000 characters.",
+      passed: wordCount >= 125 && wordCount <= 150 && post.length <= 3000,
+      detail: wordCount + " words; target is 125–150 and under 3,000 characters.",
+    },
+    {
+      key: "filler",
+      label: "No generic filler",
+      passed: genericFiller.length === 0,
+      detail: genericFiller.length === 0
+        ? "No known generic filler phrases detected."
+        : "Generic or repetitive filler detected: " + genericFiller.join(", ") + ".",
     },
   ];
 }
@@ -851,7 +860,7 @@ Each insight must add new information or reasoning.
 4. TAKEAWAY
 End the main content with one clear takeaway or lesson only if it adds something new.
 
-The finished post should feel complete on its own and contain 200–300 words. Do not use placeholder numbering such as a lone "3".
+The finished post should feel complete on its own and contain 125–150 words. Aim for approximately 135–140 words. Never exceed 150 words. Do not use placeholder numbering such as a lone "3".
 
 5. CTA
 End with ONE natural question or clear call to action directly related to the topic.
@@ -939,7 +948,7 @@ REPAIR INSTRUCTIONS
 - If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
 - If completeness failed, finish every incomplete sentence and make the final thought complete.
 - If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, control characters, and non-ASCII symbols. Use plain ASCII punctuation only (periods, commas, apostrophes, quotation marks, colons, semicolons, question marks, exclamation marks, and hyphens).
-- Keep the result between 200 and 300 words and under 3,000 characters.
+- Keep the result between 125 and 150 words and under 3,000 characters. Aim for approximately 135–140 words.
 - Do not introduce new unsupported facts, numbers, quotes, examples, motives, or claims.
 - The repaired post must still read naturally as a human LinkedIn post, not as a quality-check response.
 - Return ONLY the repaired LinkedIn post. Do not explain the changes.
@@ -982,8 +991,9 @@ ${post}
   }
 
   // Models can ignore length/duplication repair instructions. Apply a conservative
-  // deterministic final pass: remove near-duplicate sentences and keep complete
-  // sentences within the product's 300-word ceiling before the final validation.
+  // deterministic final pass: remove near-duplicate sentences without truncating
+  // a sentence. If the candidate still fails the quality gate, the function
+  // throws so the caller can retry generation rather than publish bad content.
   function compactPost(post: string) {
     const sentences = post.match(/[^.!?]+[.!?]+(?:["')\]]*)|[^.!?]+$/g) || [];
     const kept: string[] = [];
@@ -994,7 +1004,7 @@ ${post}
       if (duplicate) continue;
       const currentWords = kept.join(" ").split(/\s+/).filter(Boolean).length;
       const sentenceWords = sentence.split(/\s+/).filter(Boolean).length;
-      if (currentWords + sentenceWords > 300) break;
+      if (currentWords + sentenceWords > 150) break;
       kept.push(sentence);
     }
     return kept.join(" ").trim();
@@ -1010,7 +1020,42 @@ ${post}
     }
   }
 
-  const finalFailures = failedChecks(result.quality);
+  let finalFailures = failedChecks(result.quality);
+
+  // If the full quality/repair cycle still fails, discard the candidate and
+  // regenerate from the source rather than publishing or returning a bad draft.
+  // This gives the model a clean second chance instead of endlessly repairing
+  // the same weak wording.
+  for (let regeneration = 1; finalFailures.length && regeneration <= 2; regeneration += 1) {
+    const retryRaw = await aiProvider.generateText(
+      basePrompt + `
+
+REGENERATION REQUIREMENT
+The previous candidate failed PostCraft quality validation. Generate a completely fresh post.
+Do not repeat the previous wording or sentence structure.
+It MUST pass every quality rule before you return it:
+- 125–150 words total; aim for 135–140.
+- Plain ASCII text only. No emojis, Markdown, bullets, URLs, hashtags, or decorative symbols.
+- No duplicated or near-duplicated sentences or ideas.
+- Stay tightly grounded in the supplied story and selected angle.
+- Every sentence must be complete.
+- The final sentence must end naturally with a complete thought.
+Return ONLY the finished LinkedIn post.`,
+      { temperature: 0.2, numPredict: 700 },
+    );
+
+    const retryPost = normalizeGeneratedPost(retryRaw);
+    result = {
+      post: retryPost,
+      quality: evaluatePostQuality(retryPost, story, angle),
+    };
+    finalFailures = failedChecks(result.quality);
+
+    console.info("[PostCraft] editorial_quality_regeneration", {
+      attempt: regeneration,
+      remainingFailures: finalFailures.map((check) => check.key),
+    });
+  }
 
   if (finalFailures.length) {
     const details = finalFailures
@@ -1018,7 +1063,7 @@ ${post}
       .join("; ");
 
     throw new Error(
-      `The generated post could not pass PostCraft's quality checks after ${maxRepairPasses} repair passes. ${details}`,
+      `The generated post could not pass PostCraft's quality checks after repair and regeneration. ${details}`,
     );
   }
 
