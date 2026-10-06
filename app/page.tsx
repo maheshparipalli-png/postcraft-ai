@@ -459,7 +459,6 @@ function resetFromStory() {
       if (controller.signal.aborted) return;
       if (requestId === angleRequestRef.current) {
         setPost("");
-        setPostCardImage("");
         setError(err instanceof Error ? err.message : "PostCraft could not create the post.");
       }
     } finally {
