@@ -15,3 +15,5 @@ lint-result.txt
 postcraft-ai-backups/
 .vercel
 .env*
+
+supabase/.temp/
