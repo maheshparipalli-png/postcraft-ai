@@ -17,3 +17,4 @@ postcraft-ai-backups/
 .env*
 
 supabase/.temp/
+freellmapi-models.json
