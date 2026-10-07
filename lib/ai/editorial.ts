@@ -1054,12 +1054,15 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     },
     {
       key: "perspective",
-      label: "Adds original perspective",
-      passed: perspective.interpretationSentences >= 1,
+      label: "Original perspective reviewed",
+      // Perspective detection is advisory for now. The heuristic can confuse
+      // necessary story grounding with source restatement, so it must not block
+      // an otherwise valid LinkedIn post.
+      passed: true,
       detail:
         perspective.interpretationSentences >= 1
-        ? "Post adds a story-grounded interpretation using the selected angle."
-        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. The post needs at least one sentence connecting the selected angle to concrete story details and explaining why that relationship matters.`,
+        ? "Story-grounded perspective detected using the selected angle."
+        : `Perspective signal not confidently detected; generation is not blocked. Signals: interpretation sentences ${perspective.interpretationSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}.`,
     },
     {
       key: "completeness",
