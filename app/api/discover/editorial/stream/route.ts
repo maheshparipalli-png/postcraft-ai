@@ -87,6 +87,7 @@ export async function POST(request: Request) {
       ),
       source: verified?.source || fallbackSource || "the original publisher",
       summary: verified?.summary || fallbackSummary,
+      content: verified?.content || fallbackSummary,
       url: verified?.url || url,
     };
 
@@ -112,41 +113,15 @@ export async function POST(request: Request) {
           const editorial = await generateEditorialDraft(story, (token) => {
             event(controller, encoder, "token", { token });
           }, preferredAngle);
-          let cardContent: { points: string[]; takeaway: string };
-          try {
-            cardContent = await generateEditorialCardPoints(
-              story,
-              editorial.selectedAngle.angle,
-              editorial.post,
-            );
-          } catch (error) {
-            console.warn("Discover PostCard rewrite fallback:", error);
+          event(controller, encoder, "status", {
+            message: "Building a factual PostCard from the verified article…",
+          });
 
-            const fallbackPoints = story.summary
-              .replace(/\s+/g, " ")
-              .match(/[^.!?]+[.!?]+/g)
-              ?.map((sentence: string) => sentence.trim())
-              .filter(Boolean)
-              .filter((sentence: string, index: number, all: string[]) => all.findIndex((item: string) => item.toLowerCase() === sentence.toLowerCase()) === index)
-              .slice(0, 3) || [];
-
-            const safeFallbackPoints = [
-              ...fallbackPoints,
-              editorial.selectedAngle.angle.trim(),
-              "The evidence adds a new dimension to how this story can be understood.",
-            ]
-              .filter(Boolean)
-              .filter((point, index, all) =>
-                point.toLowerCase() !== story.headline.trim().toLowerCase() &&
-                all.findIndex((item) => item.toLowerCase() === point.toLowerCase()) === index,
-              )
-              .slice(0, 3);
-
-            cardContent = {
-              points: safeFallbackPoints,
-              takeaway: "The broader implication is how this evidence may change the way the issue is understood.",
-            };
-          }
+          const cardContent = await generateEditorialCardPoints(
+            story,
+            editorial.selectedAngle.angle,
+            editorial.post,
+          );
 
           event(controller, encoder, "done", {
             article: {
@@ -154,7 +129,7 @@ export async function POST(request: Request) {
               source: story.source,
               url: story.url,
               publishedAt: verified?.publishedAt || "",
-              content: story.summary,
+              content: story.content || story.summary,
               sourceVerified: !sourceAccessFallback,
             },
             angle: editorial.selectedAngle,
