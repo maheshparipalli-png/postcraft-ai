@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sanitizeLinkedInPost } from "@/lib/ai/editorial";
+import { sanitizeLinkedInPost } from "@/lib/text/sanitize-linkedin";
 
 type VisualCopy = { headline: string; body: string; attribution: string; points?: string[]; takeaway?: string };
 type Preview = {
