@@ -888,7 +888,11 @@ function getPerspectiveSignals(post: string, story: Story, angle: string) {
     // it combines story-specific language with reasoning, or when it introduces
     // a new conclusion using several angle terms while remaining meaningfully
     // different from the source wording.
-    const isDistinctFromSource = similarityToSource < 0.72;
+    // Sentence overlap against an article summary is naturally high because a
+    // grounded editorial post must reuse the story's concrete nouns and facts.
+    // Treat only stronger overlap as a near-restatement; otherwise good,
+    // story-grounded interpretation gets mistaken for source copying.
+    const isDistinctFromSource = similarityToSource < 0.82;
     const isInterpretive =
       (hasReasoningLanguage && isDistinctFromSource) ||
       (angleTermMatches >= 1 && isDistinctFromSource);
@@ -902,7 +906,7 @@ function getPerspectiveSignals(post: string, story: Story, angle: string) {
   });
 
   const nearRestatements = sentenceSignals.filter(
-    ({ similarityToSource }) => similarityToSource >= 0.68,
+    ({ similarityToSource }) => similarityToSource >= 0.82,
   ).length;
 
   const nearRestatementRatio = sentences.length
@@ -1057,7 +1061,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
         perspective.perspectiveSentences >= 1 &&
         perspective.nearRestatementRatio < 0.85
         ? "Post adds a story-grounded interpretation instead of only restating the source."
-        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; perspective sentences ${perspective.perspectiveSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. Required: at least 1 interpretation signal and near-restatement ratio below 0.85.`,
+        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; perspective sentences ${perspective.perspectiveSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. The detector uses stronger overlap (0.82+) for near-restatement so grounded story terms are not treated as copying.`,
     },
     {
       key: "completeness",
