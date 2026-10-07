@@ -944,13 +944,6 @@ function resetFromStory() {
               <p className="mt-3 text-xs leading-5 text-neutral-500">One clear idea, in your voice.</p>
             </div>
             <div className="min-w-0">
-                <div className="border-b border-neutral-300/80 py-6">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Recommended angle</div>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-800">{angle || "Editorial angle"}</p>
-                  </div>
-                </div>
-
                 <div className="mt-8 border-t border-neutral-300/80 pt-8">
                   {editorialAngles.length > 1 && (
                     <div className="mb-8">
