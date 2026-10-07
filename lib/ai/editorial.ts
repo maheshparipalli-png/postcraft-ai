@@ -447,23 +447,25 @@ ${angle}
 LINKEDIN POST
 ${post}
 
-Write exactly THREE concise visual points. These are NOT excerpts from the LinkedIn post. Rewrite the ideas in fresh wording for a visual card.
+Create exactly THREE concise visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the ideas in fresh wording for a visual card.
 
 Rules:
 - Each point must be 8–16 words.
+- The takeaway must be 10–18 words.
 - Each point must communicate a distinct idea.
 - Do not copy sentences from the LinkedIn post.
 - Do not simply shorten sentences from the post.
 - Focus on what changed, what the evidence suggests, and why it matters.
+- The takeaway should express the broader implication in fresh wording.
 - Stay strictly grounded in the supplied article and angle.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
-- Return ONLY valid JSON in this form: {"points":["point one","point two","point three"]}`;
+- Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
 
   const aiProvider = await provider();
   const raw = await aiProvider.generateText(prompt, {
     format: "json",
     temperature: 0.35,
-    numPredict: 300,
+    numPredict: 350,
   });
   const parsed = parseJson(raw);
   const points = Array.isArray(parsed?.points)
@@ -476,12 +478,15 @@ Rules:
         })
         .slice(0, 3)
     : [];
+  const takeaway = typeof parsed?.takeaway === "string"
+    ? normalizeGeneratedText(parsed.takeaway, { plainPunctuation: true }).trim()
+    : "";
 
-  if (points.length !== 3) {
-    throw new Error("PostCraft could not create three distinct visual points for the news article.");
+  if (points.length !== 3 || !takeaway || takeaway.split(/\s+/).filter(Boolean).length < 10 || takeaway.split(/\s+/).filter(Boolean).length > 18) {
+    throw new Error("PostCraft could not create distinct visual content for the news article.");
   }
 
-  return points;
+  return { points, takeaway };
 }
 
 export async function generateEditorialAngles(story: Story) {
