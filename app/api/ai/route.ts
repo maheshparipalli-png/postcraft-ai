@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
-import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
+import { Evidence, generateEditorialAngles, generateEditorialCardPoints, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 import { parseJsonObject } from "@/lib/ai/json";
@@ -8,7 +8,6 @@ import { judgeQuoteLinkedinQuality } from "@/lib/postcard/quality";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 import { randomPostCardField } from "@/lib/postcard/categories";
 import { verifySourceUrl } from "@/lib/research/verify-source";
-import { generateEditorialCardPoints } from "@/lib/ai/editorial";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -320,7 +319,7 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
           url: verified.url,
         };
       } else {
-        const firstLine = suppliedContent.split(/\\n+/).map((line) => line.trim()).find(Boolean) || "";
+        const firstLine = suppliedContent.split(/\r?\n+/).map((line) => line.trim()).find(Boolean) || "";
         const firstSentence = suppliedContent.match(/[^.!?]+[.!?]+/)?.[0]?.trim() || "";
         const headline = suppliedTitle || firstLine.slice(0, 180) || firstSentence.slice(0, 180) || "User supplied article";
         story = {
