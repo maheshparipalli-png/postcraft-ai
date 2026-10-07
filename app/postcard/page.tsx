@@ -284,6 +284,7 @@ export default function PostCardPage() {
         const imported = JSON.parse(stored) as {
           headline?: string;
           body?: string;
+          linkedinPost?: string;
           closing?: string;
           template?: Template;
           source?: string;
@@ -296,6 +297,9 @@ export default function PostCardPage() {
         }
         if (imported.headline) setHeadline(imported.headline);
         if (imported.body) setBody(imported.body);
+        if (imported.linkedinPost) {
+          setLinkedinPost(imported.linkedinPost);
+        }
         if (imported.closing) setClosing(imported.closing);
         if (imported.source) setSource(imported.source.startsWith("Source:") ? imported.source : `Source: ${imported.source}`);
 
@@ -374,26 +378,46 @@ export default function PostCardPage() {
       const titleFit = fitText(headline || "Your motivational story title.", {
         maxWidth: 900, maxLines: 3, startSize: 54, minSize: 38, weight: 600, lineHeight: 58,
       });
-      const bodyFit = fitText(body || "Generate a short story with a turning point and a lesson.", {
-        maxWidth: 900, maxLines: 10, startSize: 27, minSize: 21, weight: 400, lineHeight: 32,
-      });
+      const bodyPoints = body.split(/\\n+/).map((point) => point.trim()).filter(Boolean).slice(0, 3);
+      const hasMultiplePoints = bodyPoints.length > 1;
+      const bodyFits = hasMultiplePoints
+        ? bodyPoints.map((point) =>
+            fitText(point, {
+              maxWidth: 800, maxLines: 2, startSize: 25, minSize: 20, weight: 400, lineHeight: 30,
+            })
+          )
+        : [fitText(body || "Generate a short story with a turning point and a lesson.", {
+            maxWidth: 900, maxLines: 10, startSize: 27, minSize: 21, weight: 400, lineHeight: 32,
+          })];
       const lessonFit = fitText(closing || "The lesson stays with you.", {
         maxWidth: 900, maxLines: 3, startSize: 30, minSize: 24, weight: 600, lineHeight: 36,
       });
 
-      // Keep the story label visually separated from the title, then let the
-      // content flow naturally so longer stories do not crowd the lesson.
+      // Discover handoffs use concise visual points while the complete LinkedIn
+      // post remains in the editable text-behind-the-PostCard field.
       const titleY = 285;
       const titleEnd = titleY + Math.max(1, titleFit.lines.length - 1) * titleFit.gap + titleFit.size;
       const bodyY = titleEnd + 36;
-      const bodyEnd = bodyY + Math.max(1, bodyFit.lines.length - 1) * bodyFit.gap + bodyFit.size;
+      const bodyMarkup = hasMultiplePoints
+        ? bodyFits.map((fit, index) => {
+            const pointY = bodyY + bodyFits.slice(0, index).reduce((sum, item) => sum + Math.max(1, item.lines.length) * item.gap, 0) + index * 22;
+            return `
+              <circle cx="76" cy="${pointY - 8}" r="5" fill="${textColor}"/>
+              ${textLines(fit.lines, 100, pointY, fit.size, 400, fit.gap)}
+            `;
+          }).join("")
+        : textLines(bodyFits[0].lines, 68, bodyY, bodyFits[0].size, 400, bodyFits[0].gap);
+      const bodyHeight = hasMultiplePoints
+        ? bodyFits.reduce((sum, fit) => sum + Math.max(1, fit.lines.length) * fit.gap, 0) + Math.max(0, bodyFits.length - 1) * 22
+        : Math.max(1, bodyFits[0].lines.length) * bodyFits[0].gap;
+      const bodyEnd = bodyY + bodyHeight + (hasMultiplePoints ? 4 : 0);
       const dividerY = bodyEnd + 30;
       const lessonY = dividerY + 50;
 
       content = `
         <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">A SHORT STORY</text>
         ${textLines(titleFit.lines, 68, titleY, titleFit.size, 600, titleFit.gap)}
-        ${textLines(bodyFit.lines, 68, bodyY, bodyFit.size, 400, bodyFit.gap)}
+        ${bodyMarkup}
         <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
         ${textLines(lessonFit.lines, 68, lessonY, lessonFit.size, 600, lessonFit.gap)}
       `;
@@ -1001,7 +1025,7 @@ export default function PostCardPage() {
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
                   <Field label="Story title" value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} />
-                  <Field label="Story" value={body} onChange={(value) => { setBody(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Key points" value={body} onChange={(value) => { setBody(value); }} textarea />
                   <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); setLinkedinPost(""); }} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving.
