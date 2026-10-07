@@ -502,17 +502,22 @@ ${angle}
 LINKEDIN POST
 ${post}
 
-Create exactly THREE concise visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the ideas in fresh wording for a visual card.
+Create exactly THREE concise FACTUAL visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the article facts in fresh wording for a visual card.
 
 Rules:
 - Each point must be 8–16 words.
 - The takeaway must be 10–18 words.
-- Each point must communicate a different idea from the other points.
-- The takeaway must add a broader implication, not repeat any point.
+- Each point must communicate a different factual detail from the other points.
+- Every point must be directly supported by the supplied article or evidence.
+- The three points are FACTS ONLY: no opinions, interpretation, predictions, implications, recommendations, or editorial conclusions.
+- Do not use first-person language such as "we", "our", or "I".
+- Do not turn the selected editorial angle into a factual point unless the article explicitly states it as a fact.
+- The selected angle belongs in the LinkedIn post, not in the three factual PostCard points.
+- The takeaway is the ONLY place for a broader implication, and it must add something new rather than repeat a point.
 - Do not copy or lightly paraphrase sentences from the LinkedIn post.
 - Do not use the article headline as a point.
-- Focus on distinct dimensions such as the evidence, the change, the mechanism, the consequence, or the broader implication.
-- Stay strictly grounded in the supplied article and angle.
+- Prefer distinct factual dimensions such as the reported finding, study size, measurement method, participants, limitation, or stated change.
+- Stay strictly grounded in the supplied article and evidence.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
 - Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
 
@@ -528,7 +533,9 @@ QUALITY REPAIR
 The previous visual content failed PostCard quality validation.
 Generate a fresh set with substantially different wording.
 Do not reuse the same sentence structure.
-The three points must be mutually distinct.
+The three points must be mutually distinct factual statements.
+Remove any opinion, interpretation, prediction, or editorial conclusion from the points.
+The selected angle must not appear as a point unless explicitly supported as a fact by the article.
 The takeaway must introduce a broader implication that is not stated by any point.
 Do not copy wording from the LinkedIn post.`;
 
