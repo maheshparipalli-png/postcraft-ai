@@ -399,7 +399,7 @@ export default function PostCardPage() {
 
       // Discover handoffs use concise visual points while the complete LinkedIn
       // post remains in the editable text-behind-the-PostCard field.
-      const titleY = 285;
+      const titleY = 220;
       const titleEnd = titleY + Math.max(1, titleFit.lines.length - 1) * titleFit.gap + titleFit.size;
       const bodyY = titleEnd + 36;
       const bodyMarkup = hasMultiplePoints
@@ -419,7 +419,6 @@ export default function PostCardPage() {
       const lessonY = dividerY + 50;
 
       content = `
-        <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">""</text>
         ${textLines(titleFit.lines, 68, titleY, titleFit.size, 600, titleFit.gap)}
         ${bodyMarkup}
         <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
