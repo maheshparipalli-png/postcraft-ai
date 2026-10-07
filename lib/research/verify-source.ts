@@ -8,6 +8,7 @@ export type VerifiedSource = {
   source: string;
   publishedAt: string;
   summary: string;
+  content: string;
 };
 
 function decodeHtml(value: string) {
@@ -249,6 +250,26 @@ function isAggregatorSource(source: string) {
   return /^(google news|bing news|yahoo news)$/i.test(source.trim());
 }
 
+function extractArticleContent(html: string) {
+  const articleMatch = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i);
+  const container = articleMatch?.[1] || html;
+  const cleaned = container
+    .replace(/<(script|style|nav|footer|aside|noscript|svg)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<(?:br|p|div|li|h[1-6])\b[^>]*>/gi, " ") 
+    .replace(/<\/[^>]+>/g, " ");
+
+  const paragraphs = cleaned
+    .split(/\s{2,}|\n+/)
+    .map((value) => cleanText(value))
+    .filter((value) => value.length >= 40)
+    .filter((value, index, all) => all.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index);
+
+  const content = paragraphs.join("\n\n").trim();
+  if (content.length >= 200) return content.slice(0, 12000);
+
+  return cleanText(cleaned).slice(0, 12000);
+}
+
 function extractSummary(html: string) {
   const candidates = [
     extractMeta(html, "og:description"),
@@ -329,6 +350,7 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
 
   const source = extractPublication(html, finalUrl);
   const summary = extractSummary(html);
+  const content = extractArticleContent(html);
 
   const isAggregator =
     isAggregatorUrl(finalUrl) ||
@@ -347,5 +369,6 @@ export async function verifySourceUrl(url: string): Promise<VerifiedSource> {
     source,
     publishedAt: extractDate(html),
     summary,
+    content: content || summary,
   };
 }

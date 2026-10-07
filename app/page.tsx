@@ -260,52 +260,27 @@ function resetFromStory() {
 
 
 
-  function buildPostCardPoints(fullPost: string, headline: string, selectedAngle: string) {
-    const sentences = fullPost
-      .replace(/\r/g, "")
-      .split(/\n+/)
-      .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph])
-      .map((sentence) => sentence.trim())
-      .filter(Boolean)
-      .filter((sentence) => sentence.toLowerCase() !== headline.trim().toLowerCase());
-
-    const distinct = sentences.filter((sentence, index, all) =>
-      all.findIndex((item) => item.toLowerCase() === sentence.toLowerCase()) === index,
-    );
-
-    if (distinct.length >= 3) {
-      return distinct.slice(0, 3).join("\n");
-    }
-
-    if (selectedAngle.trim()) {
-      const angle = selectedAngle.trim();
-      const fallback = [...distinct, angle].filter((value, index, all) =>
-        all.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index,
-      );
-      return fallback.slice(0, 3).join("\n");
-    }
-
-    return distinct.slice(0, 3).join("\n");
-  }
 
   function openPostCard() {
     if (!selectedIdea || !post.trim()) return;
 
     const headline = (newsTitle || selectedIdea.title || "LinkedIn Post").trim();
     const fullPost = post.trim();
-    const selectedAngle = (angle || selectedIdea.whyItMatters || "").trim();
-    const visualPoints = discoverCardPoints.length
-      ? discoverCardPoints.slice(0, 3).join("\n")
-      : buildPostCardPoints(fullPost, headline, selectedAngle);
-    const visualTakeaway =
-      discoverCardTakeaway.trim() ||
-      "The broader implication is how this evidence may change the way the issue is understood.";
+    const visualPoints = discoverCardPoints
+      .filter((point) => point.trim())
+      .slice(0, 3);
+    const visualTakeaway = discoverCardTakeaway.trim();
+
+    if (visualPoints.length !== 3 || !visualTakeaway) {
+      setError("PostCraft could not create a validated factual PostCard for this story. Regenerate the story before opening PostCard.");
+      return;
+    }
 
     window.sessionStorage.setItem(
       "postcraft-idea-radar-postcard",
       JSON.stringify({
         headline,
-        body: visualPoints,
+        body: visualPoints.join("\n"),
         linkedinPost: fullPost,
         closing: visualTakeaway,
         template: "story",
@@ -436,6 +411,14 @@ function resetFromStory() {
         // The LinkedIn text post should start with its own hook rather than
         // repeating the news headline a second time.
         setPost(generatedPost);
+        setDiscoverCardPoints(
+          Array.isArray(data.cardPoints)
+            ? data.cardPoints.filter((point): point is string => typeof point === "string" && point.trim().length > 0)
+            : [],
+        );
+        setDiscoverCardTakeaway(
+          typeof data.cardTakeaway === "string" ? data.cardTakeaway.trim() : "",
+        );
         setGenerationStatus("");
         completed = true;
       };
