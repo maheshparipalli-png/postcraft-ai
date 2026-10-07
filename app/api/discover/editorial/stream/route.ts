@@ -124,9 +124,9 @@ export async function POST(request: Request) {
             const fallbackPoints = story.summary
               .replace(/\s+/g, " ")
               .match(/[^.!?]+[.!?]+/g)
-              ?.map((sentence) => sentence.trim())
+              ?.map((sentence: string) => sentence.trim())
               .filter(Boolean)
-              .filter((sentence, index, all) => all.findIndex((item) => item.toLowerCase() === sentence.toLowerCase()) === index)
+              .filter((sentence: string, index: number, all: string[]) => all.findIndex((item: string) => item.toLowerCase() === sentence.toLowerCase()) === index)
               .slice(0, 3) || [];
 
             const safeFallbackPoints = [
