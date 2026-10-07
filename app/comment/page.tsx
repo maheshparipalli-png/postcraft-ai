@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type Platform = "LinkedIn" | "X" | "Instagram" | "Facebook" | "YouTube" | "Reddit" | "Threads" | "TikTok";
 type Position = "Agree" | "Partially Agree" | "Disagree" | "Add a Different Perspective" | "Challenge the Assumption" | "Ask a Question";
