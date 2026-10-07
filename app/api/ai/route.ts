@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (!prompt && action !== "postcard" && action !== "quoteStory") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+    if (!prompt && action !== "postcard" && action !== "quoteStory" && action !== "manualEditorial") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
     if (action === "postcard") {
