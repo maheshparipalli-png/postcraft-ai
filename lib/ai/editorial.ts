@@ -1360,12 +1360,20 @@ Return ONLY the finished LinkedIn post.`,
   }
 
   if (finalFailures.length) {
-    const details = finalFailures
-      .map((check) => `${check.label}: ${check.detail}`)
-      .join("; ");
+    const qualitySummary = result.quality
+      .map((check) => (check.passed ? "PASS" : "FAIL") + " | " + check.label + " | " + check.detail)
+      .join("\n");
+
+    console.warn("[PostCraft] editorial_quality_final_failure", {
+      checks: result.quality.map((check) => ({
+        key: check.key,
+        passed: check.passed,
+        detail: check.detail,
+      })),
+    });
 
     throw new Error(
-      `The generated post could not pass PostCraft's quality checks after repair and regeneration. ${details}`,
+      "The generated post could not pass PostCraft's quality checks after repair and regeneration.\n\nQUALITY CHECK RESULTS\n" + qualitySummary,
     );
   }
 
