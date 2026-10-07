@@ -808,7 +808,7 @@ function getPerspectiveSignals(post: string, story: Story, angle: string) {
   return { angleMatches: angleMatches.slice(0, 8), interpretationSentences: interpretationSentences.length, perspectiveSentences: perspectiveSentences.length, nearRestatementRatio };
 }
 
-function getGenericFillerPhrases(post: string)
+function getGenericFillerPhrases(post: string) {
   const phrases = [
     "it's crucial to recognize",
     "not evenly distributed",
