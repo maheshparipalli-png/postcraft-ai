@@ -790,7 +790,25 @@ function getMetaEditorialPhrases(post: string) {
   return phrases.filter((phrase) => lower.includes(phrase));
 }
 
-function getGenericFillerPhrases(post: string) {
+function getPerspectiveSignals(post: string, story: Story, angle: string) {
+  const sentences = post.match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
+  const sourceSentences = [story.headline, ...(story.summary.match(/[^.!?]+[.!?]+/g) || [story.summary])].map((s) => s.trim()).filter(Boolean);
+  const markers = ["the important distinction","the bigger point","what is easy to miss","what's easy to miss","what matters here","the real shift","the real issue","in practice","in reality","this changes","this means","this reveals","this suggests","this creates","the trade-off","the tradeoff","the tension","the difference","rather than","not just","more than","but","yet","while","because","depends on","the implication","the consequence","the constraint"];
+  const interpretationSentences = sentences.filter((s) => markers.some((m) => s.toLowerCase().includes(m)));
+  const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story).filter((term) => term.length >= 6);
+  const normalizedPost = normalizeQualityText(post).split(" ");
+  const angleMatches = angleTerms.filter((term) => normalizedPost.includes(term));
+  const sourceSimilarity = sentences.map((sentence) => sourceSentences.length ? Math.max(...sourceSentences.map((source) => sentenceSimilarity(sentence, source))) : 0);
+  const nearRestatements = sourceSimilarity.filter((score) => score >= 0.68).length;
+  const nearRestatementRatio = sentences.length ? nearRestatements / sentences.length : 1;
+  const perspectiveSentences = interpretationSentences.filter((sentence) => {
+    const similarityToSource = sourceSentences.length ? Math.max(...sourceSentences.map((source) => sentenceSimilarity(sentence, source))) : 0;
+    return similarityToSource < 0.68;
+  });
+  return { angleMatches: angleMatches.slice(0, 8), interpretationSentences: interpretationSentences.length, perspectiveSentences: perspectiveSentences.length, nearRestatementRatio };
+}
+
+function getGenericFillerPhrases(post: string)
   const phrases = [
     "it's crucial to recognize",
     "not evenly distributed",
@@ -811,6 +829,15 @@ function getGenericFillerPhrases(post: string) {
     "the future of work",
     "what do you think",
     "agree or disagree",
+    "in a world where",
+    "at the end of the day",
+    "as we navigate",
+    "this is more than just",
+    "this is not just about",
+    "the bottom line is",
+    "it's a reminder that",
+    "this underscores the importance",
+    "there is no doubt that",
   ];
 
   const lower = post.toLowerCase();
@@ -833,7 +860,7 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
 }
 
 export type PostQualityCheck = {
-  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length" | "filler";
+  key: "duplication" | "specialCharacters" | "relevance" | "perspective" | "completeness" | "length" | "filler";
   label: string;
   passed: boolean;
   detail: string;
@@ -883,6 +910,8 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     !/\b(?:and|or|but|because|with|to|of|the|a|an|this|these|those|the)\s*$/i.test(trimmedPost) &&
     !/The implication follows from these details:/i.test(trimmedPost);
 
+  const perspective = getPerspectiveSignals(post, story, angle);
+
   return [
     {
       key: "duplication",
@@ -901,6 +930,14 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       label: "Topic relevance",
       passed: (shared >= 2 && relevanceRatio >= 0.16) || (shared >= 1 && relevanceRatio >= 0.08 && normalizeQualityText(post).includes(normalizeQualityText(angle).split(" ").filter((word) => word.length >= 6).slice(0, 2).join(" "))),
       detail: shared >= 2 ? "Post contains multiple terms grounded in the selected story and angle." : "The post needs stronger direct grounding in the selected story and angle.",
+    },
+    {
+      key: "perspective",
+      label: "Adds original perspective",
+      passed: perspective.angleMatches.length >= 2 && perspective.interpretationSentences >= 1 && perspective.perspectiveSentences >= 1 && perspective.nearRestatementRatio < 0.55,
+      detail: perspective.angleMatches.length >= 2 && perspective.interpretationSentences >= 1 && perspective.perspectiveSentences >= 1 && perspective.nearRestatementRatio < 0.55
+        ? "Post adds a story-grounded interpretation instead of only restating the source."
+        : "Post needs a clearer point of view, more angle-specific reasoning, or less source restatement.",
     },
     {
       key: "completeness",
@@ -998,6 +1035,11 @@ End with ONE natural question or clear call to action directly related to the to
 
 IMPORTANT WRITING RULES
 - Focus on ONE central idea.
+- Add a clear point of view: explain what is easy to miss, what changes in practice, what trade-off or constraint matters, or why the evidence matters beyond the headline.
+- The post must contribute an interpretation that a reader would not get by simply reading the article headline or summary.
+- Use the selected angle as the editorial lens, but do not copy it verbatim.
+- At least one paragraph must explain WHY the facts matter together, not merely describe what happened.
+- Do not manufacture personal experience, credentials, lived experience, or invented examples.
 - Use short, readable paragraphs with blank lines between ideas, like a strong human LinkedIn post.
 - Sound professional, conversational, and human.
 - Use simple English. Avoid corporate jargon and generic motivational filler.
@@ -1077,6 +1119,8 @@ REPAIR INSTRUCTIONS
 - If the post is too long, remove repetition or low-value wording rather than cutting an argument mid-sentence.
 - If relevance failed, strengthen connections to the supplied headline, summary, evidence, and selected angle. Use concrete source terms naturally; do not merely repeat the angle.
 - If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
+- If the original-perspective check failed, add one clear interpretation explaining why the supplied facts matter together, using the selected angle and concrete story details.
+- If the post is mostly a restatement of the source, replace descriptive sentences with analysis of the relationship, trade-off, mechanism, consequence, or practical meaning supported by the story.
 - If completeness failed, finish every incomplete sentence and make the final thought complete.
 - If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, control characters, and non-ASCII symbols. Use plain ASCII punctuation only (periods, commas, apostrophes, quotation marks, colons, semicolons, question marks, exclamation marks, and hyphens).
 - Keep the result between 125 and 150 words and under 3,000 characters. Aim for approximately 135–140 words.
@@ -1168,6 +1212,9 @@ It MUST pass every quality rule before you return it:
 - 125–150 words total; aim for 135–140.
 - Plain ASCII text only. No emojis, Markdown, bullets, URLs, hashtags, or decorative symbols.
 - No duplicated or near-duplicated sentences or ideas.
+- Add a clear, story-grounded point of view rather than merely summarizing the source.
+- Include at least one non-generic interpretation of why the facts matter together.
+- Do not pretend to have personal experience or add unsupported expertise.
 - Stay tightly grounded in the supplied story and selected angle.
 - Every sentence must be complete.
 - The final sentence must end naturally with a complete thought.
