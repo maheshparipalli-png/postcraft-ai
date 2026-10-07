@@ -259,17 +259,31 @@ function resetFromStory() {
 
 
   function buildPostCardPoints(fullPost: string, headline: string, selectedAngle: string) {
-    const fallback = selectedAngle.trim()
-      ? [selectedAngle.trim()]
-      : fullPost
-          .replace(/\r/g, "")
-          .split(/\n+/)
-          .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph])
-          .map((sentence) => sentence.trim())
-          .filter(Boolean)
-          .slice(0, 3);
+    const sentences = fullPost
+      .replace(/\r/g, "")
+      .split(/\n+/)
+      .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph])
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .filter((sentence) => sentence.toLowerCase() !== headline.trim().toLowerCase());
 
-    return fallback.slice(0, 3).join("\n");
+    const distinct = sentences.filter((sentence, index, all) =>
+      all.findIndex((item) => item.toLowerCase() === sentence.toLowerCase()) === index,
+    );
+
+    if (distinct.length >= 3) {
+      return distinct.slice(0, 3).join("\n");
+    }
+
+    if (selectedAngle.trim()) {
+      const angle = selectedAngle.trim();
+      const fallback = [...distinct, angle].filter((value, index, all) =>
+        all.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index,
+      );
+      return fallback.slice(0, 3).join("\n");
+    }
+
+    return distinct.slice(0, 3).join("\n");
   }
 
   function openPostCard() {
@@ -278,10 +292,12 @@ function resetFromStory() {
     const headline = (newsTitle || selectedIdea.title || "LinkedIn Post").trim();
     const fullPost = post.trim();
     const selectedAngle = (angle || selectedIdea.whyItMatters || "").trim();
-    const visualTakeaway = discoverCardTakeaway.trim() || selectedAngle;
     const visualPoints = discoverCardPoints.length
       ? discoverCardPoints.slice(0, 3).join("\n")
       : buildPostCardPoints(fullPost, headline, selectedAngle);
+    const visualTakeaway =
+      discoverCardTakeaway.trim() ||
+      "The broader implication is how this evidence may change the way the issue is understood.";
 
     window.sessionStorage.setItem(
       "postcraft-idea-radar-postcard",
