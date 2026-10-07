@@ -120,32 +120,13 @@ export async function POST(request: Request) {
               editorial.post,
             );
           } catch (error) {
-            console.warn("Discover PostCard rewrite fallback:", error);
+            console.warn("Discover PostCard quality gate blocked generation:", error);
 
-            const fallbackPoints = story.summary
-              .replace(/\s+/g, " ")
-              .match(/[^.!?]+[.!?]+/g)
-              ?.map((sentence: string) => sentence.trim())
-              .filter(Boolean)
-              .filter((sentence: string, index: number, all: string[]) => all.findIndex((item: string) => item.toLowerCase() === sentence.toLowerCase()) === index)
-              .slice(0, 3) || [];
-
-            const safeFallbackPoints = [
-              ...fallbackPoints,
-              editorial.selectedAngle.angle.trim(),
-              "The evidence adds a new dimension to how this story can be understood.",
-            ]
-              .filter(Boolean)
-              .filter((point, index, all) =>
-                point.toLowerCase() !== story.headline.trim().toLowerCase() &&
-                all.findIndex((item) => item.toLowerCase() === point.toLowerCase()) === index,
-              )
-              .slice(0, 3);
-
-            cardContent = {
-              points: safeFallbackPoints,
-              takeaway: "The broader implication is how this evidence may change the way the issue is understood.",
-            };
+            throw new Error(
+              error instanceof Error
+                ? `PostCard quality checks failed: ${error.message}`
+                : "PostCard quality checks failed. Please regenerate the editorial draft.",
+            );
           }
 
           event(controller, encoder, "done", {
