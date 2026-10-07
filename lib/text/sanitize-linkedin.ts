@@ -1,1 +1,27 @@
-import { normalizeGeneratedText } from "@/lib/text/normalize-generated";\n\nexport function sanitizeLinkedInPost(value: string) {\n  return normalizeGeneratedText(value, { plainPunctuation: true })\n    .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")\n    .replace(/\*\*(.*?)\*\*/g, "$1")\n    .replace(/__(.*?)__/g, "$1")\n    .replace(/\*(.*?)\*/g, "$1")\n    .replace(/`(.*?)`/g, "$1")\n    .replace(/^\s*#{1,6}\s+/gm, "")\n    .replace(/^\s*[-*•]\s*$/gm, "")\n    .replace(/^\s*\d+[.)]\s*$/gm, "")\n    .replace(/\n+\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^\n]*(?:https?:\/\/\S+)?\s*$/i, "")\n    .replace(/\bhttps?:\/\/\S+/gi, "")\n    .replace(/\n+\s*(?:Source|Original source|Article source)\s*:?\s*$/i, "")\n    .replace(/[ \t]+\n/g, "\n")\n    .replace(/\n{3,}/g, "\n\n")\n    .trim();\n}
+import { normalizeGeneratedText } from "@/lib/text/normalize-generated";
+
+export function sanitizeLinkedInPost(value: string) {
+  return normalizeGeneratedText(value, { plainPunctuation: true })
+    .replace(/^\s*(?:LinkedIn post|Post):\s*/i, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*•]\s*$/gm, "")
+    .replace(/^\s*\d+[.)]\s*$/gm, "")
+    .replace(/
++\s*(?:Source|Original source|Article source|Read the original article|Original article)\s*:?[^
+]*(?:https?:\/\/\S+)?\s*$/i, "")
+    .replace(/\bhttps?:\/\/\S+/gi, "")
+    .replace(/
++\s*(?:Source|Original source|Article source)\s*:?\s*$/i, "")
+    .replace(/[ \t]+
+/g, "
+")
+    .replace(/
+{3,}/g, "
+
+")
+    .trim();
+}
