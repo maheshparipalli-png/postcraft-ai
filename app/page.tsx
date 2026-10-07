@@ -63,6 +63,7 @@ export default function Home() {
   const [verifiedSummary, setVerifiedSummary] = useState("");
   const [perspective, setPerspective] = useState<Perspective>("mixed");
   const [post, setPost] = useState("");
+  const [discoverCardPoints, setDiscoverCardPoints] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -246,6 +247,7 @@ function resetFromStory() {
     setAngle("");
     setPerspective("mixed");
     setPost("");
+    setDiscoverCardPoints([]);
     setCopied(false);
     setNewsTitle("");
     setNewsSource("");
@@ -255,28 +257,17 @@ function resetFromStory() {
 
 
   function buildPostCardPoints(fullPost: string, headline: string, selectedAngle: string) {
-    const normalizedHeadline = headline.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const sentences = fullPost
-      .replace(/\r/g, "")
-      .split(/\n+/)
-      .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph])
-      .map((sentence) => sentence.trim())
-      .filter(Boolean)
-      .filter((sentence) => {
-        const normalized = sentence.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-        const wordCount = sentence.split(/\s+/).filter(Boolean).length;
-        return normalized !== normalizedHeadline && wordCount >= 8 && wordCount <= 28 && !sentence.endsWith("?");
-      });
+    const fallback = selectedAngle.trim()
+      ? [selectedAngle.trim()]
+      : fullPost
+          .replace(/\r/g, "")
+          .split(/\n+/)
+          .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph])
+          .map((sentence) => sentence.trim())
+          .filter(Boolean)
+          .slice(0, 3);
 
-    const points = sentences.slice(0, 3);
-    if (points.length < 2 && selectedAngle.trim()) {
-      const anglePoint = selectedAngle.trim();
-      if (!points.some((point) => point.toLowerCase() === anglePoint.toLowerCase())) {
-        points.push(anglePoint);
-      }
-    }
-
-    return points.slice(0, 3).join("\n");
+    return fallback.slice(0, 3).join("\n");
   }
 
   function openPostCard() {
@@ -285,12 +276,15 @@ function resetFromStory() {
     const headline = (newsTitle || selectedIdea.title || "LinkedIn Post").trim();
     const fullPost = post.trim();
     const selectedAngle = (angle || selectedIdea.whyItMatters || "").trim();
+    const visualPoints = discoverCardPoints.length
+      ? discoverCardPoints.slice(0, 3).join("\n")
+      : buildPostCardPoints(fullPost, headline, selectedAngle);
 
     window.sessionStorage.setItem(
       "postcraft-idea-radar-postcard",
       JSON.stringify({
         headline,
-        body: buildPostCardPoints(fullPost, headline, selectedAngle),
+        body: visualPoints,
         linkedinPost: fullPost,
         closing: selectedAngle,
         template: "story",
@@ -371,6 +365,7 @@ function resetFromStory() {
         angle?: { angle?: string; why?: string; evidence?: string };
         angles?: unknown[];
         evidence?: unknown[];
+        cardPoints?: string[];
       }) => {
         if (!data.post || !(data.selectedAngle?.angle || data.angle?.angle)) {
           throw new Error("PostCraft returned an incomplete editorial draft. No validated post and angle were received.");
@@ -409,6 +404,7 @@ function resetFromStory() {
           : `${storyTitle}\n\n${generatedPost}`;
 
         setPost(postWithTitle);
+        setDiscoverCardPoints(Array.isArray(data.cardPoints) ? data.cardPoints.filter((point): point is string => typeof point === "string").slice(0, 3) : []);
         setGenerationStatus("");
         completed = true;
       };
@@ -433,6 +429,7 @@ function resetFromStory() {
           angle?: { angle?: string; why?: string; evidence?: string };
           angles?: unknown[];
           evidence?: unknown[];
+          cardPoints?: string[];
         };
 
         try {
