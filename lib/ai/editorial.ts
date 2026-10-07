@@ -517,6 +517,8 @@ Rules:
 - Do not copy or lightly paraphrase sentences from the LinkedIn post.
 - Do not use the article headline as a point.
 - Prefer distinct factual dimensions such as the reported finding, study size, measurement method, participants, limitation, or stated change.
+- Every point must contain a concrete article-supported fact. Reject abstract statements such as "X may not be fixed", "this changes how we think about X", or similar broad framing unless the article explicitly makes that claim.
+- Do not use a broad thesis, hook, or interpretation as the first point. Start with a concrete reported finding, measurement, participant detail, or limitation.
 - Stay strictly grounded in the supplied article and evidence.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
 - Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
@@ -534,7 +536,8 @@ The previous visual content failed PostCard quality validation.
 Generate a fresh set with substantially different wording.
 Do not reuse the same sentence structure.
 The three points must be mutually distinct factual statements.
-Remove any opinion, interpretation, prediction, or editorial conclusion from the points.
+Remove any opinion, interpretation, prediction, abstract framing, or editorial conclusion from the points.
+If a point is a broad thesis rather than a concrete article-supported fact, replace it with a specific finding, measurement, participant detail, or limitation.
 The selected angle must not appear as a point unless explicitly supported as a fact by the article.
 The takeaway must introduce a broader implication that is not stated by any point.
 Do not copy wording from the LinkedIn post.`;
