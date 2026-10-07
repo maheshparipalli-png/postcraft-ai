@@ -64,6 +64,7 @@ export default function Home() {
   const [perspective, setPerspective] = useState<Perspective>("mixed");
   const [post, setPost] = useState("");
   const [discoverCardPoints, setDiscoverCardPoints] = useState<string[]>([]);
+  const [discoverCardTakeaway, setDiscoverCardTakeaway] = useState("");
   const [copied, setCopied] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [linkedinLoading, setLinkedinLoading] = useState(false);
@@ -248,6 +249,7 @@ function resetFromStory() {
     setPerspective("mixed");
     setPost("");
     setDiscoverCardPoints([]);
+    setDiscoverCardTakeaway("");
     setCopied(false);
     setNewsTitle("");
     setNewsSource("");
@@ -276,6 +278,7 @@ function resetFromStory() {
     const headline = (newsTitle || selectedIdea.title || "LinkedIn Post").trim();
     const fullPost = post.trim();
     const selectedAngle = (angle || selectedIdea.whyItMatters || "").trim();
+    const visualTakeaway = discoverCardTakeaway.trim() || selectedAngle;
     const visualPoints = discoverCardPoints.length
       ? discoverCardPoints.slice(0, 3).join("\n")
       : buildPostCardPoints(fullPost, headline, selectedAngle);
@@ -286,7 +289,7 @@ function resetFromStory() {
         headline,
         body: visualPoints,
         linkedinPost: fullPost,
-        closing: selectedAngle,
+        closing: visualTakeaway,
         template: "story",
         source: newsSource || selectedIdea.source || "PostCraft Discover",
         sourceUrl: sourceUrl || selectedIdea.url || "",
@@ -366,6 +369,7 @@ function resetFromStory() {
         angles?: unknown[];
         evidence?: unknown[];
         cardPoints?: string[];
+        cardTakeaway?: string;
       }) => {
         if (!data.post || !(data.selectedAngle?.angle || data.angle?.angle)) {
           throw new Error("PostCraft returned an incomplete editorial draft. No validated post and angle were received.");
@@ -405,6 +409,7 @@ function resetFromStory() {
 
         setPost(postWithTitle);
         setDiscoverCardPoints(Array.isArray(data.cardPoints) ? data.cardPoints.filter((point): point is string => typeof point === "string").slice(0, 3) : []);
+        setDiscoverCardTakeaway(typeof data.cardTakeaway === "string" ? data.cardTakeaway.trim() : "");
         setGenerationStatus("");
         completed = true;
       };
@@ -430,6 +435,7 @@ function resetFromStory() {
           angles?: unknown[];
           evidence?: unknown[];
           cardPoints?: string[];
+          cardTakeaway?: string;
         };
 
         try {
