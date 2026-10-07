@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";\nimport type { ClipboardEvent } from "react";
 import CommentCard from "./components/CommentCard";
 import { generateComments, refineComment, summarizeSource } from "./lib/api";
 import { addHistory, getFavorites, getHistory, removeFavorite, saveFavorite } from "./lib/storage";
@@ -168,7 +168,7 @@ export default function CommentPage() {
     })();
   }
 
-  async function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+  async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"));
     if (!image) return;
     const file = image.getAsFile();
