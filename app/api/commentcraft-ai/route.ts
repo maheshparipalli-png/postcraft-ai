@@ -4,15 +4,19 @@ const ALLOWED_ACTIONS = new Set(["generate", "suggest", "refine", "summarize"]);
 
 export async function POST(request: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !anonKey) {
-      return NextResponse.json(
-        { error: "Comment AI is not configured on the server. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel." },
-        { status: 500 }
-      );
-    }
+    // CommentCraft AI lives in the dedicated Supabase project, not the PostCraft
+    // database project. Prefer explicit Comment-specific environment variables,
+    // with a safe publishable-key fallback so the route works without another
+    // Vercel secret configuration step.
+    const supabaseUrl =
+      process.env.COMMENT_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_COMMENT_SUPABASE_URL ||
+      "https://usuklfeqniydrpxzisxv.supabase.co";
+    const anonKey =
+      process.env.COMMENT_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_COMMENT_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_COMMENT_SUPABASE_PUBLISHABLE_KEY ||
+      "sb_publishable_VWYDQTZLiGwUCMz_FQZbvg_2PO0FxLu";
 
     const body = await request.json();
     if (!body?.action || !ALLOWED_ACTIONS.has(body.action)) {
