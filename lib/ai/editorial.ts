@@ -1057,7 +1057,7 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
         perspective.perspectiveSentences >= 1 &&
         perspective.nearRestatementRatio < 0.85
         ? "Post adds a story-grounded interpretation instead of only restating the source."
-        : "Post needs a clearer point of view, more angle-specific reasoning, or less source restatement.",
+        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; perspective sentences ${perspective.perspectiveSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. Required: at least 1 interpretation signal and near-restatement ratio below 0.85.`,
     },
     {
       key: "completeness",
