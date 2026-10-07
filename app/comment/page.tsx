@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";\nimport type { ClipboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ClipboardEvent } from "react";
 import CommentCard from "./components/CommentCard";
 import CommentControls from "./components/CommentControls";
 import CommentInput from "./components/CommentInput";
