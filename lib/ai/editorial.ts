@@ -890,8 +890,8 @@ function getPerspectiveSignals(post: string, story: Story, angle: string) {
     // different from the source wording.
     const isDistinctFromSource = similarityToSource < 0.72;
     const isInterpretive =
-      (angleTermMatches >= 1 && hasReasoningLanguage && isDistinctFromSource) ||
-      (angleTermMatches >= 2 && isDistinctFromSource);
+      (hasReasoningLanguage && isDistinctFromSource) ||
+      (angleTermMatches >= 1 && isDistinctFromSource);
 
     return {
       similarityToSource,
@@ -1051,13 +1051,11 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       passed:
         perspective.interpretationSentences >= 1 &&
         perspective.perspectiveSentences >= 1 &&
-        (perspective.angleMatches.length >= 1 || perspective.interpretationSentences >= 2) &&
-        perspective.nearRestatementRatio < 0.75,
+        perspective.nearRestatementRatio < 0.85,
       detail:
         perspective.interpretationSentences >= 1 &&
         perspective.perspectiveSentences >= 1 &&
-        (perspective.angleMatches.length >= 1 || perspective.interpretationSentences >= 2) &&
-        perspective.nearRestatementRatio < 0.75
+        perspective.nearRestatementRatio < 0.85
         ? "Post adds a story-grounded interpretation instead of only restating the source."
         : "Post needs a clearer point of view, more angle-specific reasoning, or less source restatement.",
     },
