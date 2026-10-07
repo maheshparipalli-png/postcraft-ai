@@ -129,14 +129,20 @@ export async function POST(request: Request) {
               .filter((sentence, index, all) => all.findIndex((item) => item.toLowerCase() === sentence.toLowerCase()) === index)
               .slice(0, 3) || [];
 
+            const safeFallbackPoints = [
+              ...fallbackPoints,
+              editorial.selectedAngle.angle.trim(),
+              "The evidence adds a new dimension to how this story can be understood.",
+            ]
+              .filter(Boolean)
+              .filter((point, index, all) =>
+                point.toLowerCase() !== story.headline.trim().toLowerCase() &&
+                all.findIndex((item) => item.toLowerCase() === point.toLowerCase()) === index,
+              )
+              .slice(0, 3);
+
             cardContent = {
-              points: fallbackPoints.length >= 3
-                ? fallbackPoints
-                : [
-                    story.summary.trim(),
-                    story.headline.trim(),
-                    "The evidence adds a new dimension to how this story can be understood.",
-                  ].filter(Boolean).slice(0, 3),
+              points: safeFallbackPoints,
               takeaway: "The broader implication is how this evidence may change the way the issue is understood.",
             };
           }
