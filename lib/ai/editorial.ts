@@ -274,7 +274,7 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Generate THREE different editorial theses. Each must connect two concrete story details and explain why their relationship matters. Express a distinct professional interpretation, not a summary or invented controversy.
+Generate THREE different editorial perspectives. Each must connect two concrete story details and explain why their relationship matters. The three should feel meaningfully different, not like three rewrites of the same idea. Where the story supports it, vary the lens across: business or market impact; broader social or world change; and an overlooked question, constraint, opportunity, or consequence. Do not force a lens that the story does not support. Express a distinct professional interpretation, not a summary or invented controversy.
 
 Use at least two concrete details from the headline or summary.
 Identify the most important relationship between those details: a contrast, tension, consequence, trade-off, mechanism, or condition.
@@ -1043,8 +1043,12 @@ IMPORTANT WRITING RULES
 - At least one paragraph must explain WHY the facts matter together, not merely describe what happened.
 - Do not manufacture personal experience, credentials, lived experience, or invented examples.
 - Use short, readable paragraphs with blank lines between ideas, like a strong human LinkedIn post.
-- Sound professional, conversational, and human.
-- Use simple English. Avoid corporate jargon and generic motivational filler.
+- Sound like a thoughtful human professional explaining the idea to another person.
+- Use simple everyday English. Prefer short, clear sentences and natural phrasing.
+- Explain technical terms in plain language when they are necessary.
+- Avoid corporate jargon, grand claims, artificial drama, and generic motivational filler.
+- Do not write like a press release, research abstract, or AI-generated template.
+- The reader should understand the main point on a first read without specialized knowledge.
 - Use the story details accurately.
 - Do NOT use Markdown emphasis such as **bold**, *italics*, backticks, or heading markers.
 - Do NOT end with a bare number, bullet, ellipsis, unfinished sentence, or incomplete list item.
