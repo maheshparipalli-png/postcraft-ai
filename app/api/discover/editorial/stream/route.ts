@@ -111,7 +111,7 @@ export async function POST(request: Request) {
           const editorial = await generateEditorialDraft(story, (token) => {
             event(controller, encoder, "token", { token });
           });
-          const cardPoints = await generateEditorialCardPoints(
+          const cardContent = await generateEditorialCardPoints(
             story,
             editorial.selectedAngle.angle,
             editorial.post,
@@ -131,7 +131,8 @@ export async function POST(request: Request) {
             evidence: editorial.evidence,
             post: editorial.post,
             discoveryInsight: editorial.discoveryInsight,
-            cardPoints,
+            cardPoints: cardContent.points,
+            cardTakeaway: cardContent.takeaway,
             ranking: {
               reason: sourceAccessFallback
                 ? "Selected story came from a direct publisher URL with sufficient discovery evidence; the publisher blocked automated verification, so the draft was grounded only in the discovery evidence."
