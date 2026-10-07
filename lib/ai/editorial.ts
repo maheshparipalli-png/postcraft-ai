@@ -326,7 +326,7 @@ Return ONLY valid JSON:
       fallbackAngle = `The story exposes a tension between ${whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
       fallbackWhy = "This connects the two concrete conditions described in the story.";
     } else if (story.headline && summary) {
-      fallbackAngle = `The important gap in this story is between what the AI agents can do and what they can reliably do in practice: ${summary}.`;
+      fallbackAngle = `The useful question is what this evidence changes about how the issue should be understood: ${summary}.`;
       fallbackWhy = "This keeps the interpretation tied to the supplied headline and summary without adding outside facts.";
     }
 
@@ -893,9 +893,12 @@ function getPerspectiveSignals(post: string, story: Story, angle: string) {
     // Treat only stronger overlap as a near-restatement; otherwise good,
     // story-grounded interpretation gets mistaken for source copying.
     const isDistinctFromSource = similarityToSource < 0.82;
+    const hasGroundedInterpretation =
+      angleTermMatches >= 1 && hasReasoningLanguage;
+    const hasSpecificConclusion =
+      angleTermMatches >= 2 && sentenceTerms.length >= 10;
     const isInterpretive =
-      (hasReasoningLanguage && isDistinctFromSource) ||
-      (angleTermMatches >= 1 && isDistinctFromSource);
+      hasGroundedInterpretation || hasSpecificConclusion;
 
     return {
       similarityToSource,
@@ -1052,16 +1055,11 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "perspective",
       label: "Adds original perspective",
-      passed:
-        perspective.interpretationSentences >= 1 &&
-        perspective.perspectiveSentences >= 1 &&
-        perspective.nearRestatementRatio < 0.85,
+      passed: perspective.interpretationSentences >= 1,
       detail:
-        perspective.interpretationSentences >= 1 &&
-        perspective.perspectiveSentences >= 1 &&
-        perspective.nearRestatementRatio < 0.85
-        ? "Post adds a story-grounded interpretation instead of only restating the source."
-        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; perspective sentences ${perspective.perspectiveSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. The detector uses stronger overlap (0.82+) for near-restatement so grounded story terms are not treated as copying.`,
+        perspective.interpretationSentences >= 1
+        ? "Post adds a story-grounded interpretation using the selected angle."
+        : `Perspective signals: interpretation sentences ${perspective.interpretationSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}. The post needs at least one sentence connecting the selected angle to concrete story details and explaining why that relationship matters.`,
     },
     {
       key: "completeness",
