@@ -331,7 +331,15 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
         };
       }
 
-      const editorial = await generateEditorialDraft(story);
+      // Manual Create is intentionally bounded to keep one click responsive.
+      // The quality gate remains strict, but this path gets one repair pass and
+      // no repeated regeneration loop. Discover keeps the default retry budget.
+      const editorial = await generateEditorialDraft(
+        story,
+        undefined,
+        undefined,
+        { maxRepairPasses: 1, maxRegenerations: 0 },
+      );
       const card = await generateEditorialCardPoints(
         story,
         editorial.selectedAngle.angle,
