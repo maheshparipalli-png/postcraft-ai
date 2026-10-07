@@ -365,6 +365,10 @@ export async function generateEditorialDraft(
   story: Story,
   onPostToken?: (token: string) => void,
   preferredAngle?: string,
+  qualityOptions?: {
+    maxRepairPasses?: number;
+    maxRegenerations?: number;
+  },
 ) {
   const startedAt = Date.now();
   const normalizedStory: Story = {
@@ -401,6 +405,7 @@ export async function generateEditorialDraft(
         "Take a clear, thoughtful professional point of view. Do not manufacture controversy or dilute the thesis into a neutral summary. Do not add outside facts.",
         editorial.evidence,
         onPostToken,
+        qualityOptions,
       );
       // generateEditorialPost returns { post, quality }, not a plain string.
       // Expose the actual post text to API routes and the Discover streaming UI.
@@ -1175,6 +1180,10 @@ export async function generateEditorialPost(
   modeInstruction: string,
   suppliedEvidence?: Evidence[],
   onPostToken?: (token: string) => void,
+  qualityOptions?: {
+    maxRepairPasses?: number;
+    maxRegenerations?: number;
+  },
 ) {
   const evidence = validateEvidence(suppliedEvidence);
 
@@ -1351,7 +1360,7 @@ ${post}
   // Treat quality checks as a repair mechanism rather than a hard rejection.
   // Every failed check is sent to the repair pass together so the model can
   // correct multiple problems in one revision while preserving good content.
-  const maxRepairPasses = 3;
+  const maxRepairPasses = qualityOptions?.maxRepairPasses ?? 3;
 
   for (let repairPass = 1; repairPass <= maxRepairPasses; repairPass += 1) {
     const failures = failedChecks(result.quality);
@@ -1414,7 +1423,8 @@ ${post}
   // regenerate from the source rather than publishing or returning a bad draft.
   // This gives the model a clean second chance instead of endlessly repairing
   // the same weak wording.
-  for (let regeneration = 1; finalFailures.length && regeneration <= 2; regeneration += 1) {
+  const maxRegenerations = qualityOptions?.maxRegenerations ?? 2;
+  for (let regeneration = 1; finalFailures.length && regeneration <= maxRegenerations; regeneration += 1) {
     const retryRaw = await aiProvider.generateText(
       basePrompt + `
 

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai/provider";
-import { Evidence, generateEditorialAngles, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
+import { Evidence, generateEditorialAngles, generateEditorialCardPoints, generateEditorialDraft, generateEditorialPost } from "@/lib/ai/editorial";
 import { getBillingAccess } from "@/lib/billing/access";
 import { normalizeStatisticContent } from "@/lib/postcard/content";
 import { parseJsonObject } from "@/lib/ai/json";
 import { judgeQuoteLinkedinQuality } from "@/lib/postcard/quality";
 import { httpStatusForAIError, userFacingAIError } from "@/lib/ai/errors";
 import { randomPostCardField } from "@/lib/postcard/categories";
+import { verifySourceUrl } from "@/lib/research/verify-source";
 
 // AI generation can legitimately take longer than a normal API request because
 // the self-hosted Ollama model may need to load before producing tokens.
@@ -285,6 +286,80 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
       throw new Error(
         `Could not create a LinkedIn story that passes all quality parameters after ${maxAttempts} attempts. Failed checks: ${bestReasons.join(", ")}.`,
       );
+    }
+
+    if (action === "manualEditorial") {
+      const startedAt = Date.now();
+      const sourceUrl = typeof body?.sourceUrl === "string" ? body.sourceUrl.trim() : "";
+      const suppliedContent = typeof body?.content === "string" ? body.content.trim() : "";
+      const suppliedTitle = typeof body?.title === "string" ? body.title.trim() : "";
+      const suppliedSource = typeof body?.source === "string" ? body.source.trim() : "";
+
+      if (!sourceUrl && !suppliedContent) {
+        return NextResponse.json({ error: "Add an article URL or paste the article/source material first." }, { status: 400 });
+      }
+
+      let story: {
+        topic: string;
+        headline: string;
+        source: string;
+        summary: string;
+        content: string;
+        url?: string;
+      };
+
+      if (sourceUrl) {
+        const verified = await verifySourceUrl(sourceUrl);
+        story = {
+          topic: "Manual article",
+          headline: verified.title,
+          source: verified.source,
+          summary: verified.summary || verified.content.slice(0, 1200),
+          content: verified.content,
+          url: verified.url,
+        };
+      } else {
+        const firstLine = suppliedContent.split(/\r?\n+/).map((line: string) => line.trim()).find(Boolean) || "";
+        const firstSentence = suppliedContent.match(/[^.!?]+[.!?]+/)?.[0]?.trim() || "";
+        const headline = suppliedTitle || firstLine.slice(0, 180) || firstSentence.slice(0, 180) || "User supplied article";
+        story = {
+          topic: "Manual article",
+          headline,
+          source: suppliedSource || "User provided source",
+          summary: suppliedContent.slice(0, 1600),
+          content: suppliedContent.slice(0, 12000),
+        };
+      }
+
+      // Manual Create is intentionally bounded to keep one click responsive.
+      // The quality gate remains strict, but this path gets one repair pass and
+      // no repeated regeneration loop. Discover keeps the default retry budget.
+      const editorial = await generateEditorialDraft(
+        story,
+        undefined,
+        undefined,
+        { maxRepairPasses: 1, maxRegenerations: 0 },
+      );
+      const card = await generateEditorialCardPoints(
+        story,
+        editorial.selectedAngle.angle,
+        editorial.post,
+      );
+
+      console.info("[PostCraft] manual_editorial_ms=" + (Date.now() - startedAt));
+
+      return NextResponse.json({
+        article: {
+          title: story.headline,
+          source: story.source,
+          url: story.url || sourceUrl,
+          content: story.content,
+        },
+        post: editorial.post,
+        selectedAngle: editorial.selectedAngle,
+        cardPoints: card.points,
+        cardTakeaway: card.takeaway,
+      });
     }
 
     const editorialRequest = action === "editorial";
