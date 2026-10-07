@@ -120,9 +120,24 @@ export async function POST(request: Request) {
             );
           } catch (error) {
             console.warn("Discover PostCard rewrite fallback:", error);
+
+            const fallbackPoints = story.summary
+              .replace(/\s+/g, " ")
+              .match(/[^.!?]+[.!?]+/g)
+              ?.map((sentence) => sentence.trim())
+              .filter(Boolean)
+              .filter((sentence, index, all) => all.findIndex((item) => item.toLowerCase() === sentence.toLowerCase()) === index)
+              .slice(0, 3) || [];
+
             cardContent = {
-              points: [editorial.selectedAngle.angle],
-              takeaway: editorial.selectedAngle.angle,
+              points: fallbackPoints.length >= 3
+                ? fallbackPoints
+                : [
+                    story.summary.trim(),
+                    story.headline.trim(),
+                    "The evidence adds a new dimension to how this story can be understood.",
+                  ].filter(Boolean).slice(0, 3),
+              takeaway: "The broader implication is how this evidence may change the way the issue is understood.",
             };
           }
 
