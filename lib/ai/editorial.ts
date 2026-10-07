@@ -433,6 +433,59 @@ export async function generateEditorialDraft(
     : new Error("PostCraft could not produce a validated editorial draft from the selected story.");
 }
 
+function cardTextSimilarity(a: string, b: string) {
+  const aTokens = new Set(normalizeQualityText(a).split(" ").filter((word) => word.length >= 4));
+  const bTokens = new Set(normalizeQualityText(b).split(" ").filter((word) => word.length >= 4));
+  if (!aTokens.size || !bTokens.size) return 0;
+
+  let shared = 0;
+  for (const token of aTokens) if (bTokens.has(token)) shared += 1;
+
+  const jaccard = shared / (aTokens.size + bTokens.size - shared);
+  const containment = shared / Math.min(aTokens.size, bTokens.size);
+  return Math.max(jaccard, containment * 0.75);
+}
+
+function evaluateEditorialCardQuality(points: string[], takeaway: string, post: string) {
+  if (points.length !== 3 || !takeaway) {
+    return { passed: false, reason: "The card must contain exactly three points and one takeaway." };
+  }
+
+  const allCardText = [...points, takeaway];
+  const pairwiseSimilarity = Math.max(
+    ...allCardText.flatMap((text, index) =>
+      allCardText.slice(index + 1).map((other) => cardTextSimilarity(text, other)),
+    ),
+  );
+
+  const postSentences = post
+    .match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) || [];
+
+  const maxPostSimilarity = Math.max(
+    ...allCardText.flatMap((cardText) =>
+      postSentences.map((sentence) => cardTextSimilarity(cardText, sentence)),
+    ),
+    0,
+  );
+
+  const pointsAreDistinct = pairwiseSimilarity < 0.68;
+  const cardAddsNewWording = maxPostSimilarity < 0.72;
+  const takeawayAddsSomethingNew = points.every((point) => cardTextSimilarity(point, takeaway) < 0.68);
+
+  return {
+    passed: pointsAreDistinct && cardAddsNewWording && takeawayAddsSomethingNew,
+    reason: !pointsAreDistinct
+      ? "PostCard points or takeaway are too similar to each other."
+      : !cardAddsNewWording
+        ? "PostCard wording is too close to the LinkedIn post."
+        : !takeawayAddsSomethingNew
+          ? "The takeaway repeats one of the visual points."
+          : "",
+  };
+}
+
 export async function generateEditorialCardPoints(story: Story, angle: string, post: string) {
   const prompt = `Create the visual summary for a LinkedIn PostCard based ONLY on the supplied article and finished LinkedIn post.
 
@@ -452,41 +505,63 @@ Create exactly THREE concise visual points and ONE short takeaway. These are NOT
 Rules:
 - Each point must be 8–16 words.
 - The takeaway must be 10–18 words.
-- Each point must communicate a distinct idea.
-- Do not copy sentences from the LinkedIn post.
-- Do not simply shorten sentences from the post.
-- Focus on what changed, what the evidence suggests, and why it matters.
-- The takeaway should express the broader implication in fresh wording.
+- Each point must communicate a different idea from the other points.
+- The takeaway must add a broader implication, not repeat any point.
+- Do not copy or lightly paraphrase sentences from the LinkedIn post.
+- Do not use the article headline as a point.
+- Focus on distinct dimensions such as the evidence, the change, the mechanism, the consequence, or the broader implication.
 - Stay strictly grounded in the supplied article and angle.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
 - Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
 
   const aiProvider = await provider();
-  const raw = await aiProvider.generateText(prompt, {
-    format: "json",
-    temperature: 0.35,
-    numPredict: 350,
-  });
-  const parsed = parseJson(raw);
-  const points = Array.isArray(parsed?.points)
-    ? parsed.points
-        .filter((value): value is string => typeof value === "string")
-        .map((value) => normalizeGeneratedText(value, { plainPunctuation: true }).trim())
-        .filter((value) => {
-          const words = value.split(/\s+/).filter(Boolean).length;
-          return words >= 8 && words <= 16;
-        })
-        .slice(0, 3)
-    : [];
-  const takeaway = typeof parsed?.takeaway === "string"
-    ? normalizeGeneratedText(parsed.takeaway, { plainPunctuation: true }).trim()
-    : "";
+  let lastReason = "PostCraft could not create distinct visual content for the news article.";
 
-  if (points.length !== 3 || !takeaway || takeaway.split(/\s+/).filter(Boolean).length < 10 || takeaway.split(/\s+/).filter(Boolean).length > 18) {
-    throw new Error("PostCraft could not create distinct visual content for the news article.");
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const retryInstruction = attempt === 1
+      ? ""
+      : `
+
+QUALITY REPAIR
+The previous visual content failed PostCard quality validation.
+Generate a fresh set with substantially different wording.
+Do not reuse the same sentence structure.
+The three points must be mutually distinct.
+The takeaway must introduce a broader implication that is not stated by any point.
+Do not copy wording from the LinkedIn post.`;
+
+    const raw = await aiProvider.generateText(prompt + retryInstruction, {
+      format: "json",
+      temperature: attempt === 1 ? 0.35 : 0.2,
+      numPredict: 350,
+    });
+
+    const parsed = parseJson(raw);
+    const points = Array.isArray(parsed?.points)
+      ? parsed.points
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => normalizeGeneratedText(value, { plainPunctuation: true }).trim())
+          .filter((value) => {
+            const words = value.split(/\s+/).filter(Boolean).length;
+            return words >= 8 && words <= 16;
+          })
+          .slice(0, 3)
+      : [];
+    const takeaway = typeof parsed?.takeaway === "string"
+      ? normalizeGeneratedText(parsed.takeaway, { plainPunctuation: true }).trim()
+      : "";
+
+    const quality = evaluateEditorialCardQuality(points, takeaway, post);
+    if (quality.passed && takeaway.split(/\s+/).filter(Boolean).length >= 10 && takeaway.split(/\s+/).filter(Boolean).length <= 18) {
+      console.info("[PostCraft] postcard_quality_pass", { attempt });
+      return { points, takeaway };
+    }
+
+    lastReason = quality.reason || "PostCard takeaway or point length failed validation.";
+    console.warn("[PostCraft] postcard_quality_repair", { attempt, reason: lastReason });
   }
 
-  return { points, takeaway };
+  throw new Error(lastReason);
 }
 
 export async function generateEditorialAngles(story: Story) {
