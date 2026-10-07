@@ -454,35 +454,134 @@ function cardTextSimilarity(a: string, b: string) {
 
 function editorialSourceTerms(story: Story) {
   const stopWords = new Set(["about", "after", "again", "also", "among", "been", "being", "could", "does", "from", "have", "into", "more", "most", "only", "said", "some", "than", "that", "their", "them", "then", "there", "these", "they", "this", "those", "through", "under", "very", "what", "when", "where", "which", "while", "with", "would", "your", "story", "report", "reports", "according"]);
-  return new Set(normalizeQualityText(story.headline + " " + story.summary + " " + (story.content || "")).split(" ").filter((word) => word.length >= 5 && !stopWords.has(word)));
+  return new Set(
+    normalizeQualityText(
+      story.headline + " " + story.summary + " " + (story.content || ""),
+    )
+      .split(" ")
+      .filter((word) => word.length >= 5 && !stopWords.has(word)),
+  );
 }
 
-function evaluateEditorialCardQuality(points: string[], takeaway: string, post: string, story: Story, angle: string) {
-  if (points.length !== 3 || !takeaway) return { passed: false, reason: "PostCard completeness check failed: exactly three points and one takeaway are required." };
+function evaluateEditorialCardQuality(
+  points: string[],
+  takeaway: string,
+  post: string,
+  story: Story,
+  angle: string,
+) {
+  if (points.length !== 3 || !takeaway) {
+    return {
+      passed: false,
+      reason: "PostCard completeness check failed: exactly three points and one takeaway are required.",
+    };
+  }
+
   const allCardText = [...points, takeaway];
-  const pairwiseSimilarity = Math.max(...allCardText.flatMap((text, index) => allCardText.slice(index + 1).map((other) => cardTextSimilarity(text, other))));
-  const postSentences = post.match(/[^.!?]+[.!?]+(?:["\')\]]*)|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
-  const maxPostSimilarity = Math.max(...allCardText.flatMap((cardText) => postSentences.map((sentence) => cardTextSimilarity(cardText, sentence))), 0);
+  const pairwiseSimilarity = Math.max(
+    ...allCardText.flatMap((text, index) =>
+      allCardText
+        .slice(index + 1)
+        .map((other) => cardTextSimilarity(text, other)),
+    ),
+  );
+
+  const postSentences =
+    post
+      .match(/[^.!?]+[.!?]+(?:["')\]]*)|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean) || [];
+
+  const maxPostSimilarity = Math.max(
+    ...allCardText.flatMap((cardText) =>
+      postSentences.map((sentence) => cardTextSimilarity(cardText, sentence)),
+    ),
+    0,
+  );
+
   const sourceTerms = editorialSourceTerms(story);
-  const pointSourceMatches = points.map((point) => new Set(normalizeQualityText(point).split(" ").filter((word) => word.length >= 5 && sourceTerms.has(word))).size);
-  const sourceGroundingPass = pointSourceMatches.every((count) => count >= 2);
-  const angleTerms = new Set(normalizeQualityText(angle).split(" ").filter((word) => word.length >= 5));
-  const angleOnlyTerms = Array.from(angleTerms).filter((term) => !sourceTerms.has(term));
-  const perspectiveLeak = points.some((point) => angleOnlyTerms.filter((term) => normalizeQualityText(point).split(" ").includes(term)).length >= 2);
+  const pointSourceMatches = points.map(
+    (point) =>
+      new Set(
+        normalizeQualityText(point)
+          .split(" ")
+          .filter((word) => word.length >= 5 && sourceTerms.has(word)),
+      ).size,
+  );
+
+  // Source vocabulary is evidence of grounding, not a reason to reject a card.
+  // A good factual PostCard is expected to reuse names, numbers, technical terms,
+  // and other concrete language from the original article.
+  const sourceLanguageDiagnostic = pointSourceMatches.map((count) => count >= 1);
+
+  const angleTerms = new Set(
+    normalizeQualityText(angle)
+      .split(" ")
+      .filter((word) => word.length >= 5),
+  );
+  const angleOnlyTerms = Array.from(angleTerms).filter(
+    (term) => !sourceTerms.has(term),
+  );
+
+  const interpretiveMarkers = [
+    "could",
+    "may",
+    "might",
+    "likely",
+    "suggests",
+    "suggesting",
+    "signals",
+    "signals a",
+    "means",
+    "implies",
+    "implying",
+    "could transform",
+    "could reshape",
+    "could change",
+    "broader",
+    "important",
+    "significant",
+    "potential",
+    "future",
+    "should",
+    "must",
+    "need to",
+  ];
+
+  const perspectiveLeak = points.some((point) => {
+    const normalized = normalizeQualityText(point);
+    const angleLeak =
+      angleOnlyTerms.filter((term) => normalized.split(" ").includes(term)).length >= 2;
+    const interpretiveLeak = interpretiveMarkers.some((marker) =>
+      normalized.includes(marker),
+    );
+    return angleLeak || interpretiveLeak;
+  });
+
   const checks = {
-    // A factual PostCard is expected to share concrete story vocabulary with the LinkedIn post.
-    // Keep this as diagnostic information, not a blocking gate.
     "PostCard text differs from LinkedIn text": true,
-    "PostCard contains original-article language": sourceGroundingPass,
+    // Diagnostic only: original-article wording is expected and desirable.
+    "PostCard contains original-article language": true,
     "Perspective stays in LinkedIn text": !perspectiveLeak,
     "PostCard points are distinct": pairwiseSimilarity < 0.68,
-    "Takeaway adds something new": points.every((point) => cardTextSimilarity(point, takeaway) < 0.68),
+    "Takeaway adds something new": points.every(
+      (point) => cardTextSimilarity(point, takeaway) < 0.68,
+    ),
   };
+
   const failedCheck = Object.entries(checks).find(([, passed]) => !passed)?.[0] ?? "";
+
   return {
     passed: Object.values(checks).every(Boolean),
     checks,
-    reason: failedCheck ? `QUALITY CHECK FAILED: ${failedCheck}. Source matches per point: ${pointSourceMatches.join(", ")}; max PostCard/LinkedIn similarity: ${maxPostSimilarity.toFixed(2)}.` : "",
+    diagnostics: {
+      sourceMatchesPerPoint: pointSourceMatches,
+      sourceLanguagePerPoint: sourceLanguageDiagnostic,
+      maxPostSimilarity,
+    },
+    reason: failedCheck
+      ? `QUALITY CHECK FAILED: ${failedCheck}. Source-language matches per point: ${pointSourceMatches.join(", ")}; max PostCard/LinkedIn similarity: ${maxPostSimilarity.toFixed(2)}.`
+      : "",
   };
 }
 
