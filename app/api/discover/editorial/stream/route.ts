@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBillingAccess } from "@/lib/billing/access";
-import { generateEditorialDraft } from "@/lib/ai/editorial";
+import { generateEditorialDraft, generateEditorialCardPoints } from "@/lib/ai/editorial";
 import { verifySourceUrl, type VerifiedSource } from "@/lib/research/verify-source";
 
 export const runtime = "nodejs";
@@ -111,6 +111,11 @@ export async function POST(request: Request) {
           const editorial = await generateEditorialDraft(story, (token) => {
             event(controller, encoder, "token", { token });
           });
+          const cardPoints = await generateEditorialCardPoints(
+            story,
+            editorial.selectedAngle.angle,
+            editorial.post,
+          );
 
           event(controller, encoder, "done", {
             article: {
@@ -126,6 +131,7 @@ export async function POST(request: Request) {
             evidence: editorial.evidence,
             post: editorial.post,
             discoveryInsight: editorial.discoveryInsight,
+            cardPoints,
             ranking: {
               reason: sourceAccessFallback
                 ? "Selected story came from a direct publisher URL with sufficient discovery evidence; the publisher blocked automated verification, so the draft was grounded only in the discovery evidence."
