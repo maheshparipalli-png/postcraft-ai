@@ -111,11 +111,20 @@ export async function POST(request: Request) {
           const editorial = await generateEditorialDraft(story, (token) => {
             event(controller, encoder, "token", { token });
           });
-          const cardContent = await generateEditorialCardPoints(
-            story,
-            editorial.selectedAngle.angle,
-            editorial.post,
-          );
+          let cardContent: { points: string[]; takeaway: string };
+          try {
+            cardContent = await generateEditorialCardPoints(
+              story,
+              editorial.selectedAngle.angle,
+              editorial.post,
+            );
+          } catch (error) {
+            console.warn("Discover PostCard rewrite fallback:", error);
+            cardContent = {
+              points: [editorial.selectedAngle.angle],
+              takeaway: editorial.selectedAngle.angle,
+            };
+          }
 
           event(controller, encoder, "done", {
             article: {
