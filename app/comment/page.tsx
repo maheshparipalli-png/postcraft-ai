@@ -88,15 +88,10 @@ export default function CommentPage() {
       return;
     }
 
-    const supabase = createClient();
     setLoading(true);
     setComments([]);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!baseUrl || !anonKey) throw new Error("Supabase configuration is missing.");
-
       const body = {
         action: "generate",
         post: post.trim(),
@@ -114,13 +109,9 @@ export default function CommentPage() {
         count: 5,
       };
 
-      const response = await fetch(`${baseUrl}/functions/v1/commentcraft-ai`, {
+      const response = await fetch("/api/commentcraft-ai", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
@@ -175,25 +166,32 @@ export default function CommentPage() {
     setRefining(comment.id);
 
     try {
-      const supabase = createClient();
-      const { data, error: invokeError } = await supabase.functions.invoke("commentcraft-ai", {
-        body: {
+      const response = await fetch("/api/commentcraft-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           action: "refine",
           comment: comment.comment_text,
           instruction: clean,
           platform: platform.toLowerCase(),
-        },
+        }),
       });
 
-      if (invokeError || !data?.comment_text) {
-        throw new Error(data?.error || invokeError?.message || "Refine failed.");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Refine failed.");
+      }
+
+      const refined = data.comment_text || data.comments?.[0]?.comment_text;
+      if (!refined) {
+        throw new Error("Refine returned no comment.");
       }
 
       setComments(current => current.map(item => item.id === comment.id ? {
         ...item,
-        comment_text: data.comment_text,
-        quality_score: data.quality_score ?? item.quality_score,
-        why_it_works: data.why_it_works ?? item.why_it_works,
+        comment_text: refined,
+        quality_score: data.quality_score ?? data.comments?.[0]?.quality_score ?? item.quality_score,
+        why_it_works: data.why_it_works ?? data.comments?.[0]?.why_it_works ?? item.why_it_works,
       } : item));
       setRefineOpen(current => ({ ...current, [comment.id]: false }));
       setCustomRefine(current => ({ ...current, [comment.id]: "" }));
