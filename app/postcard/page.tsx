@@ -378,7 +378,7 @@ export default function PostCardPage() {
       const titleFit = fitText(headline || "Your motivational story title.", {
         maxWidth: 900, maxLines: 3, startSize: 54, minSize: 38, weight: 600, lineHeight: 58,
       });
-      const bodyPoints = body.split(/\\n+/).map((point) => point.trim()).filter(Boolean).slice(0, 3);
+      const bodyPoints = body.split(/\n+/).map((point) => point.trim()).filter(Boolean).slice(0, 3);
       const hasMultiplePoints = bodyPoints.length > 1;
       const bodyFits = hasMultiplePoints
         ? bodyPoints.map((point) =>
