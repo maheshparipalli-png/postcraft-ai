@@ -454,7 +454,7 @@ function cardTextSimilarity(a: string, b: string) {
 
 function editorialSourceTerms(story: Story) {
   const stopWords = new Set(["about", "after", "again", "also", "among", "been", "being", "could", "does", "from", "have", "into", "more", "most", "only", "said", "some", "than", "that", "their", "them", "then", "there", "these", "they", "this", "those", "through", "under", "very", "what", "when", "where", "which", "while", "with", "would", "your", "story", "report", "reports", "according"]);
-  return new Set(normalizeQualityText(story.headline + " " + story.summary).split(" ").filter((word) => word.length >= 5 && !stopWords.has(word)));
+  return new Set(normalizeQualityText(story.headline + " " + story.summary + " " + (story.content || "")).split(" ").filter((word) => word.length >= 5 && !stopWords.has(word)));
 }
 
 function evaluateEditorialCardQuality(points: string[], takeaway: string, post: string, story: Story, angle: string) {
@@ -528,11 +528,11 @@ STRICT SEPARATION RULES:
 
 QUALITY REPAIR
 The previous PostCard failed one or more separation checks.
-- Use concrete wording from the original article or its supplied summary.
+- Use concrete wording from the original article, including its supplied article content and summary.
 - Do not copy or lightly paraphrase the LinkedIn post.
 - Remove perspective, interpretation, prediction, thesis, or abstract framing from the points.
 - Keep the editorial perspective ONLY in the LinkedIn post.
-- Replace any point that does not contain at least two meaningful terms grounded in the original article.`;
+- Replace any point that does not contain at least two meaningful terms grounded in the supplied article content.`;
 
     const raw = await aiProvider.generateText(prompt + retryInstruction, { format: "json", temperature: attempt === 1 ? 0.35 : 0.2, numPredict: 350 });
     const parsed = parseJson(raw);
