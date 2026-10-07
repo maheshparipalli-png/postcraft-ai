@@ -57,6 +57,7 @@ export async function POST(request: Request) {
   const fallbackSource = typeof body?.source === "string" ? body.source.trim() : "";
   const fallbackSummary = typeof body?.summary === "string" ? body.summary.trim() : "";
   const interest = typeof body?.interest === "string" ? body.interest.trim() : "";
+  const preferredAngle = typeof body?.perspective === "string" ? body.perspective.trim() : "";
 
   if (!url) {
     return NextResponse.json({ error: "The original source URL is required." }, { status: 400 });
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
 
           const editorial = await generateEditorialDraft(story, (token) => {
             event(controller, encoder, "token", { token });
-          });
+          }, preferredAngle);
           let cardContent: { points: string[]; takeaway: string };
           try {
             cardContent = await generateEditorialCardPoints(
