@@ -1081,7 +1081,7 @@ export default function PostCardPage() {
                         ? "Turn the quote into a small human story with a natural lesson. The story is interpretive and does not invent facts about the quote author."
                         : isDiscoverImport
                           ? "This is the complete LinkedIn post from Discover. It remains editable and is intentionally separate from the text on the visual card."
-                          : "This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card."
+                          : "This is the fuller post that will be published to LinkedIn. It is intentionally different from the text on the visual card."}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-2">
