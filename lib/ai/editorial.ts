@@ -361,6 +361,7 @@ Return ONLY valid JSON:
 export async function generateEditorialDraft(
   story: Story,
   onPostToken?: (token: string) => void,
+  preferredAngle?: string,
 ) {
   const startedAt = Date.now();
   const normalizedStory: Story = {
@@ -383,7 +384,8 @@ export async function generateEditorialDraft(
   // and retrying multiple editorial angles multiplies the latency. The ranked
   // top angle is already grounded and quality-scored, while generateEditorialPost
   // itself retains one repair pass when the first draft fails validation.
-  const candidates = ranked.slice(0, 1);
+  const preferred = preferredAngle?.trim() ? ranked.find((candidate) => candidate.angle.trim() === preferredAngle.trim()) : null;
+  const candidates = preferred ? [preferred] : ranked.slice(0, 1);
   let lastError: unknown = null;
 
   for (const selected of candidates) {
