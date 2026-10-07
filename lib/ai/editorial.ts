@@ -448,48 +448,40 @@ function cardTextSimilarity(a: string, b: string) {
   return Math.max(jaccard, containment * 0.75);
 }
 
-function evaluateEditorialCardQuality(points: string[], takeaway: string, post: string) {
-  if (points.length !== 3 || !takeaway) {
-    return { passed: false, reason: "The card must contain exactly three points and one takeaway." };
-  }
+function editorialSourceTerms(story: Story) {
+  const stopWords = new Set(["about", "after", "again", "also", "among", "been", "being", "could", "does", "from", "have", "into", "more", "most", "only", "said", "some", "than", "that", "their", "them", "then", "there", "these", "they", "this", "those", "through", "under", "very", "what", "when", "where", "which", "while", "with", "would", "your", "story", "report", "reports", "according"]);
+  return new Set(normalizeQualityText(story.headline + " " + story.summary).split(" ").filter((word) => word.length >= 5 && !stopWords.has(word)));
+}
 
+function evaluateEditorialCardQuality(points: string[], takeaway: string, post: string, story: Story, angle: string) {
+  if (points.length !== 3 || !takeaway) return { passed: false, reason: "PostCard completeness check failed: exactly three points and one takeaway are required." };
   const allCardText = [...points, takeaway];
-  const pairwiseSimilarity = Math.max(
-    ...allCardText.flatMap((text, index) =>
-      allCardText.slice(index + 1).map((other) => cardTextSimilarity(text, other)),
-    ),
-  );
-
-  const postSentences = post
-    .match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)
-    ?.map((sentence) => sentence.trim())
-    .filter(Boolean) || [];
-
-  const maxPostSimilarity = Math.max(
-    ...allCardText.flatMap((cardText) =>
-      postSentences.map((sentence) => cardTextSimilarity(cardText, sentence)),
-    ),
-    0,
-  );
-
-  const pointsAreDistinct = pairwiseSimilarity < 0.68;
-  const cardAddsNewWording = maxPostSimilarity < 0.72;
-  const takeawayAddsSomethingNew = points.every((point) => cardTextSimilarity(point, takeaway) < 0.68);
-
+  const pairwiseSimilarity = Math.max(...allCardText.flatMap((text, index) => allCardText.slice(index + 1).map((other) => cardTextSimilarity(text, other))));
+  const postSentences = post.match(/[^.!?]+[.!?]+(?:["\')\]]*)|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+  const maxPostSimilarity = Math.max(...allCardText.flatMap((cardText) => postSentences.map((sentence) => cardTextSimilarity(cardText, sentence))), 0);
+  const sourceTerms = editorialSourceTerms(story);
+  const pointSourceMatches = points.map((point) => new Set(normalizeQualityText(point).split(" ").filter((word) => word.length >= 5 && sourceTerms.has(word))).size);
+  const sourceGroundingPass = pointSourceMatches.every((count) => count >= 2);
+  const angleTerms = new Set(normalizeQualityText(angle).split(" ").filter((word) => word.length >= 5));
+  const angleOnlyTerms = Array.from(angleTerms).filter((term) => !sourceTerms.has(term));
+  const perspectiveLeak = points.some((point) => angleOnlyTerms.filter((term) => normalizeQualityText(point).split(" ").includes(term)).length >= 2);
+  const checks = {
+    "PostCard text differs from LinkedIn text": maxPostSimilarity < 0.72,
+    "PostCard contains original-article language": sourceGroundingPass,
+    "Perspective stays in LinkedIn text": !perspectiveLeak,
+    "PostCard points are distinct": pairwiseSimilarity < 0.68,
+    "Takeaway adds something new": points.every((point) => cardTextSimilarity(point, takeaway) < 0.68),
+  };
+  const failedCheck = Object.entries(checks).find(([, passed]) => !passed)?.[0] ?? "";
   return {
-    passed: pointsAreDistinct && cardAddsNewWording && takeawayAddsSomethingNew,
-    reason: !pointsAreDistinct
-      ? "PostCard points or takeaway are too similar to each other."
-      : !cardAddsNewWording
-        ? "PostCard wording is too close to the LinkedIn post."
-        : !takeawayAddsSomethingNew
-          ? "The takeaway repeats one of the visual points."
-          : "",
+    passed: Object.values(checks).every(Boolean),
+    checks,
+    reason: failedCheck ? `QUALITY CHECK FAILED: ${failedCheck}. Source matches per point: ${pointSourceMatches.join(", ")}; max PostCard/LinkedIn similarity: ${maxPostSimilarity.toFixed(2)}.` : "",
   };
 }
 
 export async function generateEditorialCardPoints(story: Story, angle: string, post: string) {
-  const prompt = `Create the visual summary for a LinkedIn PostCard based ONLY on the supplied article and finished LinkedIn post.
+  const prompt = `Create the visual summary for a LinkedIn PostCard based ONLY on the supplied original article.
 
 ARTICLE
 Headline: ${story.headline}
@@ -502,24 +494,21 @@ ${angle}
 LINKEDIN POST
 ${post}
 
-Create exactly THREE concise FACTUAL visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the article facts in fresh wording for a visual card.
+Create exactly THREE concise FACTUAL visual points and ONE short takeaway.
 
-Rules:
+STRICT SEPARATION RULES:
+- The PostCard is the factual layer. The LinkedIn post is the perspective layer.
+- The three points must contain concrete facts or wording grounded in the original article.
+- The three points must NOT express the editorial perspective, opinion, prediction, interpretation, or broader implication.
+- The perspective belongs ONLY in the LinkedIn post. Do not move it into a PostCard point.
+- PostCard wording must be meaningfully different from the LinkedIn post. Do not copy or lightly paraphrase its sentences.
+- Each point must communicate a different article-supported fact.
+- The takeaway may state a broader implication, but must not simply repeat the LinkedIn perspective.
+- Do not use a broad thesis or hook as a factual point.
+- Do not use first-person language.
 - Each point must be 8–16 words.
 - The takeaway must be 10–18 words.
-- Each point must communicate a different factual detail from the other points.
-- Every point must be directly supported by the supplied article or evidence.
-- The three points are FACTS ONLY: no opinions, interpretation, predictions, implications, recommendations, or editorial conclusions.
-- Do not use first-person language such as "we", "our", or "I".
-- Do not turn the selected editorial angle into a factual point unless the article explicitly states it as a fact.
-- The selected angle belongs in the LinkedIn post, not in the three factual PostCard points.
-- The takeaway is the ONLY place for a broader implication, and it must add something new rather than repeat a point.
-- Do not copy or lightly paraphrase sentences from the LinkedIn post.
-- Do not use the article headline as a point.
-- Prefer distinct factual dimensions such as the reported finding, study size, measurement method, participants, limitation, or stated change.
-- Every point must contain a concrete article-supported fact. Reject abstract statements such as "X may not be fixed", "this changes how we think about X", or similar broad framing unless the article explicitly makes that claim.
-- Do not use a broad thesis, hook, or interpretation as the first point. Start with a concrete reported finding, measurement, participant detail, or limitation.
-- Stay strictly grounded in the supplied article and evidence.
+- Stay strictly grounded in the supplied article. Do not invent facts.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
 - Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
 
@@ -527,55 +516,30 @@ Rules:
   let lastReason = "PostCraft could not create distinct visual content for the news article.";
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const retryInstruction = attempt === 1
-      ? ""
-      : `
+    const retryInstruction = attempt === 1 ? "" : `
 
 QUALITY REPAIR
-The previous visual content failed PostCard quality validation.
-Generate a fresh set with substantially different wording.
-Do not reuse the same sentence structure.
-The three points must be mutually distinct factual statements.
-Remove any opinion, interpretation, prediction, abstract framing, or editorial conclusion from the points.
-If a point is a broad thesis rather than a concrete article-supported fact, replace it with a specific finding, measurement, participant detail, or limitation.
-The selected angle must not appear as a point unless explicitly supported as a fact by the article.
-The takeaway must introduce a broader implication that is not stated by any point.
-Do not copy wording from the LinkedIn post.`;
+The previous PostCard failed one or more separation checks.
+- Use concrete wording from the original article or its supplied summary.
+- Do not copy or lightly paraphrase the LinkedIn post.
+- Remove perspective, interpretation, prediction, thesis, or abstract framing from the points.
+- Keep the editorial perspective ONLY in the LinkedIn post.
+- Replace any point that does not contain at least two meaningful terms grounded in the original article.`;
 
-    const raw = await aiProvider.generateText(prompt + retryInstruction, {
-      format: "json",
-      temperature: attempt === 1 ? 0.35 : 0.2,
-      numPredict: 350,
-    });
-
+    const raw = await aiProvider.generateText(prompt + retryInstruction, { format: "json", temperature: attempt === 1 ? 0.35 : 0.2, numPredict: 350 });
     const parsed = parseJson(raw);
-    const points = Array.isArray(parsed?.points)
-      ? parsed.points
-          .filter((value): value is string => typeof value === "string")
-          .map((value) => normalizeGeneratedText(value, { plainPunctuation: true }).trim())
-          .filter((value) => {
-            const words = value.split(/\s+/).filter(Boolean).length;
-            return words >= 8 && words <= 16;
-          })
-          .slice(0, 3)
-      : [];
-    const takeaway = typeof parsed?.takeaway === "string"
-      ? normalizeGeneratedText(parsed.takeaway, { plainPunctuation: true }).trim()
-      : "";
-
-    const quality = evaluateEditorialCardQuality(points, takeaway, post);
+    const points = Array.isArray(parsed?.points) ? parsed.points.filter((value): value is string => typeof value === "string").map((value) => normalizeGeneratedText(value, { plainPunctuation: true }).trim()).filter((value) => { const words = value.split(/\s+/).filter(Boolean).length; return words >= 8 && words <= 16; }).slice(0, 3) : [];
+    const takeaway = typeof parsed?.takeaway === "string" ? normalizeGeneratedText(parsed.takeaway, { plainPunctuation: true }).trim() : "";
+    const quality = evaluateEditorialCardQuality(points, takeaway, post, story, angle);
     if (quality.passed && takeaway.split(/\s+/).filter(Boolean).length >= 10 && takeaway.split(/\s+/).filter(Boolean).length <= 18) {
-      console.info("[PostCraft] postcard_quality_pass", { attempt });
+      console.info("[PostCraft] postcard_quality_pass", { attempt, checks: quality.checks });
       return { points, takeaway };
     }
-
     lastReason = quality.reason || "PostCard takeaway or point length failed validation.";
-    console.warn("[PostCraft] postcard_quality_repair", { attempt, reason: lastReason });
+    console.warn("[PostCraft] postcard_quality_repair", { attempt, reason: lastReason, checks: quality.checks });
   }
-
   throw new Error(lastReason);
 }
-
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
   const normalizedStory: Story = {
