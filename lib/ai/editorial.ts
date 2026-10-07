@@ -1049,15 +1049,15 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       key: "perspective",
       label: "Adds original perspective",
       passed:
-        perspective.angleMatches.length >= 1 &&
         perspective.interpretationSentences >= 1 &&
         perspective.perspectiveSentences >= 1 &&
-        perspective.nearRestatementRatio < 0.70,
+        (perspective.angleMatches.length >= 1 || perspective.interpretationSentences >= 2) &&
+        perspective.nearRestatementRatio < 0.75,
       detail:
-        perspective.angleMatches.length >= 1 &&
         perspective.interpretationSentences >= 1 &&
         perspective.perspectiveSentences >= 1 &&
-        perspective.nearRestatementRatio < 0.70
+        (perspective.angleMatches.length >= 1 || perspective.interpretationSentences >= 2) &&
+        perspective.nearRestatementRatio < 0.75
         ? "Post adds a story-grounded interpretation instead of only restating the source."
         : "Post needs a clearer point of view, more angle-specific reasoning, or less source restatement.",
     },
