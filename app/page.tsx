@@ -400,16 +400,10 @@ function resetFromStory() {
 
         setAngle(selectedText);
 
-        const storyTitle = verifiedTitle;
-        const titleNormalized = storyTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-        const postNormalized = generatedPost.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-        const postWithTitle = postNormalized.startsWith(titleNormalized)
-          ? generatedPost
-          : `${storyTitle}\n\n${generatedPost}`;
-
-        setPost(postWithTitle);
-        setDiscoverCardPoints(Array.isArray(data.cardPoints) ? data.cardPoints.filter((point): point is string => typeof point === "string").slice(0, 3) : []);
-        setDiscoverCardTakeaway(typeof data.cardTakeaway === "string" ? data.cardTakeaway.trim() : "");
+        // Keep the article headline on the visual PostCard only.
+        // The LinkedIn text post should start with its own hook rather than
+        // repeating the news headline a second time.
+        setPost(generatedPost);
         setGenerationStatus("");
         completed = true;
       };
