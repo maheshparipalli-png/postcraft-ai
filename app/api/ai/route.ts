@@ -319,7 +319,7 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
           url: verified.url,
         };
       } else {
-        const firstLine = suppliedContent.split(/\r?\n+/).map((line) => line.trim()).find(Boolean) || "";
+        const firstLine = suppliedContent.split(/\r?\n+/).map((line: string) => line.trim()).find(Boolean) || "";
         const firstSentence = suppliedContent.match(/[^.!?]+[.!?]+/)?.[0]?.trim() || "";
         const headline = suppliedTitle || firstLine.slice(0, 180) || firstSentence.slice(0, 180) || "User supplied article";
         story = {
