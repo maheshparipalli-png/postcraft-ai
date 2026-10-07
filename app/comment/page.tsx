@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";\nimport type { ClipboardEvent } from "react";
 import CommentCard from "./components/CommentCard";
+import CommentControls from "./components/CommentControls";
+import CommentInput from "./components/CommentInput";
 import { generateComments, refineComment, summarizeSource } from "./lib/api";
 import { addHistory, getFavorites, getHistory, removeFavorite, saveFavorite } from "./lib/storage";
 import type { Attachment, Comment, Depth, HistoryItem, Platform, Position, Style } from "./lib/types";
-import { depths, platforms, positions, styles } from "./lib/types";
+
 
 function readFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -243,47 +245,27 @@ export default function CommentPage() {
           </section>
         ) : (
           <>
-            <section className="space-y-8">
-              <div className="border border-neutral-200 bg-white p-6"><Label text="Where are you commenting?" /><Chips values={platforms} selected={platform} onSelect={setPlatform} /></div>
-              <div className="border border-neutral-200 bg-white p-6"><Label text="Your position" /><Chips values={positions} selected={position} onSelect={setPosition} /></div>
-              <div className="border border-neutral-200 bg-white p-6">
-                <Label text="Comment style" />
-                <div className="flex flex-wrap gap-2">{styles.map(style => <button key={style} type="button" onClick={() => toggleStyle(style)}
-                  className={selectedStyles.includes(style) ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-600 hover:border-neutral-900"}>{style}</button>)}</div>
-              </div>
-              <div className="border border-neutral-200 bg-white p-6"><Label text="Depth" /><Chips values={depths} selected={depth} onSelect={setDepth} /></div>
+            <CommentControls platform={platform} position={position} selectedStyles={selectedStyles} depth={depth}
+              setPlatform={setPlatform} setPosition={setPosition} toggleStyle={toggleStyle} setDepth={setDepth} />
 
-              <div className="border border-neutral-200 bg-white p-6">
-                <Label text="Post" />
-                <textarea value={post} onChange={e => setPost(e.target.value)} onPaste={e => void handlePaste(e)} rows={10}
-                  className="w-full border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-6 outline-none focus:border-neutral-900"
-                  placeholder="Paste the post you want to respond to… You can also paste an image directly here." />
-                <div className="mt-2 text-[11px] text-neutral-400">Tip: paste a screenshot into this box to attach it automatically.</div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setShowUrl(v => !v)} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold">{showUrl ? "Hide URL" : "Add URL"}</button>
-                  <button type="button" onClick={() => inputRef.current?.click()} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold">Upload image / PDF / TXT</button>
-                  <button type="button" onClick={() => void summarize()} disabled={summaryLoading} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold disabled:opacity-50">
-                    {summaryLoading ? "Summarizing…" : "Summarize"}
-                  </button>
-                  <input ref={inputRef} hidden type="file" accept="image/*,.pdf,.txt" onChange={e => { const file = e.target.files?.[0]; if (file) void chooseFile(file); }} />
-                </div>
-
-                {showUrl && <input value={url} onChange={e => setUrl(e.target.value)} type="url" className="mt-3 w-full border-b border-neutral-300 bg-transparent py-3 text-sm outline-none focus:border-neutral-900" placeholder="Paste a post URL…" />}
-                {attachment && <div className="mt-3 flex items-center justify-between border border-neutral-200 bg-[#f7f6f2] px-4 py-3 text-xs"><span className="truncate">{attachment.name}</span><button type="button" onClick={() => { setAttachment(null); if (inputRef.current) inputRef.current.value = ""; }} className="ml-4 font-semibold text-neutral-500 hover:text-black">Remove</button></div>}
-
-                {summary && <div className="mt-4 border-l-2 border-neutral-900 bg-[#f7f6f2] px-4 py-4 text-sm leading-6"><div className="mb-1 text-[10px] font-semibold uppercase tracking-[.14em] text-neutral-500">Summary</div>{summary}</div>}
-
-                <div className="mt-5 flex items-center justify-between gap-4">
-                  <span className="text-xs text-neutral-500">Maximum upload size: 10 MB</span>
-                  <button type="button" onClick={() => void generate()} disabled={loading}
-                    className="rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-40">
-                    {loading ? "Generating 5 perspectives…" : "Generate Comments →"}
-                  </button>
-                </div>
-                {loading && <div className="mt-4 border-t border-neutral-100 pt-4 text-xs text-neutral-500">Understanding the source → finding distinct angles → writing comments</div>}
-              </div>
-            </section>
+            <CommentInput
+              post={post}
+              url={url}
+              showUrl={showUrl}
+              attachment={attachment}
+              inputRef={inputRef}
+              loading={loading}
+              summaryLoading={summaryLoading}
+              summary={summary}
+              onPostChange={setPost}
+              onPaste={handlePaste}
+              onToggleUrl={() => setShowUrl(v => !v)}
+              onUrlChange={setUrl}
+              onChooseFile={file => void chooseFile(file)}
+              onRemoveAttachment={() => { setAttachment(null); if (inputRef.current) inputRef.current.value = ""; }}
+              onSummarize={() => void summarize()}
+              onGenerate={() => void generate()}
+            />
 
             {error && <div className="mt-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
@@ -307,19 +289,3 @@ export default function CommentPage() {
   );
 }
 
-function Label({ text }: { text: string }) {
-  return <div className="mb-4 text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">{text}</div>;
-}
-
-function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
-  return <div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">{eyebrow}</div><h2 className="mt-1 font-serif text-3xl">{title}</h2></div>;
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">{text}</div>;
-}
-
-function Chips<T extends string>({ values, selected, onSelect }: { values: T[]; selected: T; onSelect: (value: T) => void }) {
-  return <div className="flex flex-wrap gap-2">{values.map(value => <button key={value} type="button" onClick={() => onSelect(value)}
-    className={selected === value ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-600 hover:border-neutral-900"}>{value}</button>)}</div>;
-}
