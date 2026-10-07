@@ -944,21 +944,10 @@ function resetFromStory() {
               <p className="mt-3 text-xs leading-5 text-neutral-500">One clear idea, in your voice.</p>
             </div>
             <div className="min-w-0">
-                <div className="grid gap-6 border-b border-neutral-300/80 py-6 md:grid-cols-[1fr_auto]">
+                <div className="border-b border-neutral-300/80 py-6">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Selected source</div>
-                    <h3 className="mt-2 font-serif text-2xl leading-tight">{newsTitle || selectedIdea?.title}</h3>
-                    <p className="mt-2 text-sm text-neutral-500">{newsSource || selectedIdea?.source}</p>
-                    {verifiedSummary && <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">{verifiedSummary}</p>}
-                    {sourceUrl && (
-                      <a href={sourceUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-medium underline underline-offset-4">
-                        Read source article ↗
-                      </a>
-                    )}
-                  </div>
-                  <div className="self-start border-l border-neutral-300 pl-5">
                     <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-400">Recommended angle</div>
-                    <p className="mt-2 max-w-sm text-sm leading-6 text-neutral-800">{angle || "Editorial angle"}</p>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-800">{angle || "Editorial angle"}</p>
                   </div>
                 </div>
 
