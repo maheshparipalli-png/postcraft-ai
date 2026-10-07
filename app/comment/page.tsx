@@ -19,6 +19,30 @@ function readFile(file: File): Promise<string> {
   });
 }
 
+function SectionTitle({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/45">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-xl font-semibold text-white">{title}</h2>
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+      {text}
+    </div>
+  );
+}
 export default function CommentPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [platform, setPlatform] = useState<Platform>("LinkedIn");
