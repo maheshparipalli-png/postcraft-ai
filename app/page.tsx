@@ -52,6 +52,7 @@ export default function Home() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [angle, setAngle] = useState("");
+  const [editorialAngles, setEditorialAngles] = useState<Array<{ angle: string; why?: string; evidence?: string }>>([]);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -246,6 +247,7 @@ async function discoverIdeas() {
 
 function resetFromStory() {
     setAngle("");
+    setEditorialAngles([]);
     setPerspective("mixed");
     setPost("");
     setDiscoverCardPoints([]);
@@ -316,7 +318,7 @@ function resetFromStory() {
     router.push("/postcard");
   }
 
-  async function selectIdea(idea: Idea) {
+  async function selectIdea(idea: Idea, preferredPerspective = "") {
     const requestId = ++angleRequestRef.current;
     angleAbortRef.current?.abort();
 
@@ -342,6 +344,7 @@ function resetFromStory() {
           source: idea.source,
           summary: idea.description,
           interest: idea.interest || topic,
+          perspective: preferredPerspective,
         }),
         signal: controller.signal,
       });
@@ -415,6 +418,19 @@ function resetFromStory() {
         setVerifiedSummary(verifiedContent);
 
         setAngle(selectedText);
+        setEditorialAngles(
+          Array.isArray(data.angles)
+            ? data.angles
+                .filter((item): item is { angle?: string; why?: string; evidence?: string } => Boolean(item && typeof item === "object"))
+                .map((item) => ({
+                  angle: typeof item.angle === "string" ? item.angle.trim() : "",
+                  why: typeof item.why === "string" ? item.why.trim() : "",
+                  evidence: typeof item.evidence === "string" ? item.evidence.trim() : "",
+                }))
+                .filter((item) => item.angle)
+                .slice(0, 3)
+            : []
+        );
 
         // Keep the article headline on the visual PostCard only.
         // The LinkedIn text post should start with its own hook rather than
@@ -964,6 +980,47 @@ function resetFromStory() {
                 </div>
 
                 <div className="mt-8 border-t border-neutral-300/80 pt-8">
+                  {editorialAngles.length > 1 && (
+                    <div className="mb-8">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                        3 WAYS TO LOOK AT THIS STORY
+                      </div>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
+                        Choose the perspective you want PostCraft to develop. The PostCard stays factual; the LinkedIn text explains why the story matters.
+                      </p>
+                      <div className="mt-5 grid gap-4 md:grid-cols-3">
+                        {editorialAngles.map((option, index) => {
+                          const selected = option.angle === angle;
+                          return (
+                            <button
+                              key={option.angle}
+                              type="button"
+                              disabled={angleLoading}
+                              onClick={() => {
+                                if (selected || !selectedIdea) return;
+                                void selectIdea(selectedIdea, option.angle);
+                              }}
+                              className={`rounded-2xl border p-5 text-left transition ${selected ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white hover:border-neutral-500"} disabled:cursor-not-allowed disabled:opacity-60`}
+                            >
+                              <div className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${selected ? "text-neutral-300" : "text-neutral-400"}`}>
+                                Perspective {index + 1}
+                              </div>
+                              <p className="mt-3 text-sm font-medium leading-6">{option.angle}</p>
+                              {option.why && (
+                                <p className={`mt-3 text-xs leading-5 ${selected ? "text-neutral-300" : "text-neutral-500"}`}>
+                                  {option.why}
+                                </p>
+                              )}
+                              <div className={`mt-4 text-[10px] font-semibold uppercase tracking-[0.12em] ${selected ? "text-white" : "text-neutral-500"}`}>
+                                {selected ? "Selected" : "Use this perspective →"}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">

@@ -274,7 +274,7 @@ Headline: ${story.headline}
 Source: ${story.source}
 Summary: ${story.summary}
 
-Generate THREE different editorial theses. Each must connect two concrete story details and explain why their relationship matters. Express a distinct professional interpretation, not a summary or invented controversy.
+Generate THREE different editorial perspectives. Each must connect two concrete story details and explain why their relationship matters. The three should feel meaningfully different, not like three rewrites of the same idea. Where the story supports it, vary the lens across: business or market impact; broader social or world change; and an overlooked question, constraint, opportunity, or consequence. Do not force a lens that the story does not support. Express a distinct professional interpretation, not a summary or invented controversy.
 
 Use at least two concrete details from the headline or summary.
 Identify the most important relationship between those details: a contrast, tension, consequence, trade-off, mechanism, or condition.
@@ -326,7 +326,7 @@ Return ONLY valid JSON:
       fallbackAngle = `The story exposes a tension between ${whileMatch[1].trim()} and ${whileMatch[2].trim()}.`;
       fallbackWhy = "This connects the two concrete conditions described in the story.";
     } else if (story.headline && summary) {
-      fallbackAngle = `The important gap in this story is between what the AI agents can do and what they can reliably do in practice: ${summary}.`;
+      fallbackAngle = `The useful question is what this evidence changes about how the issue should be understood: ${summary}.`;
       fallbackWhy = "This keeps the interpretation tied to the supplied headline and summary without adding outside facts.";
     }
 
@@ -361,6 +361,7 @@ Return ONLY valid JSON:
 export async function generateEditorialDraft(
   story: Story,
   onPostToken?: (token: string) => void,
+  preferredAngle?: string,
 ) {
   const startedAt = Date.now();
   const normalizedStory: Story = {
@@ -383,7 +384,8 @@ export async function generateEditorialDraft(
   // and retrying multiple editorial angles multiplies the latency. The ranked
   // top angle is already grounded and quality-scored, while generateEditorialPost
   // itself retains one repair pass when the first draft fails validation.
-  const candidates = ranked.slice(0, 1);
+  const preferred = preferredAngle?.trim() ? ranked.find((candidate) => candidate.angle.trim() === preferredAngle.trim()) : null;
+  const candidates = preferred ? [preferred] : ranked.slice(0, 1);
   let lastError: unknown = null;
 
   for (const selected of candidates) {
@@ -500,17 +502,22 @@ ${angle}
 LINKEDIN POST
 ${post}
 
-Create exactly THREE concise visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the ideas in fresh wording for a visual card.
+Create exactly THREE concise FACTUAL visual points and ONE short takeaway. These are NOT excerpts from the LinkedIn post. Rewrite the article facts in fresh wording for a visual card.
 
 Rules:
 - Each point must be 8–16 words.
 - The takeaway must be 10–18 words.
-- Each point must communicate a different idea from the other points.
-- The takeaway must add a broader implication, not repeat any point.
+- Each point must communicate a different factual detail from the other points.
+- Every point must be directly supported by the supplied article or evidence.
+- The three points are FACTS ONLY: no opinions, interpretation, predictions, implications, recommendations, or editorial conclusions.
+- Do not use first-person language such as "we", "our", or "I".
+- Do not turn the selected editorial angle into a factual point unless the article explicitly states it as a fact.
+- The selected angle belongs in the LinkedIn post, not in the three factual PostCard points.
+- The takeaway is the ONLY place for a broader implication, and it must add something new rather than repeat a point.
 - Do not copy or lightly paraphrase sentences from the LinkedIn post.
 - Do not use the article headline as a point.
-- Focus on distinct dimensions such as the evidence, the change, the mechanism, the consequence, or the broader implication.
-- Stay strictly grounded in the supplied article and angle.
+- Prefer distinct factual dimensions such as the reported finding, study size, measurement method, participants, limitation, or stated change.
+- Stay strictly grounded in the supplied article and evidence.
 - Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
 - Return ONLY valid JSON in this form: {"points":["point one","point two","point three"],"takeaway":"short takeaway"}`;
 
@@ -526,7 +533,9 @@ QUALITY REPAIR
 The previous visual content failed PostCard quality validation.
 Generate a fresh set with substantially different wording.
 Do not reuse the same sentence structure.
-The three points must be mutually distinct.
+The three points must be mutually distinct factual statements.
+Remove any opinion, interpretation, prediction, or editorial conclusion from the points.
+The selected angle must not appear as a point unless explicitly supported as a fact by the article.
 The takeaway must introduce a broader implication that is not stated by any point.
 Do not copy wording from the LinkedIn post.`;
 
@@ -790,6 +799,143 @@ function getMetaEditorialPhrases(post: string) {
   return phrases.filter((phrase) => lower.includes(phrase));
 }
 
+function getPerspectiveSignals(post: string, story: Story, angle: string) {
+  const sentences =
+    post
+      .match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)
+      ?.map((s) => s.trim())
+      .filter(Boolean) || [];
+
+  const sourceSentences = [
+    story.headline,
+    ...(story.summary.match(/[^.!?]+[.!?]+/g) || [story.summary]),
+  ]
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const angleTerms = getAngleSpecificTerms(
+    { angle, why: "", evidence: angle },
+    story,
+  ).filter((term) => term.length >= 5);
+
+  const normalizedPost = normalizeQualityText(post).split(" ").filter(Boolean);
+  const angleMatches = angleTerms.filter((term) => normalizedPost.includes(term));
+
+  const reasoningMarkers = [
+    "because",
+    "means",
+    "suggests",
+    "shows why",
+    "explains why",
+    "matters because",
+    "matters when",
+    "matters if",
+    "could",
+    "may",
+    "might",
+    "likely",
+    "potentially",
+    "rather than",
+    "not simply",
+    "not necessarily",
+    "not only",
+    "more than",
+    "beyond",
+    "however",
+    "but",
+    "yet",
+    "while",
+    "instead",
+    "compared with",
+    "compared to",
+    "depends on",
+    "allows",
+    "makes it",
+    "turns",
+    "shifts",
+    "changes",
+    "expands",
+    "narrows",
+    "creates",
+    "limits",
+    "forces",
+    "leaves",
+    "reveals",
+    "exposes",
+    "raises",
+    "the consequence",
+    "the result",
+    "the difference",
+    "the trade-off",
+    "the tradeoff",
+    "the constraint",
+    "the opportunity",
+    "the risk",
+    "the implication",
+  ];
+
+  const sentenceSignals = sentences.map((sentence) => {
+    const lower = sentence.toLowerCase();
+    const similarityToSource = sourceSentences.length
+      ? Math.max(
+          ...sourceSentences.map((source) =>
+            sentenceSimilarity(sentence, source),
+          ),
+        )
+      : 0;
+    const sentenceTerms = normalizeQualityText(sentence).split(" ").filter(Boolean);
+    const angleTermMatches = angleTerms.filter((term) =>
+      sentenceTerms.includes(term),
+    ).length;
+    const hasReasoningLanguage = reasoningMarkers.some((marker) =>
+      lower.includes(marker),
+    );
+
+    // A perspective sentence does not need a canned phrase. It qualifies when
+    // it combines story-specific language with reasoning, or when it introduces
+    // a new conclusion using several angle terms while remaining meaningfully
+    // different from the source wording.
+    // Sentence overlap against an article summary is naturally high because a
+    // grounded editorial post must reuse the story's concrete nouns and facts.
+    // Treat only stronger overlap as a near-restatement; otherwise good,
+    // story-grounded interpretation gets mistaken for source copying.
+    const isDistinctFromSource = similarityToSource < 0.82;
+    const hasGroundedInterpretation =
+      angleTermMatches >= 1 && hasReasoningLanguage;
+    const hasSpecificConclusion =
+      angleTermMatches >= 2 && sentenceTerms.length >= 10;
+    const isInterpretive =
+      hasGroundedInterpretation || hasSpecificConclusion;
+
+    return {
+      similarityToSource,
+      angleTermMatches,
+      hasReasoningLanguage,
+      isInterpretive,
+    };
+  });
+
+  const nearRestatements = sentenceSignals.filter(
+    ({ similarityToSource }) => similarityToSource >= 0.82,
+  ).length;
+
+  const nearRestatementRatio = sentences.length
+    ? nearRestatements / sentences.length
+    : 1;
+
+  const interpretationSentences = sentenceSignals.filter(
+    ({ isInterpretive }) => isInterpretive,
+  ).length;
+
+  const perspectiveSentences = interpretationSentences;
+
+  return {
+    angleMatches: angleMatches.slice(0, 8),
+    interpretationSentences,
+    perspectiveSentences,
+    nearRestatementRatio,
+  };
+}
 function getGenericFillerPhrases(post: string) {
   const phrases = [
     "it's crucial to recognize",
@@ -811,6 +957,15 @@ function getGenericFillerPhrases(post: string) {
     "the future of work",
     "what do you think",
     "agree or disagree",
+    "in a world where",
+    "at the end of the day",
+    "as we navigate",
+    "this is more than just",
+    "this is not just about",
+    "the bottom line is",
+    "it's a reminder that",
+    "this underscores the importance",
+    "there is no doubt that",
   ];
 
   const lower = post.toLowerCase();
@@ -833,7 +988,7 @@ function postHasEditorialInsight(post: string, story: Story, angle: string) {
 }
 
 export type PostQualityCheck = {
-  key: "duplication" | "specialCharacters" | "relevance" | "completeness" | "length" | "filler";
+  key: "duplication" | "specialCharacters" | "relevance" | "perspective" | "completeness" | "length" | "filler";
   label: string;
   passed: boolean;
   detail: string;
@@ -883,6 +1038,8 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     !/\b(?:and|or|but|because|with|to|of|the|a|an|this|these|those|the)\s*$/i.test(trimmedPost) &&
     !/The implication follows from these details:/i.test(trimmedPost);
 
+  const perspective = getPerspectiveSignals(post, story, angle);
+
   return [
     {
       key: "duplication",
@@ -901,6 +1058,18 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
       label: "Topic relevance",
       passed: (shared >= 2 && relevanceRatio >= 0.16) || (shared >= 1 && relevanceRatio >= 0.08 && normalizeQualityText(post).includes(normalizeQualityText(angle).split(" ").filter((word) => word.length >= 6).slice(0, 2).join(" "))),
       detail: shared >= 2 ? "Post contains multiple terms grounded in the selected story and angle." : "The post needs stronger direct grounding in the selected story and angle.",
+    },
+    {
+      key: "perspective",
+      label: "Original perspective reviewed",
+      // Perspective detection is advisory for now. The heuristic can confuse
+      // necessary story grounding with source restatement, so it must not block
+      // an otherwise valid LinkedIn post.
+      passed: true,
+      detail:
+        perspective.interpretationSentences >= 1
+        ? "Story-grounded perspective detected using the selected angle."
+        : `Perspective signal not confidently detected; generation is not blocked. Signals: interpretation sentences ${perspective.interpretationSentences}; angle-specific matches ${perspective.angleMatches.length}; near-restatement ratio ${perspective.nearRestatementRatio.toFixed(2)}.`,
     },
     {
       key: "completeness",
@@ -998,9 +1167,18 @@ End with ONE natural question or clear call to action directly related to the to
 
 IMPORTANT WRITING RULES
 - Focus on ONE central idea.
+- Add a clear point of view: explain what is easy to miss, what changes in practice, what trade-off or constraint matters, or why the evidence matters beyond the headline.
+- The post must contribute an interpretation that a reader would not get by simply reading the article headline or summary.
+- Use the selected angle as the editorial lens, but do not copy it verbatim.
+- At least one paragraph must explain WHY the facts matter together, not merely describe what happened.
+- Do not manufacture personal experience, credentials, lived experience, or invented examples.
 - Use short, readable paragraphs with blank lines between ideas, like a strong human LinkedIn post.
-- Sound professional, conversational, and human.
-- Use simple English. Avoid corporate jargon and generic motivational filler.
+- Sound like a thoughtful human professional explaining the idea to another person.
+- Use simple everyday English. Prefer short, clear sentences and natural phrasing.
+- Explain technical terms in plain language when they are necessary.
+- Avoid corporate jargon, grand claims, artificial drama, and generic motivational filler.
+- Do not write like a press release, research abstract, or AI-generated template.
+- The reader should understand the main point on a first read without specialized knowledge.
 - Use the story details accurately.
 - Do NOT use Markdown emphasis such as **bold**, *italics*, backticks, or heading markers.
 - Do NOT end with a bare number, bullet, ellipsis, unfinished sentence, or incomplete list item.
@@ -1077,6 +1255,8 @@ REPAIR INSTRUCTIONS
 - If the post is too long, remove repetition or low-value wording rather than cutting an argument mid-sentence.
 - If relevance failed, strengthen connections to the supplied headline, summary, evidence, and selected angle. Use concrete source terms naturally; do not merely repeat the angle.
 - If duplication failed, combine or rewrite repeated ideas while keeping the strongest version.
+- If the original-perspective check failed, add one clear interpretation explaining why the supplied facts matter together, using the selected angle and concrete story details.
+- If the post is mostly a restatement of the source, replace descriptive sentences with analysis of the relationship, trade-off, mechanism, consequence, or practical meaning supported by the story.
 - If completeness failed, finish every incomplete sentence and make the final thought complete.
 - If formatting failed, remove Markdown, URLs, bullets, numbering, emojis, control characters, and non-ASCII symbols. Use plain ASCII punctuation only (periods, commas, apostrophes, quotation marks, colons, semicolons, question marks, exclamation marks, and hyphens).
 - Keep the result between 125 and 150 words and under 3,000 characters. Aim for approximately 135–140 words.
@@ -1168,6 +1348,9 @@ It MUST pass every quality rule before you return it:
 - 125–150 words total; aim for 135–140.
 - Plain ASCII text only. No emojis, Markdown, bullets, URLs, hashtags, or decorative symbols.
 - No duplicated or near-duplicated sentences or ideas.
+- Add a clear, story-grounded point of view rather than merely summarizing the source.
+- Include at least one non-generic interpretation of why the facts matter together.
+- Do not pretend to have personal experience or add unsupported expertise.
 - Stay tightly grounded in the supplied story and selected angle.
 - Every sentence must be complete.
 - The final sentence must end naturally with a complete thought.
@@ -1189,12 +1372,20 @@ Return ONLY the finished LinkedIn post.`,
   }
 
   if (finalFailures.length) {
-    const details = finalFailures
-      .map((check) => `${check.label}: ${check.detail}`)
-      .join("; ");
+    const qualitySummary = result.quality
+      .map((check) => (check.passed ? "PASS" : "FAIL") + " | " + check.label + " | " + check.detail)
+      .join("\n");
+
+    console.warn("[PostCraft] editorial_quality_final_failure", {
+      checks: result.quality.map((check) => ({
+        key: check.key,
+        passed: check.passed,
+        detail: check.detail,
+      })),
+    });
 
     throw new Error(
-      `The generated post could not pass PostCraft's quality checks after repair and regeneration. ${details}`,
+      "The generated post could not pass PostCraft's quality checks after repair and regeneration.\n\nQUALITY CHECK RESULTS\n" + qualitySummary,
     );
   }
 
