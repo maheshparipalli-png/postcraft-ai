@@ -433,6 +433,57 @@ export async function generateEditorialDraft(
     : new Error("PostCraft could not produce a validated editorial draft from the selected story.");
 }
 
+export async function generateEditorialCardPoints(story: Story, angle: string, post: string) {
+  const prompt = `Create the visual summary for a LinkedIn PostCard based ONLY on the supplied article and finished LinkedIn post.
+
+ARTICLE
+Headline: ${story.headline}
+Source: ${story.source}
+Summary: ${story.summary}
+
+EDITORIAL ANGLE
+${angle}
+
+LINKEDIN POST
+${post}
+
+Write exactly THREE concise visual points. These are NOT excerpts from the LinkedIn post. Rewrite the ideas in fresh wording for a visual card.
+
+Rules:
+- Each point must be 8–16 words.
+- Each point must communicate a distinct idea.
+- Do not copy sentences from the LinkedIn post.
+- Do not simply shorten sentences from the post.
+- Focus on what changed, what the evidence suggests, and why it matters.
+- Stay strictly grounded in the supplied article and angle.
+- Use plain text only. No bullets, numbering, quotes, hashtags, emojis, or headings.
+- Return ONLY valid JSON in this form: {"points":["point one","point two","point three"]}`;
+
+  const aiProvider = await provider();
+  const raw = await aiProvider.generateText(prompt, {
+    format: "json",
+    temperature: 0.35,
+    numPredict: 300,
+  });
+  const parsed = parseJson(raw);
+  const points = Array.isArray(parsed?.points)
+    ? parsed.points
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => normalizeGeneratedText(value, { plainPunctuation: true }).trim())
+        .filter((value) => {
+          const words = value.split(/\s+/).filter(Boolean).length;
+          return words >= 8 && words <= 16;
+        })
+        .slice(0, 3)
+    : [];
+
+  if (points.length !== 3) {
+    throw new Error("PostCraft could not create three distinct visual points for the news article.");
+  }
+
+  return points;
+}
+
 export async function generateEditorialAngles(story: Story) {
   const startedAt = Date.now();
   const normalizedStory: Story = {
