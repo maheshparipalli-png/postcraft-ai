@@ -793,23 +793,135 @@ function getMetaEditorialPhrases(post: string) {
 }
 
 function getPerspectiveSignals(post: string, story: Story, angle: string) {
-  const sentences = post.match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) || [];
-  const sourceSentences = [story.headline, ...(story.summary.match(/[^.!?]+[.!?]+/g) || [story.summary])].map((s) => s.trim()).filter(Boolean);
-  const markers = ["the important distinction","the bigger point","what is easy to miss","what's easy to miss","what matters here","the real shift","the real issue","in practice","in reality","this changes","this means","this reveals","this suggests","this creates","the trade-off","the tradeoff","the tension","the difference","rather than","not just","more than","but","yet","while","because","depends on","the implication","the consequence","the constraint"];
-  const interpretationSentences = sentences.filter((s) => markers.some((m) => s.toLowerCase().includes(m)));
-  const angleTerms = getAngleSpecificTerms({ angle, why: "", evidence: angle }, story).filter((term) => term.length >= 6);
-  const normalizedPost = normalizeQualityText(post).split(" ");
-  const angleMatches = angleTerms.filter((term) => normalizedPost.includes(term));
-  const sourceSimilarity = sentences.map((sentence) => sourceSentences.length ? Math.max(...sourceSentences.map((source) => sentenceSimilarity(sentence, source))) : 0);
-  const nearRestatements = sourceSimilarity.filter((score) => score >= 0.68).length;
-  const nearRestatementRatio = sentences.length ? nearRestatements / sentences.length : 1;
-  const perspectiveSentences = interpretationSentences.filter((sentence) => {
-    const similarityToSource = sourceSentences.length ? Math.max(...sourceSentences.map((source) => sentenceSimilarity(sentence, source))) : 0;
-    return similarityToSource < 0.68;
-  });
-  return { angleMatches: angleMatches.slice(0, 8), interpretationSentences: interpretationSentences.length, perspectiveSentences: perspectiveSentences.length, nearRestatementRatio };
-}
+  const sentences =
+    post
+      .match(/[^.!?]+[.!?]+(?:["')\\]]*)|[^.!?]+$/g)
+      ?.map((s) => s.trim())
+      .filter(Boolean) || [];
 
+  const sourceSentences = [
+    story.headline,
+    ...(story.summary.match(/[^.!?]+[.!?]+/g) || [story.summary]),
+  ]
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const angleTerms = getAngleSpecificTerms(
+    { angle, why: "", evidence: angle },
+    story,
+  ).filter((term) => term.length >= 5);
+
+  const normalizedPost = normalizeQualityText(post).split(" ").filter(Boolean);
+  const angleMatches = angleTerms.filter((term) => normalizedPost.includes(term));
+
+  const reasoningMarkers = [
+    "because",
+    "means",
+    "suggests",
+    "shows why",
+    "explains why",
+    "matters because",
+    "matters when",
+    "matters if",
+    "could",
+    "may",
+    "might",
+    "likely",
+    "potentially",
+    "rather than",
+    "not simply",
+    "not necessarily",
+    "not only",
+    "more than",
+    "beyond",
+    "however",
+    "but",
+    "yet",
+    "while",
+    "instead",
+    "compared with",
+    "compared to",
+    "depends on",
+    "allows",
+    "makes it",
+    "turns",
+    "shifts",
+    "changes",
+    "expands",
+    "narrows",
+    "creates",
+    "limits",
+    "forces",
+    "leaves",
+    "reveals",
+    "exposes",
+    "raises",
+    "the consequence",
+    "the result",
+    "the difference",
+    "the trade-off",
+    "the tradeoff",
+    "the constraint",
+    "the opportunity",
+    "the risk",
+    "the implication",
+  ];
+
+  const sentenceSignals = sentences.map((sentence) => {
+    const lower = sentence.toLowerCase();
+    const similarityToSource = sourceSentences.length
+      ? Math.max(
+          ...sourceSentences.map((source) =>
+            sentenceSimilarity(sentence, source),
+          ),
+        )
+      : 0;
+    const sentenceTerms = normalizeQualityText(sentence).split(" ").filter(Boolean);
+    const angleTermMatches = angleTerms.filter((term) =>
+      sentenceTerms.includes(term),
+    ).length;
+    const hasReasoningLanguage = reasoningMarkers.some((marker) =>
+      lower.includes(marker),
+    );
+
+    // A perspective sentence does not need a canned phrase. It qualifies when
+    // it combines story-specific language with reasoning, or when it introduces
+    // a new conclusion using several angle terms while remaining meaningfully
+    // different from the source wording.
+    const isDistinctFromSource = similarityToSource < 0.72;
+    const isInterpretive =
+      (angleTermMatches >= 1 && hasReasoningLanguage && isDistinctFromSource) ||
+      (angleTermMatches >= 2 && isDistinctFromSource);
+
+    return {
+      similarityToSource,
+      angleTermMatches,
+      hasReasoningLanguage,
+      isInterpretive,
+    };
+  });
+
+  const nearRestatements = sentenceSignals.filter(
+    ({ similarityToSource }) => similarityToSource >= 0.68,
+  ).length;
+
+  const nearRestatementRatio = sentences.length
+    ? nearRestatements / sentences.length
+    : 1;
+
+  const interpretationSentences = sentenceSignals.filter(
+    ({ isInterpretive }) => isInterpretive,
+  ).length;
+
+  const perspectiveSentences = interpretationSentences;
+
+  return {
+    angleMatches: angleMatches.slice(0, 8),
+    interpretationSentences,
+    perspectiveSentences,
+    nearRestatementRatio,
+  };
+}
 function getGenericFillerPhrases(post: string) {
   const phrases = [
     "it's crucial to recognize",
@@ -936,8 +1048,16 @@ export function evaluatePostQuality(post: string, story: Story, angle: string): 
     {
       key: "perspective",
       label: "Adds original perspective",
-      passed: perspective.angleMatches.length >= 2 && perspective.interpretationSentences >= 1 && perspective.perspectiveSentences >= 1 && perspective.nearRestatementRatio < 0.55,
-      detail: perspective.angleMatches.length >= 2 && perspective.interpretationSentences >= 1 && perspective.perspectiveSentences >= 1 && perspective.nearRestatementRatio < 0.55
+      passed:
+        perspective.angleMatches.length >= 1 &&
+        perspective.interpretationSentences >= 1 &&
+        perspective.perspectiveSentences >= 1 &&
+        perspective.nearRestatementRatio < 0.70,
+      detail:
+        perspective.angleMatches.length >= 1 &&
+        perspective.interpretationSentences >= 1 &&
+        perspective.perspectiveSentences >= 1 &&
+        perspective.nearRestatementRatio < 0.70
         ? "Post adds a story-grounded interpretation instead of only restating the source."
         : "Post needs a clearer point of view, more angle-specific reasoning, or less source restatement.",
     },
