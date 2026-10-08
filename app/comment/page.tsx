@@ -232,6 +232,28 @@ export default function CommentPage() {
     })();
   }
 
+  function resetComposer() {
+    setPlatform("LinkedIn");
+    setPosition("Agree");
+    setSelectedStyles(["Natural"]);
+    setDepth("Easy to Understand");
+    setMyWords("");
+    setRefinedMyWords("");
+    setPost("");
+    setUrl("");
+    setShowUrl(false);
+    setAttachment(null);
+    setComments([]);
+    setSummary("");
+    setError("");
+    setCopied(null);
+    setRefining(null);
+    setRefiningMyWords(false);
+    setSummaryLoading(false);
+    setLoading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
   function resetForPastedPost() {
     setPlatform("LinkedIn");
     setPosition("Agree");
@@ -412,6 +434,7 @@ export default function CommentPage() {
               onPostChange={setPost}
               onPaste={handlePaste}
               onPasteImage={() => void pasteImageFromClipboard()}
+              onReset={resetComposer}
               onToggleUrl={() => setShowUrl(v => !v)}
               onUrlChange={setUrl}
               onChooseFile={file => void chooseFile(file)}
