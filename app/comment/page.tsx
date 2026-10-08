@@ -1,27 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ClipboardEvent } from "react";
+import CommentCard from "./components/CommentCard";
+import CommentControls from "./components/CommentControls";
+import CommentInput from "./components/CommentInput";
+import MyWordsRefiner from "./components/MyWordsRefiner";
+import { generateComments, refineComment, summarizeSource } from "./lib/api";
+import { addHistory, getFavorites, getHistory, removeFavorite, saveFavorite } from "./lib/storage";
+import type { Attachment, Comment, Depth, HistoryItem, Platform, Position, Style } from "./lib/types";
 
-type Platform = "LinkedIn" | "X" | "Instagram" | "Facebook" | "YouTube" | "Reddit" | "Threads" | "TikTok";
-type Position = "Agree" | "Partially Agree" | "Disagree" | "Add a Different Perspective" | "Challenge the Assumption" | "Ask a Question";
-type Depth = "Easy to Understand" | "Medium" | "High";
-type Style = "Natural" | "Crunchy" | "Bold" | "Thought-Provoking" | "Witty" | "Storytelling" | "Rhyming" | "Satirical";
-
-type Comment = {
-  id: string;
-  comment_text: string;
-  quality_score: number;
-  why_it_works: string | null;
-  is_favorite: boolean;
-};
-
-type Attachment = { name: string; type: string; data: string };
-
-const platforms: Platform[] = ["LinkedIn", "X", "Instagram", "Facebook", "YouTube", "Reddit", "Threads", "TikTok"];
-const positions: Position[] = ["Agree", "Partially Agree", "Disagree", "Add a Different Perspective", "Challenge the Assumption", "Ask a Question"];
-const styles: Style[] = ["Natural", "Crunchy", "Bold", "Thought-Provoking", "Witty", "Storytelling", "Rhyming", "Satirical"];
-const depths: Depth[] = ["Easy to Understand", "Medium", "High"];
-const quickRefines = ["Shorter", "More Human", "More Bold", "Add a Question"];
 
 function readFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,28 +20,58 @@ function readFile(file: File): Promise<string> {
   });
 }
 
-function id() {
-  return crypto.randomUUID();
+function SectionTitle({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="mb-4">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/45">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-xl font-semibold text-white">{title}</h2>
+    </div>
+  );
 }
 
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
+      {text}
+    </div>
+  );
+}
 export default function CommentPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [platform, setPlatform] = useState<Platform>("LinkedIn");
   const [position, setPosition] = useState<Position>("Agree");
   const [selectedStyles, setSelectedStyles] = useState<Style[]>(["Natural"]);
-  const [depth, setDepth] = useState<Depth>("Medium");
+  const [depth, setDepth] = useState<Depth>("Easy to Understand");
+  const [myWords, setMyWords] = useState("");
+  const [refinedMyWords, setRefinedMyWords] = useState("");
+  const [refiningMyWords, setRefiningMyWords] = useState(false);
   const [post, setPost] = useState("");
   const [url, setUrl] = useState("");
   const [showUrl, setShowUrl] = useState(false);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summary, setSummary] = useState("");
   const [refining, setRefining] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [whyOpen, setWhyOpen] = useState<Record<string, boolean>>({});
-  const [refineOpen, setRefineOpen] = useState<Record<string, boolean>>({});
-  const [customRefine, setCustomRefine] = useState<Record<string, string>>({});
+  const [view, setView] = useState<"generate" | "favorites" | "history">("generate");
+  const [favorites, setFavorites] = useState<Comment[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  useEffect(() => {
+    setFavorites(Object.values(getFavorites()).reverse());
+    setHistory(getHistory());
+  }, []);
 
   function toggleStyle(style: Style) {
     setSelectedStyles(current =>
@@ -82,59 +100,54 @@ export default function CommentPage() {
 
   async function generate() {
     setError("");
+    setSummary("");
     if (!post.trim() && !url.trim() && !attachment) {
       setError("Add a post, URL, image, or file before generating comments.");
       return;
     }
-
+    setView("generate");
     setLoading(true);
     setComments([]);
 
     try {
-      const body = {
-        action: "generate",
-        post: post.trim(),
-        content_url: url.trim(),
-        image_base64: attachment?.type.startsWith("image/") ? attachment.data.replace(/^data:[^;]+;base64,/, "") : undefined,
-        image_mime_type: attachment?.type.startsWith("image/") ? attachment.type : undefined,
-        file_base64: attachment && !attachment.type.startsWith("image/") ? attachment.data.replace(/^data:[^;]+;base64,/, "") : undefined,
-        file_mime_type: attachment && !attachment.type.startsWith("image/") ? attachment.type : undefined,
-        file_name: attachment && !attachment.type.startsWith("image/") ? attachment.name : undefined,
-        platform: platform.toLowerCase(),
-        position,
-        styles: selectedStyles,
-        depth,
-        keywords: [],
-        count: 5,
-      };
-
-      const response = await fetch("/api/commentcraft-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 429) throw new Error("AI usage limit reached. Please try again later.");
-        if (response.status === 503) throw new Error("The AI service is temporarily busy. Please try again.");
-        throw new Error(data?.error || "Unable to generate comments right now.");
-      }
-
-      const generated = (data.comments ?? []).map((item: Partial<Comment>) => ({
-        id: item.id || id(),
-        comment_text: item.comment_text || "",
-        quality_score: item.quality_score ?? 0,
-        why_it_works: item.why_it_works ?? null,
-        is_favorite: Boolean(item.is_favorite),
-      })).filter((item: Comment) => item.comment_text);
-
+      const generated = await generateComments({ post, url, attachment, platform, position, styles: selectedStyles, depth });
       setComments(generated);
-      if (!generated.length) setError("The AI service returned no comments. Please try again.");
+      if (!generated.length) {
+        setError("The AI service returned no comments. Please try again.");
+        return;
+      }
+      const item: HistoryItem = {
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString(),
+        post: post.trim(),
+        url: url.trim(),
+        platform,
+        position,
+        comments: generated,
+      };
+      addHistory(item);
+      setHistory(getHistory());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function summarize() {
+    setError("");
+    if (!post.trim() && !url.trim() && !attachment) {
+      setError("Add a post, URL, image, or file before summarizing.");
+      return;
+    }
+    setSummaryLoading(true);
+    try {
+      const result = await summarizeSource({ post, url, attachment, platform, position, styles: selectedStyles, depth });
+      setSummary(result || "No summary was returned.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to summarize the source.");
+    } finally {
+      setSummaryLoading(false);
     }
   }
 
@@ -151,49 +164,23 @@ export default function CommentPage() {
   function favorite(comment: Comment) {
     const next = !comment.is_favorite;
     setComments(current => current.map(item => item.id === comment.id ? { ...item, is_favorite: next } : item));
-    try {
-      const saved = JSON.parse(localStorage.getItem("comment-favorites") || "{}") as Record<string, Comment>;
-      if (next) saved[comment.id] = { ...comment, is_favorite: true };
-      else delete saved[comment.id];
-      localStorage.setItem("comment-favorites", JSON.stringify(saved));
-    } catch { /* local-only convenience; generation is unaffected */ }
+    if (next) saveFavorite({ ...comment, is_favorite: true });
+    else removeFavorite(comment.id);
+    setFavorites(Object.values(getFavorites()).reverse());
   }
 
   async function refine(comment: Comment, instruction: string) {
-    const clean = instruction.trim() || "Make this more natural";
     setError("");
     setRefining(comment.id);
-
     try {
-      const response = await fetch("/api/commentcraft-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "refine",
-          comment: comment.comment_text,
-          instruction: clean,
-          platform: platform.toLowerCase(),
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.error || "Refine failed.");
-      }
-
-      const refined = data.comment_text || data.comments?.[0]?.comment_text;
-      if (!refined) {
-        throw new Error("Refine returned no comment.");
-      }
-
+      const refined = await refineComment(comment, instruction, platform);
+      if (!refined.comment_text) throw new Error("Refine returned no comment.");
       setComments(current => current.map(item => item.id === comment.id ? {
         ...item,
-        comment_text: refined,
-        quality_score: data.quality_score ?? data.comments?.[0]?.quality_score ?? item.quality_score,
-        why_it_works: data.why_it_works ?? data.comments?.[0]?.why_it_works ?? item.why_it_works,
+        comment_text: refined.comment_text || item.comment_text,
+        quality_score: refined.quality_score ?? item.quality_score,
+        why_it_works: refined.why_it_works ?? item.why_it_works,
       } : item));
-      setRefineOpen(current => ({ ...current, [comment.id]: false }));
-      setCustomRefine(current => ({ ...current, [comment.id]: "" }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Refine failed.");
     } finally {
@@ -201,15 +188,100 @@ export default function CommentPage() {
     }
   }
 
-  async function share(comment: Comment) {
-    try {
-      if ("share" in navigator) {
-        await navigator.share({ text: comment.comment_text });
-      } else {
-        await copyComment(comment);
+  function share(comment: Comment) {
+    void (async () => {
+      try {
+        if ("share" in navigator) await navigator.share({ text: comment.comment_text });
+        else await copyComment(comment);
+      } catch {
+        // User cancelled the native share sheet.
       }
-    } catch { /* user cancelled */ }
+    })();
   }
+
+  function resetForPastedPost() {
+    setPlatform("LinkedIn");
+    setPosition("Agree");
+    setSelectedStyles(["Natural"]);
+    setDepth("Easy to Understand");
+
+    // A newly pasted post becomes the new source. Remove any previous
+    // URL, uploaded file/image, summary, and generated comments.
+    setUrl("");
+    setShowUrl(false);
+    setAttachment(null);
+    setSummary("");
+    setComments([]);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    resetForPastedPost();
+
+    const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"));
+    if (!image) return;
+
+    const file = image.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    await chooseFile(new File([file], "pasted-image.png", { type: file.type }));
+  }
+
+  async function refineMyWords() {
+    const draft = myWords.trim();
+    if (!draft) {
+      setError("Write your comment first.");
+      return;
+    }
+
+    setError("");
+    setRefiningMyWords(true);
+
+    try {
+      const refined = await refineComment(
+        {
+          id: "my-words",
+          comment_text: draft,
+          quality_score: 0,
+          why_it_works: null,
+          is_favorite: false,
+        },
+        "Refine this comment while preserving my exact meaning, point of view, and personal voice. Do not introduce new ideas or arguments. Make it natural, clear, concise, and easy to understand.",
+        platform
+      );
+
+      if (!refined.comment_text) throw new Error("AI returned no refined comment.");
+      setRefinedMyWords(refined.comment_text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refine your comment.");
+    } finally {
+      setRefiningMyWords(false);
+    }
+  }
+
+  async function copyRefinedMyWords() {
+    if (!refinedMyWords) return;
+    try {
+      await navigator.clipboard.writeText(refinedMyWords);
+      setCopied("my-words");
+      window.setTimeout(() => setCopied(null), 1500);
+    } catch {
+      setError("Copy failed. Your browser may have blocked clipboard access.");
+    }
+  }
+
+  function loadHistoryItem(item: HistoryItem) {
+    setPost(item.post);
+    setUrl(item.url);
+    setPlatform(item.platform);
+    setPosition(item.position);
+    setComments(item.comments);
+    setView("generate");
+    setError("");
+  }
+
+  const visibleComments = view === "favorites" ? favorites : comments;
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-neutral-950">
@@ -227,177 +299,97 @@ export default function CommentPage() {
 
         <section className="py-10">
           <h2 className="font-serif text-4xl tracking-[-.045em] sm:text-5xl">Turn posts into thoughtful comments.</h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">
-            Choose where you are commenting, take a position, set the voice and depth, then generate five distinct comments.
-          </p>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">Choose where you are commenting, take a position, set the voice and depth, then generate five distinct comments.</p>
         </section>
 
-        <section className="space-y-8">
-          <div className="border border-neutral-200 bg-white p-6">
-            <Label text="Where are you commenting?" />
-            <Chips values={platforms} selected={platform} onSelect={setPlatform} />
-          </div>
+        <nav className="mb-8 flex gap-2 border-b border-neutral-200 pb-3">
+          {(["generate", "favorites", "history"] as const).map(item => (
+            <button key={item} type="button" onClick={() => setView(item)}
+              className={view === item ? "rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-600"}>
+              {item === "generate" ? "Generate" : item === "favorites" ? `Favorites (${favorites.length})` : `History (${history.length})`}
+            </button>
+          ))}
+        </nav>
 
-          <div className="border border-neutral-200 bg-white p-6">
-            <Label text="Your position" />
-            <Chips values={positions} selected={position} onSelect={setPosition} />
-          </div>
-
-          <div className="border border-neutral-200 bg-white p-6">
-            <Label text="Comment style" />
-            <div className="flex flex-wrap gap-2">
-              {styles.map(style => (
-                <button key={style} type="button" onClick={() => toggleStyle(style)}
-                  className={selectedStyles.includes(style)
-                    ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white"
-                    : "rounded-full border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-600 hover:border-neutral-900"}>
-                  {style}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="border border-neutral-200 bg-white p-6">
-            <Label text="Depth" />
-            <Chips values={depths} selected={depth} onSelect={setDepth} />
-          </div>
-
-          <div className="border border-neutral-200 bg-white p-6">
-            <Label text="Post" />
-            <textarea value={post} onChange={e => setPost(e.target.value)} rows={10}
-              className="w-full border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-6 outline-none focus:border-neutral-900"
-              placeholder="Paste the post you want to respond to..." />
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => setShowUrl(v => !v)}
-                className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">
-                {showUrl ? "Hide URL" : "Add URL"}
+        {view === "history" ? (
+          <section className="space-y-3">
+            <SectionTitle eyebrow="Recent" title="Generation history" />
+            {history.length === 0 ? <Empty text="Your recent generations will appear here." /> : history.map(item => (
+              <button key={item.id} type="button" onClick={() => loadHistoryItem(item)}
+                className="block w-full border border-neutral-200 bg-white p-5 text-left hover:border-neutral-900">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-xs font-semibold">{item.platform} · {item.position}</div>
+                  <div className="text-[10px] text-neutral-400">{new Date(item.created_at).toLocaleString()}</div>
+                </div>
+                <p className="mt-2 line-clamp-2 text-sm text-neutral-700">{item.post || item.url || "Attached source"}</p>
+                <div className="mt-2 text-xs text-neutral-400">{item.comments.length} comments</div>
               </button>
-              <button type="button" onClick={() => inputRef.current?.click()}
-                className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold">
-                Upload image / PDF / TXT
-              </button>
-              <input ref={inputRef} hidden type="file" accept="image/*,.pdf,.txt"
-                onChange={e => { const file = e.target.files?.[0]; if (file) void chooseFile(file); }} />
-            </div>
-
-            {showUrl && (
-              <input value={url} onChange={e => setUrl(e.target.value)} type="url"
-                className="mt-3 w-full border-b border-neutral-300 bg-transparent py-3 text-sm outline-none focus:border-neutral-900"
-                placeholder="Paste a post URL..." />
-            )}
-
-            {attachment && (
-              <div className="mt-3 flex items-center justify-between border border-neutral-200 bg-[#f7f6f2] px-4 py-3 text-xs">
-                <span className="truncate">{attachment.name}</span>
-                <button type="button" onClick={() => { setAttachment(null); if (inputRef.current) inputRef.current.value = ""; }}
-                  className="ml-4 font-semibold text-neutral-500 hover:text-black">Remove</button>
-              </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-between gap-4">
-              <span className="text-xs text-neutral-500">Maximum upload size: 10 MB</span>
-              <button type="button" onClick={() => void generate()} disabled={loading}
-                className="rounded-full bg-neutral-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-40">
-                {loading ? "Generating…" : "Generate Comments →"}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {error && <div className="mt-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
-
-        {comments.length > 0 && (
-          <section className="mt-10">
-            <div className="mb-4 flex items-end justify-between">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">Generated</div>
-                <h2 className="mt-1 font-serif text-3xl">Your comments</h2>
-              </div>
-              <span className="text-xs text-neutral-500">{comments.length} options</span>
-            </div>
-
-            <div className="space-y-4">
-              {comments.map(comment => (
-                <article key={comment.id} className="border border-neutral-200 bg-white p-5 sm:p-6">
-                  <div className="flex items-start justify-between gap-5">
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-neutral-800">{comment.comment_text}</p>
-                    <span className="shrink-0 rounded-full bg-neutral-900 px-2.5 py-1 text-[10px] font-semibold text-white">{comment.quality_score}/100</span>
-                  </div>
-
-                  {whyOpen[comment.id] && (
-                    <div className="mt-4 border-l-2 border-neutral-900 bg-[#f7f6f2] px-4 py-3 text-xs leading-5 text-neutral-600">
-                      <strong className="text-neutral-900">Why this works:</strong> {comment.why_it_works || "It adds a distinct perspective while staying connected to the original post."}
-                    </div>
-                  )}
-
-                  {refineOpen[comment.id] && (
-                    <div className="mt-4 border border-neutral-200 bg-[#f7f6f2] p-4">
-                      <div className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-neutral-500">Quick refine</div>
-                      <div className="flex flex-wrap gap-2">
-                        {quickRefines.map(option => (
-                          <button key={option} type="button" disabled={refining === comment.id}
-                            onClick={() => void refine(comment, option)}
-                            className="rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-50">
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <input value={customRefine[comment.id] || ""} onChange={e => setCustomRefine(v => ({ ...v, [comment.id]: e.target.value }))}
-                          onKeyDown={e => { if (e.key === "Enter") void refine(comment, customRefine[comment.id] || "Make this more natural"); }}
-                          placeholder="Custom instruction..."
-                          className="min-w-0 flex-1 border border-neutral-300 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-900" />
-                        <button type="button" disabled={refining === comment.id}
-                          onClick={() => void refine(comment, customRefine[comment.id] || "Make this more natural")}
-                          className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                          {refining === comment.id ? "Working…" : "Apply"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-5 flex flex-wrap gap-2 border-t border-neutral-100 pt-4">
-                    <Action label={copied === comment.id ? "Copied!" : "Copy"} onClick={() => void copyComment(comment)} />
-                    <Action label={comment.is_favorite ? "Saved" : "Favorite"} onClick={() => favorite(comment)} active={comment.is_favorite} />
-                    <Action label={whyOpen[comment.id] ? "Hide why" : "Why this works"} onClick={() => setWhyOpen(v => ({ ...v, [comment.id]: !v[comment.id] }))} />
-                    <Action label={refineOpen[comment.id] ? "Close refine" : "Refine"} onClick={() => setRefineOpen(v => ({ ...v, [comment.id]: !v[comment.id] }))} />
-                    <Action label="Share" onClick={() => void share(comment)} />
-                  </div>
-                </article>
-              ))}
-            </div>
+            ))}
           </section>
+        ) : view === "favorites" ? (
+          <section className="space-y-4">
+            <SectionTitle eyebrow="Saved" title="Favorite comments" />
+            {favorites.length === 0 ? <Empty text="Save a comment and it will stay here in Guest Mode." /> : favorites.map(comment => (
+              <CommentCard key={comment.id} comment={comment} copied={copied === comment.id} refining={refining === comment.id}
+                onCopy={() => void copyComment(comment)} onFavorite={() => favorite(comment)}
+                onRefine={instruction => void refine(comment, instruction)} onShare={() => share(comment)} />
+            ))}
+          </section>
+        ) : (
+          <>
+            <CommentControls platform={platform} position={position} selectedStyles={selectedStyles} depth={depth}
+              setPlatform={setPlatform} setPosition={setPosition} toggleStyle={toggleStyle} setDepth={setDepth} />
+
+            <CommentInput
+              post={post}
+              url={url}
+              showUrl={showUrl}
+              attachment={attachment}
+              inputRef={inputRef}
+              loading={loading}
+              summaryLoading={summaryLoading}
+              summary={summary}
+              onPostChange={setPost}
+              onPaste={handlePaste}
+              onToggleUrl={() => setShowUrl(v => !v)}
+              onUrlChange={setUrl}
+              onChooseFile={file => void chooseFile(file)}
+              onRemoveAttachment={() => { setAttachment(null); if (inputRef.current) inputRef.current.value = ""; }}
+              onSummarize={() => void summarize()}
+              onGenerate={() => void generate()}
+            />
+
+            <MyWordsRefiner
+              draft={myWords}
+              refined={refinedMyWords}
+              loading={refiningMyWords}
+              onDraftChange={value => {
+                setMyWords(value);
+                setRefinedMyWords("");
+              }}
+              onRefine={() => void refineMyWords()}
+              onCopy={() => void copyRefinedMyWords()}
+            />
+
+            {error && <div className="mt-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+
+            {visibleComments.length > 0 && (
+              <section className="mt-10">
+                <div className="mb-4 flex items-end justify-between">
+                  <div><div className="text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">Generated</div><h2 className="mt-1 font-serif text-3xl">Your comments</h2></div>
+                  <span className="text-xs text-neutral-500">{visibleComments.length} options</span>
+                </div>
+                <div className="space-y-4">
+                  {visibleComments.map(comment => <CommentCard key={comment.id} comment={comment} copied={copied === comment.id} refining={refining === comment.id}
+                    onCopy={() => void copyComment(comment)} onFavorite={() => favorite(comment)}
+                    onRefine={instruction => void refine(comment, instruction)} onShare={() => share(comment)} />)}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     </main>
   );
 }
 
-function Label({ text }: { text: string }) {
-  return <div className="mb-4 text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">{text}</div>;
-}
-
-function Chips<T extends string>({ values, selected, onSelect }: { values: T[]; selected: T; onSelect: (value: T) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {values.map(value => (
-        <button key={value} type="button" onClick={() => onSelect(value)}
-          className={selected === value
-            ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white"
-            : "rounded-full border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-600 hover:border-neutral-900"}>
-          {value}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Action({ label, onClick, active = false }: { label: string; onClick: () => void; active?: boolean }) {
-  return <button type="button" onClick={onClick}
-    className={active
-      ? "rounded-full bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white"
-      : "rounded-full border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-700 hover:border-neutral-900"}>
-    {label}
-  </button>;
-}
