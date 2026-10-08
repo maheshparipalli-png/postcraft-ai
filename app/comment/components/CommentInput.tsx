@@ -9,7 +9,7 @@ type Props = {
   inputRef: RefObject<HTMLInputElement | null>;
   loading: boolean; summaryLoading: boolean; summary: string;
   onPostChange: (value: string) => void; onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
-  onPasteImage: () => void; onToggleUrl: () => void; onUrlChange: (value: string) => void; onChooseFile: (file: File) => void;
+  onPasteImage: () => void; onReset: () => void; onToggleUrl: () => void; onUrlChange: (value: string) => void; onChooseFile: (file: File) => void;
   onRemoveAttachment: () => void; onSummarize: () => void; onGenerate: () => void;
 };
 
@@ -70,6 +70,10 @@ export default function CommentInput(props: Props) {
       <button type="button" onClick={props.onPasteImage}
         className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">
         Paste image
+      </button>
+      <button type="button" onClick={props.onReset}
+        className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-600 hover:border-neutral-900 hover:text-neutral-950">
+        Reset
       </button>
       <button type="button" onClick={props.onToggleUrl} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">{props.showUrl ? "Hide URL" : "Add URL"}</button>
       <button type="button" onClick={() => props.inputRef.current?.click()} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">Attach image / PDF / TXT</button>
