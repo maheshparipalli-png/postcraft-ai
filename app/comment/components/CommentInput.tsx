@@ -8,7 +8,7 @@ type Props = {
   inputRef: RefObject<HTMLInputElement | null>;
   loading: boolean; summaryLoading: boolean; summary: string;
   onPostChange: (value: string) => void; onPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
-  onToggleUrl: () => void; onUrlChange: (value: string) => void; onChooseFile: (file: File) => void;
+  onPasteImage: () => void; onToggleUrl: () => void; onUrlChange: (value: string) => void; onChooseFile: (file: File) => void;
   onRemoveAttachment: () => void; onSummarize: () => void; onGenerate: () => void;
 };
 
@@ -22,13 +22,20 @@ export default function CommentInput(props: Props) {
       <span className="hidden text-xs text-neutral-400 sm:block">Paste text or an image</span>
     </div>
 
-    <textarea value={props.post} onChange={e => props.onPostChange(e.target.value)} onPaste={props.onPaste} rows={9}
+    <textarea value={props.post} onChange={e => props.onPostChange(e.target.value)} onPaste={props.onPaste} rows={5}
       className="w-full resize-y border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
       placeholder="Paste the post here… You can also paste a screenshot directly." />
 
-    <div className="mt-2 text-[11px] text-neutral-400">A new pasted post becomes the new source and resets the previous source settings.</div>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400">
+      <span>A new pasted post becomes the new source and resets the previous source settings.</span>
+      <span className="font-medium text-neutral-500">Paste an image with Ctrl+V, or use “Paste image”.</span>
+    </div>
 
     <div className="mt-4 flex flex-wrap items-center gap-2">
+      <button type="button" onClick={props.onPasteImage}
+        className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">
+        Paste image
+      </button>
       <button type="button" onClick={props.onToggleUrl} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">{props.showUrl ? "Hide URL" : "Add URL"}</button>
       <button type="button" onClick={() => props.inputRef.current?.click()} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900">Attach image / PDF / TXT</button>
       <button type="button" onClick={props.onSummarize} disabled={props.summaryLoading} className="rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold hover:border-neutral-900 disabled:opacity-50">{props.summaryLoading ? "Summarizing…" : "Summarize"}</button>

@@ -81,6 +81,30 @@ export default function CommentPage() {
     );
   }
 
+  async function pasteImageFromClipboard() {
+    setError("");
+    try {
+      if (!navigator.clipboard?.read) {
+        setError("Image clipboard access is not supported here. Copy the image and press Ctrl+V in the post box.");
+        return;
+      }
+
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find(type => type.startsWith("image/"));
+        if (!imageType) continue;
+
+        const blob = await item.getType(imageType);
+        await chooseFile(new File([blob], "pasted-image.png", { type: imageType }));
+        return;
+      }
+
+      setError("No image found in your clipboard. Copy an image first, then try again.");
+    } catch {
+      setError("Unable to read the clipboard. Copy an image and press Ctrl+V in the post box.");
+    }
+  }
+
   async function chooseFile(file: File) {
     setError("");
     if (file.size > 10 * 1024 * 1024) {
@@ -351,6 +375,7 @@ export default function CommentPage() {
               summary={summary}
               onPostChange={setPost}
               onPaste={handlePaste}
+              onPasteImage={() => void pasteImageFromClipboard()}
               onToggleUrl={() => setShowUrl(v => !v)}
               onUrlChange={setUrl}
               onChooseFile={file => void chooseFile(file)}
