@@ -39,9 +39,27 @@ export default function CommentInput(props: Props) {
       <span className="hidden text-xs text-neutral-400 sm:block">Paste text or an image</span>
     </div>
 
-    <textarea ref={textareaRef} value={props.post} onChange={e => { props.onPostChange(e.target.value); resizeTextarea(); }} onInput={resizeTextarea} onPaste={props.onPaste} rows={2}
-      className="w-full resize-none border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
-      placeholder="Paste the post here… You can also paste a screenshot directly." />
+    <div className="border border-neutral-200 bg-[#f7f6f2] p-3 transition focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900">
+      {props.attachment?.type.startsWith("image/") && (
+        <div className="relative mb-3 overflow-hidden border border-neutral-200 bg-white">
+          <img
+            src={props.attachment.data}
+            alt={props.attachment.name || "Pasted image"}
+            className="max-h-64 w-full object-contain"
+          />
+          <button
+            type="button"
+            onClick={props.onRemoveAttachment}
+            className="absolute right-2 top-2 rounded-full border border-neutral-300 bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm hover:border-neutral-900"
+          >
+            Remove image
+          </button>
+        </div>
+      )}
+      <textarea ref={textareaRef} value={props.post} onChange={e => { props.onPostChange(e.target.value); resizeTextarea(); }} onInput={resizeTextarea} onPaste={props.onPaste} rows={2}
+        className="w-full resize-none border-0 bg-transparent p-1 text-sm leading-7 outline-none"
+        placeholder="Paste the post here… You can also paste a screenshot directly." />
+    </div>
 
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400">
       <span>A new pasted post becomes the new source and resets the previous source settings.</span>
@@ -63,7 +81,7 @@ export default function CommentInput(props: Props) {
       className="mt-3 w-full border border-neutral-200 bg-[#f7f6f2] px-4 py-3 text-sm outline-none focus:border-neutral-900"
       placeholder="Paste the post URL…" />}
 
-    {props.attachment && <div className="mt-3 flex items-center justify-between gap-4 border border-neutral-200 bg-[#f7f6f2] px-4 py-3 text-xs">
+    {props.attachment && !props.attachment.type.startsWith("image/") && <div className="mt-3 flex items-center justify-between gap-4 border border-neutral-200 bg-[#f7f6f2] px-4 py-3 text-xs">
       <span className="truncate">{props.attachment.name}</span>
       <button type="button" onClick={props.onRemoveAttachment} className="shrink-0 font-semibold text-neutral-500 hover:text-black">Remove</button>
     </div>}
