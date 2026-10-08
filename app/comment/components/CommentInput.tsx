@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import type { ClipboardEvent, RefObject } from "react";
 import type { Attachment } from "../lib/types";
 
@@ -13,6 +14,22 @@ type Props = {
 };
 
 export default function CommentInput(props: Props) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  }, [props.post]);
+
+  function resizeTextarea() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  }
+
   return <section className="border border-neutral-200 bg-white p-5 sm:p-6">
     <div className="mb-4 flex items-end justify-between gap-4">
       <div>
@@ -22,8 +39,8 @@ export default function CommentInput(props: Props) {
       <span className="hidden text-xs text-neutral-400 sm:block">Paste text or an image</span>
     </div>
 
-    <textarea value={props.post} onChange={e => props.onPostChange(e.target.value)} onPaste={props.onPaste} rows={2}
-      className="w-full resize-y border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+    <textarea ref={textareaRef} value={props.post} onChange={e => { props.onPostChange(e.target.value); resizeTextarea(); }} onInput={resizeTextarea} onPaste={props.onPaste} rows={2}
+      className="w-full resize-none border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
       placeholder="Paste the post here… You can also paste a screenshot directly." />
 
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400">
