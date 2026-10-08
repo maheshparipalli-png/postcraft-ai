@@ -199,15 +199,24 @@ export default function CommentPage() {
     })();
   }
 
-  function resetSelectionsForPastedPost() {
+  function resetForPastedPost() {
     setPlatform("LinkedIn");
     setPosition("Agree");
     setSelectedStyles(["Natural"]);
     setDepth("Easy to Understand");
+
+    // A newly pasted post becomes the new source. Remove any previous
+    // URL, uploaded file/image, summary, and generated comments.
+    setUrl("");
+    setShowUrl(false);
+    setAttachment(null);
+    setSummary("");
+    setComments([]);
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
-    resetSelectionsForPastedPost();
+    resetForPastedPost();
 
     const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"));
     if (!image) return;
