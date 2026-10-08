@@ -5,6 +5,7 @@ import type { ClipboardEvent } from "react";
 import CommentCard from "./components/CommentCard";
 import CommentControls from "./components/CommentControls";
 import CommentInput from "./components/CommentInput";
+import MyWordsRefiner from "./components/MyWordsRefiner";
 import { generateComments, refineComment, summarizeSource } from "./lib/api";
 import { addHistory, getFavorites, getHistory, removeFavorite, saveFavorite } from "./lib/storage";
 import type { Attachment, Comment, Depth, HistoryItem, Platform, Position, Style } from "./lib/types";
@@ -48,7 +49,10 @@ export default function CommentPage() {
   const [platform, setPlatform] = useState<Platform>("LinkedIn");
   const [position, setPosition] = useState<Position>("Agree");
   const [selectedStyles, setSelectedStyles] = useState<Style[]>(["Natural"]);
-  const [depth, setDepth] = useState<Depth>("Medium");
+  const [depth, setDepth] = useState<Depth>("Easy to Understand");
+  const [myWords, setMyWords] = useState("");
+  const [refinedMyWords, setRefinedMyWords] = useState("");
+  const [refiningMyWords, setRefiningMyWords] = useState(false);
   const [post, setPost] = useState("");
   const [url, setUrl] = useState("");
   const [showUrl, setShowUrl] = useState(false);
@@ -195,13 +199,67 @@ export default function CommentPage() {
     })();
   }
 
+  function resetSelectionsForPastedPost() {
+    setPlatform("LinkedIn");
+    setPosition("Agree");
+    setSelectedStyles(["Natural"]);
+    setDepth("Easy to Understand");
+  }
+
   async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    resetSelectionsForPastedPost();
+
     const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"));
     if (!image) return;
+
     const file = image.getAsFile();
     if (!file) return;
+
     event.preventDefault();
     await chooseFile(new File([file], "pasted-image.png", { type: file.type }));
+  }
+
+  async function refineMyWords() {
+    const draft = myWords.trim();
+    if (!draft) {
+      setError("Write your comment first.");
+      return;
+    }
+
+    setError("");
+    setRefiningMyWords(true);
+
+    try {
+      const refined = await refineComment(
+        {
+          id: "my-words",
+          comment_text: draft,
+          quality_score: 0,
+          why_it_works: null,
+          is_favorite: false,
+        },
+        "Refine this comment while preserving my exact meaning, point of view, and personal voice. Do not introduce new ideas or arguments. Make it natural, clear, concise, and easy to understand.",
+        platform
+      );
+
+      if (!refined.comment_text) throw new Error("AI returned no refined comment.");
+      setRefinedMyWords(refined.comment_text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refine your comment.");
+    } finally {
+      setRefiningMyWords(false);
+    }
+  }
+
+  async function copyRefinedMyWords() {
+    if (!refinedMyWords) return;
+    try {
+      await navigator.clipboard.writeText(refinedMyWords);
+      setCopied("my-words");
+      window.setTimeout(() => setCopied(null), 1500);
+    } catch {
+      setError("Copy failed. Your browser may have blocked clipboard access.");
+    }
   }
 
   function loadHistoryItem(item: HistoryItem) {
@@ -290,6 +348,18 @@ export default function CommentPage() {
               onRemoveAttachment={() => { setAttachment(null); if (inputRef.current) inputRef.current.value = ""; }}
               onSummarize={() => void summarize()}
               onGenerate={() => void generate()}
+            />
+
+            <MyWordsRefiner
+              draft={myWords}
+              refined={refinedMyWords}
+              loading={refiningMyWords}
+              onDraftChange={value => {
+                setMyWords(value);
+                setRefinedMyWords("");
+              }}
+              onRefine={() => void refineMyWords()}
+              onCopy={() => void copyRefinedMyWords()}
             />
 
             {error && <div className="mt-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
