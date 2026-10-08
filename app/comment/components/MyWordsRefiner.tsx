@@ -1,5 +1,7 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
+
 type Props = {
   draft: string;
   refined: string;
@@ -17,6 +19,22 @@ export default function MyWordsRefiner({
   onRefine,
   onCopy,
 }: Props) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  }, [draft]);
+
+  function resizeTextarea() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  }
+
   return (
     <section className="mt-6 border border-neutral-200 bg-white p-5 sm:p-6">
       <div className="mb-4">
@@ -26,8 +44,8 @@ export default function MyWordsRefiner({
           Already know what you want to say? Write it naturally and let AI improve the wording without changing your meaning.
         </p>
       </div>
-      <textarea value={draft} onChange={e => onDraftChange(e.target.value)} rows={2}
-        className="w-full resize-y border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none focus:border-neutral-900"
+      <textarea ref={textareaRef} value={draft} onChange={e => { onDraftChange(e.target.value); resizeTextarea(); }} onInput={resizeTextarea} rows={2}
+        className="w-full resize-none border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none focus:border-neutral-900"
         placeholder="Write what you really want to say…" />
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-xs text-neutral-500">Keeps your point of view and personal voice.</span>

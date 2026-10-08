@@ -83,9 +83,10 @@ export default function CommentPage() {
 
   async function pasteImageFromClipboard() {
     setError("");
+
     try {
       if (!navigator.clipboard?.read) {
-        setError("Image clipboard access is not supported here. Copy the image and press Ctrl+V in the post box.");
+        setError("Use Ctrl+V inside the post box to paste an image from your clipboard.");
         return;
       }
 
@@ -99,9 +100,17 @@ export default function CommentPage() {
         return;
       }
 
-      setError("No image found in your clipboard. Copy an image first, then try again.");
+      const text = await navigator.clipboard.readText().catch(() => "");
+      if (text.startsWith("data:image/")) {
+        const response = await fetch(text);
+        const blob = await response.blob();
+        await chooseFile(new File([blob], "pasted-image.png", { type: blob.type || "image/png" }));
+        return;
+      }
+
+      setError("No image found in your clipboard. Copy an image first, then click Paste image.");
     } catch {
-      setError("Unable to read the clipboard. Copy an image and press Ctrl+V in the post box.");
+      setError("Clipboard access was blocked. Click inside the post box and press Ctrl+V after copying the image.");
     }
   }
 
@@ -242,14 +251,41 @@ export default function CommentPage() {
   async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     resetForPastedPost();
 
-    const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"));
-    if (!image) return;
+    const clipboard = event.clipboardData;
+    const directFile = Array.from(clipboard.files).find(file => file.type.startsWith("image/"));
+    if (directFile) {
+      event.preventDefault();
+      await chooseFile(new File([directFile], "pasted-image.png", { type: directFile.type }));
+      return;
+    }
 
-    const file = image.getAsFile();
-    if (!file) return;
+    const imageItem = Array.from(clipboard.items).find(item => item.type.startsWith("image/"));
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      if (file) {
+        event.preventDefault();
+        await chooseFile(new File([file], "pasted-image.png", { type: file.type }));
+        return;
+      }
+    }
 
-    event.preventDefault();
-    await chooseFile(new File([file], "pasted-image.png", { type: file.type }));
+    // Some browsers/apps put copied images into HTML as a data URL instead
+    // of exposing an image clipboard item.
+    const htmlItem = Array.from(clipboard.items).find(item => item.type === "text/html");
+    if (htmlItem) {
+      const html = await new Promise<string>(resolve => htmlItem.getAsString(resolve));
+      const match = html.match(/<img[^>]+src=["'](data:image\/[^"']+)["']/i);
+      if (match?.[1]) {
+        event.preventDefault();
+        try {
+          const response = await fetch(match[1]);
+          const blob = await response.blob();
+          await chooseFile(new File([blob], "pasted-image.png", { type: blob.type || "image/png" }));
+        } catch {
+          setError("The copied image could not be read. Please try Ctrl+V again or use Paste image.");
+        }
+      }
+    }
   }
 
   async function refineMyWords() {
