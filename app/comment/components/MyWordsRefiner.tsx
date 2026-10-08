@@ -26,7 +26,7 @@ export default function MyWordsRefiner({
           Already know what you want to say? Write it naturally and let AI improve the wording without changing your meaning.
         </p>
       </div>
-      <textarea value={draft} onChange={e => onDraftChange(e.target.value)} rows={3}
+      <textarea value={draft} onChange={e => onDraftChange(e.target.value)} rows={2}
         className="w-full resize-y border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none focus:border-neutral-900"
         placeholder="Write what you really want to say…" />
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
