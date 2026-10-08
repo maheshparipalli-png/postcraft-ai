@@ -22,7 +22,7 @@ export default function CommentInput(props: Props) {
       <span className="hidden text-xs text-neutral-400 sm:block">Paste text or an image</span>
     </div>
 
-    <textarea value={props.post} onChange={e => props.onPostChange(e.target.value)} onPaste={props.onPaste} rows={5}
+    <textarea value={props.post} onChange={e => props.onPostChange(e.target.value)} onPaste={props.onPaste} rows={3}
       className="w-full resize-y border border-neutral-200 bg-[#f7f6f2] p-4 text-sm leading-7 outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
       placeholder="Paste the post here… You can also paste a screenshot directly." />
 
