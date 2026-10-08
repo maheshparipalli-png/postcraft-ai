@@ -298,11 +298,11 @@ export default function CommentPage() {
         </header>
 
         <section className="py-10">
-          <h2 className="font-serif text-4xl tracking-[-.045em] sm:text-5xl">Turn posts into thoughtful comments.</h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">Choose where you are commenting, take a position, set the voice and depth, then generate five distinct comments.</p>
+          <h2 className="font-serif text-4xl tracking-[-.045em] sm:text-5xl">Say what you mean. Better.</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">Paste a post to get five thoughtful angles, or write your own comment and let AI refine it without changing your point of view.</p>
         </section>
 
-        <nav className="mb-8 flex gap-2 border-b border-neutral-200 pb-3">
+        <nav className="mb-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
           {(["generate", "favorites", "history"] as const).map(item => (
             <button key={item} type="button" onClick={() => setView(item)}
               className={view === item ? "rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white" : "rounded-full border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-600"}>
