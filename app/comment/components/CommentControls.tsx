@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { Depth, Platform, Position, Style } from "../lib/types";
 import { depths, platforms, positions, styles } from "../lib/types";
 
@@ -43,7 +44,7 @@ export default function CommentControls({ platform, position, selectedStyles, de
   );
 }
 
-function Panel({ label, children }: { label: string; children: React.ReactNode }) {
+function Panel({ label, children }: { label: string; children: ReactNode }) {
   return <div><div className="mb-3 text-[10px] font-semibold uppercase tracking-[.16em] text-neutral-400">{label}</div>{children}</div>;
 }
 
