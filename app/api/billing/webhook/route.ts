@@ -25,6 +25,7 @@ type RazorpayEntity = {
 
 type RazorpayWebhookPayload = {
   event?: unknown;
+  created_at?: number;
   payload?: {
     subscription?: { entity?: RazorpayEntity };
     payment?: { entity?: RazorpayEntity };
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
   }
 
   const event = typeof payload.event === "string" ? payload.event : "";
+  const eventCreatedAt = typeof payload.created_at === "number" ? unixToIso(payload.created_at) : null;
   const admin = createAdminClient();
 
   const { data: existingEvent } = await admin
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
 
   const { data: localSubscription, error: lookupError } = await admin
     .from("billing_subscriptions")
-    .select("id,user_id,status,razorpay_subscription_id")
+    .select("id,user_id,status,razorpay_subscription_id,razorpay_event_created_at")
     .eq("razorpay_subscription_id", razorpaySubscriptionId)
     .maybeSingle();
 
@@ -131,6 +133,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
+  if (
+    eventCreatedAt &&
+    localSubscription.razorpay_event_created_at &&
+    new Date(localSubscription.razorpay_event_created_at).getTime() > new Date(eventCreatedAt).getTime()
+  ) {
+    const { error: eventError } = await admin.from("razorpay_webhook_events").insert({
+      event_id: eventId,
+      event_type: event || "unknown",
+      payload,
+    });
+    if (eventError && eventError.code !== "23505") {
+      return NextResponse.json({ error: "Unable to record stale webhook event" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, stale: true });
+  }
+
   const nextStatus = mapStatus(event, subscriptionEntity.status);
   const paymentId = paymentEntity.id ?? paymentEntity.payment_id ?? null;
   const currentStart = unixToIso(subscriptionEntity.current_start);
@@ -138,6 +156,7 @@ export async function POST(request: Request) {
 
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
+    ...(eventCreatedAt ? { razorpay_event_created_at: eventCreatedAt } : {}),
   };
 
   if (nextStatus) {
@@ -152,14 +171,30 @@ export async function POST(request: Request) {
   if (currentStart) updates.current_period_start = currentStart;
   if (currentEnd) updates.current_period_end = currentEnd;
 
-  const { error: updateError } = await admin
+  let updateQuery = admin
     .from("billing_subscriptions")
     .update(updates)
     .eq("id", localSubscription.id);
+  if (eventCreatedAt) {
+    updateQuery = updateQuery.or(`razorpay_event_created_at.is.null,razorpay_event_created_at.lte.${eventCreatedAt}`);
+  }
+  const { data: updatedSubscription, error: updateError } = await updateQuery.select("id").maybeSingle();
 
   if (updateError) {
     console.error("Razorpay webhook subscription update failed:", updateError);
     return NextResponse.json({ error: "Unable to update subscription" }, { status: 500 });
+  }
+
+  if (!updatedSubscription) {
+    const { error: eventError } = await admin.from("razorpay_webhook_events").insert({
+      event_id: eventId,
+      event_type: event || "unknown",
+      payload,
+    });
+    if (eventError && eventError.code !== "23505") {
+      return NextResponse.json({ error: "Unable to record stale webhook event" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, stale: true });
   }
 
   const { error: eventError } = await admin
