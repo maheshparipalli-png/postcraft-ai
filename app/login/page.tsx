@@ -17,6 +17,17 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(false);
 
+  function getNextPath() {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  }
+
+  function getAuthCallbackUrl() {
+    const callback = new URL("/auth/callback", window.location.origin);
+    callback.searchParams.set("next", getNextPath());
+    return callback.toString();
+  }
+
   function showMessage(value: string, tone: "normal" | "error" = "normal") {
     setMessage(value);
     setMessageTone(tone);
@@ -34,17 +45,15 @@ export default function LoginPage() {
     setLoading(true);
     showMessage("");
 
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      showMessage(error.message, "error");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: getAuthCallbackUrl() },
+      });
+      if (error) throw error;
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Unable to continue with Google. Please try again.", "error");
       setLoading(false);
     }
   }
@@ -64,7 +73,7 @@ export default function LoginPage() {
         type: "signup",
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: getAuthCallbackUrl(),
         },
       });
 
@@ -73,6 +82,8 @@ export default function LoginPage() {
       } else {
         showMessage("A new confirmation email has been requested. Check your inbox and junk folder.");
       }
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Unable to resend the confirmation email. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -122,7 +133,7 @@ export default function LoginPage() {
             email: email.trim(),
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`,
+              emailRedirectTo: getAuthCallbackUrl(),
             },
           })
         : await supabase.auth.signInWithPassword({
@@ -150,7 +161,7 @@ export default function LoginPage() {
         }
 
         if (result.data.session) {
-          router.push("/");
+          router.push(getNextPath());
           router.refresh();
           return;
         }
@@ -158,9 +169,11 @@ export default function LoginPage() {
         setConfirmationPending(true);
         showMessage("Account created. Check your email and click the confirmation link.");
       } else {
-        router.push("/");
+        router.push(getNextPath());
         router.refresh();
       }
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Unable to complete sign-in. Please try again.", "error");
     } finally {
       setLoading(false);
     }
