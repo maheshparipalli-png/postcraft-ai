@@ -72,12 +72,15 @@ export async function summarizeSource(input: GenerateInput): Promise<string> {
   return typeof data.summary === "string" ? data.summary : "";
 }
 
-export async function refineComment(comment: Comment, instruction: string, platform: Platform): Promise<Partial<Comment>> {
+export async function refineComment(comment: Comment, instruction: string, platform: Platform, options: Pick<GenerateInput, "position" | "styles" | "depth">): Promise<Partial<Comment>> {
   const data = await request({
     action: "refine",
     comment: comment.comment_text,
     instruction: instruction.trim() || "Make this more natural",
     platform: platform.toLowerCase(),
+    position: options.position,
+    styles: options.styles,
+    depth: options.depth,
   });
   return {
     comment_text: data.comment_text || data.comments?.[0]?.comment_text,
