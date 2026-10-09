@@ -17,7 +17,7 @@ const features = [
 ];
 
 export default function MarketingHome({ authenticated = false, notice = "" }: Props) {
-  const primaryHref = authenticated ? "/billing" : "/login";
+  const primaryHref = authenticated ? "/billing" : "/login?mode=signup";
   const primaryLabel = authenticated
     ? notice.toLowerCase().includes("trial has ended") ? "Subscribe to continue →" : "Manage billing →"
     : "Start 15-day free trial →";
@@ -45,7 +45,7 @@ export default function MarketingHome({ authenticated = false, notice = "" }: Pr
                 {primaryLabel}
               </Link>
               {!authenticated && (
-                <Link href="/login" className="text-sm font-medium underline underline-offset-4">
+                <Link href="/login?mode=signin" className="text-sm font-medium underline underline-offset-4">
                   Sign in
                 </Link>
               )}
