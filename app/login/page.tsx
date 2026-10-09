@@ -82,6 +82,8 @@ export default function LoginPage() {
       } else {
         showMessage("A new confirmation email has been requested. Check your inbox and junk folder.");
       }
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Unable to resend the confirmation email. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -131,7 +133,7 @@ export default function LoginPage() {
             email: email.trim(),
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`,
+              emailRedirectTo: getAuthCallbackUrl(),
             },
           })
         : await supabase.auth.signInWithPassword({
