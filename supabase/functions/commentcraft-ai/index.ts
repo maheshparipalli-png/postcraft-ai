@@ -9,7 +9,7 @@ const corsHeaders = {
 
 type SocialPlatform = 'linkedin' | 'x' | 'instagram' | 'facebook' | 'youtube' | 'reddit' | 'threads' | 'tiktok';
 type GenerationAngle = 'agree-specific-point' | 'partial-agreement' | 'challenge-assumption' | 'different-perspective' | 'overlooked-consequence' | 'practical-example' | 'cross-domain-connection' | 'deeper-question' | 'limitation' | 'real-world-outcome' | 'contradiction' | 'counterexample';
-type PreviousResponse = { comment_text: string; generation_angle: GenerationAngle | null };
+type PreviousResponse = { comment_text: string; generation_angle?: GenerationAngle | null };
 type GenerationPlan = { angles: GenerationAngle[]; previousResponses: PreviousResponse[] };
 
 type RequestBody = {
