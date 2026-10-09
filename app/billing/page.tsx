@@ -41,12 +41,12 @@ declare global {
   }
 }
 
-function formatRemaining(milliseconds: number) {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}h ${minutes}m ${seconds}s`;
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function BillingPage() {
@@ -62,7 +62,13 @@ export default function BillingPage() {
     try {
       const response = await fetch("/api/billing/status", { cache: "no-store" });
       const data = (await response.json()) as BillingResponse;
-      setBilling(response.ok ? data : { status: "unauthenticated", subscription: null, error: data.error });
+      if (response.ok) {
+        setBilling(data);
+      } else if (response.status === 401) {
+        setBilling({ status: "unauthenticated", subscription: null, error: data.error });
+      } else {
+        setBilling({ status: "error", subscription: null, error: data.error ?? "Unable to load billing status" });
+      }
     } catch {
       setBilling({ status: "error", subscription: null, error: "Unable to load billing status" });
     } finally {
@@ -83,9 +89,15 @@ export default function BillingPage() {
 
     const updateRemaining = () => setRemaining(new Date(endsAt).getTime() - Date.now());
     updateRemaining();
-    const timer = window.setInterval(updateRemaining, 1000);
+    const timer = window.setInterval(updateRemaining, 60_000);
     return () => window.clearInterval(timer);
   }, [billing]);
+
+  async function retryBilling() {
+    setLoading(true);
+    setMessage("");
+    await loadBilling();
+  }
 
   async function startTrial() {
     setStarting(true);
@@ -287,8 +299,9 @@ export default function BillingPage() {
             <h2 className="mt-3 font-serif text-3xl tracking-[-0.025em]">PostCraft Pro</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600">Research, writing, LinkedIn publishing, and daily AI editorial automation.</p>
             <div className="mt-6 font-serif text-3xl">PostCraft Pro — ₹499/month</div>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">Billed monthly through Razorpay when you subscribe. Review the amount and billing start date in checkout before confirming.</p>
             <div className="mt-7 border-t border-neutral-300 pt-5 text-sm text-neutral-600">
-              Billing status: <span className="font-medium text-emerald-700">{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status}</span>
+              Billing status: <span className={status === "active" || status === "trialing" ? "font-medium text-emerald-700" : status === "grace" || status === "past_due" ? "font-medium text-amber-800" : "font-medium text-neutral-700"}>{loading ? "Loading…" : status === "not_started" ? "Trial available" : status === "trialing" ? "Free trial active" : status === "grace" ? "Grace period" : status === "expired" ? "Trial expired" : status === "unauthenticated" ? "Sign in required" : status === "past_due" ? "Payment needs attention" : status === "cancelled" ? "Subscription cancelled" : status === "suspended" ? "Account suspended" : status === "error" ? "Status unavailable" : status}</span>
             </div>
             {billing?.subscription?.current_period_start && billing?.subscription?.current_period_end && (
               <div className="mt-4 text-sm text-neutral-600">
@@ -309,7 +322,10 @@ export default function BillingPage() {
             {loading ? (
               <p className="mt-5 text-sm text-neutral-600">Checking your trial status…</p>
             ) : status === "unauthenticated" ? (
-              <p className="mt-5 text-sm leading-6 text-neutral-600">Please sign in before starting your free trial.</p>
+              <div className="mt-5 space-y-4">
+                <p className="text-sm leading-6 text-neutral-600">Sign in to view your plan or start a free trial.</p>
+                <Link href="/login?mode=signin&next=%2Fbilling" className="inline-block border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white">Sign in to continue →</Link>
+              </div>
             ) : trialActive ? (
               <div className="mt-5 space-y-5">
                 <div>
@@ -318,8 +334,9 @@ export default function BillingPage() {
                 </div>
                 <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe now →"}</button>
                 <div className="border border-emerald-200 bg-emerald-50 p-5">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-800">Time remaining</div>
-                  <div className="mt-2 font-mono text-2xl text-emerald-900">{formatRemaining(remaining)}</div>
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-800">Trial period</div>
+                  <div className="mt-2 text-lg font-medium text-emerald-900">Ends {formatDate(billing!.subscription!.trial_ends_at!)}</div>
+                  <div className="mt-1 text-sm text-emerald-800">{Math.max(0, Math.ceil((remaining ?? 0) / 86400000))} days remaining</div>
                 </div>
               </div>
             ) : status === "not_started" ? (
@@ -345,6 +362,24 @@ export default function BillingPage() {
                 <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft Pro to restore access to your workspace.</p>
                 <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe with Razorpay →"}</button>
               </div>
+            ) : status === "past_due" ? (
+              <div className="mt-5 space-y-4">
+                <div className="font-medium text-amber-800">Payment needs attention</div>
+                <p className="text-sm leading-6 text-neutral-600">Your last payment did not complete. Resume secure checkout to restore your Pro access.</p>
+                <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Resume checkout →"}</button>
+              </div>
+            ) : status === "cancelled" ? (
+              <div className="mt-5 space-y-4">
+                <div className="font-medium">Your subscription has ended</div>
+                <p className="text-sm leading-6 text-neutral-600">Subscribe again to restore access to your workspace.</p>
+                <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe again →"}</button>
+              </div>
+            ) : status === "suspended" ? (
+              <div className="mt-5 space-y-4">
+                <div className="font-medium text-amber-800">Account access is suspended</div>
+                <p className="text-sm leading-6 text-neutral-600">Contact support for help restoring your account.</p>
+                <Link href="/help/contact" className="inline-block border border-neutral-900 px-4 py-2 text-sm">Contact support →</Link>
+              </div>
             ) : status === "active" ? (
               <div className="mt-5 space-y-5">
                 {cancellationPending ? (
@@ -367,9 +402,13 @@ export default function BillingPage() {
                 )}
               </div>
             ) : (
-              <p className="mt-5 text-sm leading-6 text-neutral-600">{billing?.error ?? "Billing information is unavailable."}</p>
+              <div className="mt-5 space-y-4">
+                <p className="text-sm leading-6 text-neutral-600">{billing?.error ?? "We couldn't load your billing information."}</p>
+                <button type="button" onClick={retryBilling} disabled={loading} className="border border-neutral-900 px-4 py-2 text-sm disabled:opacity-50">{loading ? "Checking…" : "Try again"}</button>
+                <Link href="/help/contact" className="ml-3 text-sm underline underline-offset-4">Contact support</Link>
+              </div>
             )}
-            {message && <p className="mt-5 text-sm text-emerald-700" role="status">{message}</p>}
+            {message && <p className="mt-5 text-sm text-neutral-700" role="status">{message}</p>}
           </div>
         </section>
 
