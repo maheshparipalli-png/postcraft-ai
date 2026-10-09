@@ -18,7 +18,9 @@ const features = [
 
 export default function MarketingHome({ authenticated = false, notice = "" }: Props) {
   const primaryHref = authenticated ? "/billing" : "/login";
-  const primaryLabel = authenticated ? "Start your free trial →" : "Start 15-day free trial →";
+  const primaryLabel = authenticated
+    ? notice.toLowerCase().includes("trial has ended") ? "Subscribe to continue →" : "Manage billing →"
+    : "Start 15-day free trial →";
 
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-[#171717]">
