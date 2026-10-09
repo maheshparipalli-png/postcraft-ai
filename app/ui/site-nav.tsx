@@ -319,8 +319,8 @@ export default function SiteNav() {
             </div>
           ) : (
             <div className="hidden items-center gap-4 lg:flex">
-              <Link href="/login" className="text-xs font-medium text-neutral-600 hover:text-neutral-950">Sign in</Link>
-              <Link href="/login" className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white">Start free trial</Link>
+              <Link href="/login?mode=signin" className="text-xs font-medium text-neutral-600 hover:text-neutral-950">Sign in</Link>
+              <Link href="/login?mode=signup" className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-medium text-white">Start free trial</Link>
             </div>
           )}
 
@@ -392,8 +392,8 @@ export default function SiteNav() {
               </nav>
             ) : (
               <div className="grid gap-2">
-                <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Sign in</Link>
-                <Link href="/login" onClick={() => setMobileOpen(false)} className="rounded-lg bg-neutral-900 px-3 py-2.5 text-center text-sm font-medium text-white">Start free trial</Link>
+                <Link href="/login?mode=signin" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100">Sign in</Link>
+                <Link href="/login?mode=signup" onClick={() => setMobileOpen(false)} className="rounded-lg bg-neutral-900 px-3 py-2.5 text-center text-sm font-medium text-white">Start free trial</Link>
               </div>
             )}
           </div>
