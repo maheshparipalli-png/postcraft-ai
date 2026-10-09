@@ -206,7 +206,7 @@ export default function CommentPage() {
     setError("");
     setRefining(comment.id);
     try {
-      const refined = await refineComment(comment, instruction, platform);
+      const refined = await refineComment(comment, instruction, platform, { position, styles: selectedStyles, depth });
       if (!refined.comment_text) throw new Error("Refine returned no comment.");
       setComments(current => current.map(item => item.id === comment.id ? {
         ...item,
@@ -330,7 +330,8 @@ export default function CommentPage() {
           is_favorite: false,
         },
         "Refine this comment while preserving my exact meaning, point of view, and personal voice. Do not introduce new ideas or arguments. Make it natural, clear, concise, and easy to understand.",
-        platform
+        platform,
+        { position, styles: selectedStyles, depth }
       );
 
       if (!refined.comment_text) throw new Error("AI returned no refined comment.");
