@@ -342,7 +342,7 @@ export default function BillingPage() {
             ) : status === "expired" ? (
               <div className="mt-5 space-y-4">
                 <div className="font-medium">Your free trial has ended</div>
-                <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft when paid checkout is enabled to continue using your workspace.</p>
+                <p className="text-sm leading-6 text-neutral-600">Subscribe to PostCraft Pro to restore access to your workspace.</p>
                 <button type="button" onClick={subscribe} disabled={subscribing} className="border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50">{subscribing ? "Opening secure checkout…" : "Subscribe with Razorpay →"}</button>
               </div>
             ) : status === "active" ? (
