@@ -413,31 +413,6 @@ function normalizeComments(value: unknown): Comment[] {
   });
 }
 
-function fallbackGenerate(body: RequestBody, angles: GenerationAngle[]) {
-  const post = clean(body.post ?? '');
-  const topic = post.split(/[.!?]/)[0].slice(0, 100) || 'this idea';
-  const position = body.position ?? 'Agree';
-  const platform = body.platform ?? 'linkedin';
-  const keyword = body.keywords?.[0];
-  const endings: Record<string, string[]> = {
-    Agree: ['The useful next step is turning that insight into a repeatable practice.', 'That is where the idea becomes more than a good observation: it changes how we decide and act.', 'The strongest case for this is often visible in the small choices people make every day.'],
-    'Partially Agree': ['The principle holds, but the context around it matters just as much.', 'The nuance is that this works best when the surrounding incentives support it.', 'I would add one condition: the result depends heavily on what happens after the initial decision.'],
-    Disagree: ['I see the trade-off differently: the missing variable is often context, not conviction.', 'The risk is treating a useful pattern as a universal rule; exceptions can change the decision entirely.', 'A stronger alternative may be to test the assumption against the outcome we actually want.'],
-    'Add a Different Perspective': ['Another angle is to look at who carries the cost when this approach is wrong.', 'The conversation also benefits from considering the second-order effect on the people doing the work.', 'There is a useful connection here to how trust, incentives, and execution interact.'],
-    'Challenge the Assumption': ['The assumption underneath this is that the visible constraint is the real constraint. That is not always true.', 'The interesting question is whether the premise changes when the stakes or timeline change.', 'Before accepting the conclusion, I would test whether the starting assumption holds across different contexts.'],
-    'Ask a Question': ['What would change your view if the surrounding context were different?', 'How would you apply this when the team has limited information and a short decision window?', 'Which signal tells you that this principle is working in practice rather than sounding right in theory?'],
-  };
-  const leads: Record<GenerationAngle, string> = {
-    'agree-specific-point': 'One specific part of this worth building on is that', 'partial-agreement': 'The principle is useful, with one important condition:', 'challenge-assumption': 'The assumption worth testing here is that', 'different-perspective': 'Another perspective is to consider', 'overlooked-consequence': 'A second-order effect that is easy to miss is that', 'practical-example': 'In practice, this often shows up when', 'cross-domain-connection': 'A useful parallel from another domain is that', 'deeper-question': 'A deeper question behind this is', limitation: 'The limitation to keep in view is that', 'real-world-outcome': 'In the real world, the outcome often depends on', contradiction: 'There is a productive tension here:', counterexample: 'A useful counterexample is when',
-  };
-  const pool = endings[position] ?? endings.Agree;
-  const count = Math.min(Math.max(body.count ?? 5, 3), MAX_COMMENT_COUNT);
-  return Array.from({ length: count }, (_, i) => {
-    const angle = angles[i] ?? allAngles[i % allAngles.length];
-    return { comment_text: `${leads[angle]} ${i === 0 && keyword ? `${keyword} is an especially useful lens here. ` : ''}${pool[i % pool.length]} It is a practical way to think about ${topic.toLowerCase()}.`, quality_score: 82 - i * 3, why_it_works: `It adds a ${angleLabels[angle].toLowerCase()} for ${platformLabels[platform]} without simply repeating the source.` };
-  });
-}
-
 const commentOptionGuidance = {
   positions: {
     Agree: 'Clearly support one specific point from the source and add a useful thought.',
@@ -597,9 +572,7 @@ async function enforceUniqueness(initial: Comment[], body: RequestBody, apiKey: 
       break;
     }
   }
-  if (accepted.length < target) {
-    fallbackGenerate({ ...body, count: target }, angles).forEach((candidate, index) => { if (accepted.length < target) accept(candidate, angles[index] ?? allAngles[index % allAngles.length]); });
-  }
+  // Keep only model-written options; generic template padding would undermine the selected tone and stance.
   return accepted.slice(0, target);
 }
 
