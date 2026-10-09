@@ -18,7 +18,7 @@ function isPublic(pathname: string) {
 }
 
 function isProtected(pathname: string) {
-  return ["/create", "/postcard", "/commentcraft", "/workspace", "/auto-post", "/auto-publish"]
+  return ["/create", "/postcard", "/commentcraft", "/comment", "/ideas", "/visual-studio", "/workspace", "/auto-post", "/auto-publish"]
     .some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
 }
 
@@ -75,7 +75,9 @@ export async function updateSession(request: NextRequest) {
 
   if (!userId) {
     if (isApiRoute) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    const redirect = NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    const redirect = NextResponse.redirect(loginUrl);
     copyCookies(response, redirect);
     return redirect;
   }
