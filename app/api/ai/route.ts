@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (!prompt && action !== "postcard" && action !== "quoteStory" && action !== "manualEditorial") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+    if (!prompt && action !== "postcard" && action !== "quoteStory" && action !== "manualEditorial" && action !== "manualInstruction") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
     if (action === "postcard") {
@@ -286,6 +286,50 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
       throw new Error(
         `Could not create a LinkedIn story that passes all quality parameters after ${maxAttempts} attempts. Failed checks: ${bestReasons.join(", ")}.`,
       );
+    }
+
+    if (action === "manualInstruction") {
+      const startedAt = Date.now();
+      const instructions = typeof body?.instructions === "string" ? body.instructions.trim() : "";
+
+      if (!instructions) {
+        return NextResponse.json({ error: "Enter the instructions or idea for your LinkedIn post first." }, { status: 400 });
+      }
+      if (instructions.length > 12000) {
+        return NextResponse.json({ error: "Your instructions are too long. Please keep them under 12,000 characters." }, { status: 400 });
+      }
+
+      const instructionPrompt = `You are PostCraft, a skilled LinkedIn writing partner.
+
+Create one complete, useful LinkedIn post by following the user's instructions below.
+
+USER INSTRUCTIONS
+${instructions}
+
+WRITING REQUIREMENTS
+- Follow the requested topic, point of view, audience, tone, and structure as closely as possible.
+- Treat this as an original writing task, not a source-based news analysis.
+- Do not require an article, evidence ledger, named source, or factual story to proceed.
+- Do not reject the request because it contains an idea, opinion, question, or writing direction rather than source material.
+- Do not invent personal experiences, credentials, quotes, statistics, or specific factual claims.
+- If the instructions request factual claims that are not supplied, keep them general or clearly qualify uncertainty instead of fabricating details.
+- Use clear, natural, human-sounding language and short readable paragraphs.
+- Avoid generic AI introductions, corporate jargon, repetitive points, and empty motivational filler.
+- Do not mention PostCraft, AI generation, or these instructions in the post.
+- Unless the user specifies another length, target 125–150 words.
+- Do not add hashtags or emojis unless the user explicitly requests them.
+- Return only the finished LinkedIn post, with no explanation or headings.`;
+
+      const provider = await getAIProvider();
+      const post = (await provider.generateText(instructionPrompt, {
+        temperature: 0.55,
+        numPredict: 900,
+      })).trim();
+
+      if (!post) throw new Error("PostCraft did not receive a usable LinkedIn draft. Please try again.");
+
+      console.info("[PostCraft] manual_instruction_ms=" + (Date.now() - startedAt));
+      return NextResponse.json({ post });
     }
 
     if (action === "manualEditorial") {
