@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type SourceMode = "url" | "paste";
+type SourceMode = "url" | "paste" | "instructions";
 
 export default function CreatePostPage() {
   const router = useRouter();
   const [sourceMode, setSourceMode] = useState<SourceMode>("url");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceText, setSourceText] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [title, setTitle] = useState("");
   const [source, setSource] = useState("");
   const [post, setPost] = useState("");
@@ -38,6 +39,10 @@ export default function CreatePostPage() {
       setError("Paste the article or source material first.");
       return;
     }
+    if (sourceMode === "instructions" && !instructions.trim()) {
+      setError("Enter the instructions or idea for your LinkedIn post first.");
+      return;
+    }
 
     setBusy(true);
 
@@ -46,7 +51,8 @@ export default function CreatePostPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "manualEditorial",
+          action: sourceMode === "instructions" ? "manualInstruction" : "manualEditorial",
+          instructions: sourceMode === "instructions" ? instructions.trim() : "",
           sourceUrl: sourceMode === "url" ? sourceUrl.trim() : "",
           content: sourceMode === "paste" ? sourceText.trim() : "",
           title: title.trim(),
@@ -58,6 +64,17 @@ export default function CreatePostPage() {
 
       if (!response.ok || typeof data?.post !== "string") {
         throw new Error(data?.error || "PostCraft could not build the editorial post.");
+      }
+
+      if (sourceMode === "instructions") {
+        setPost(data.post.trim());
+        setCardPoints([]);
+        setCardTakeaway("");
+        setArticleTitle("Original LinkedIn idea");
+        setArticleSource("User instructions");
+        setArticleUrl("");
+        setQualityPassed(false);
+        return;
       }
 
       const points = Array.isArray(data.cardPoints)
@@ -124,6 +141,7 @@ export default function CreatePostPage() {
   function clearAll() {
     setSourceUrl("");
     setSourceText("");
+    setInstructions("");
     setTitle("");
     setSource("");
     setPost("");
@@ -166,7 +184,7 @@ export default function CreatePostPage() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#8b795c]">Your editorial desk</p>
           <h1 className="font-serif text-4xl leading-tight tracking-tight sm:text-5xl">Start with something worth saying.</h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-neutral-600 dark:text-neutral-400 sm:text-lg">
-            Bring an article or your own source material. PostCraft turns it into a LinkedIn point of view, then builds a factual PostCard from the source.
+            Start with an article, source material, or your own instructions. PostCraft creates a LinkedIn post from whichever input you choose.
           </p>
         </section>
 
@@ -179,10 +197,10 @@ export default function CreatePostPage() {
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <section className="rounded-2xl border border-[#e2ded5] bg-white p-5 shadow-[0_8px_30px_rgba(45,39,27,0.035)] dark:border-white/10 dark:bg-neutral-900 sm:p-7">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8b795c]">01 / The source</p>
-              <h2 className="mt-2 font-serif text-2xl">Give PostCraft the material.</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8b795c]">01 / Your input</p>
+              <h2 className="mt-2 font-serif text-2xl">What should PostCraft work from?</h2>
               <p className="mt-3 text-sm leading-6 text-neutral-500">
-                Use a public article URL, or paste the article/text yourself. Your source is the factual foundation for the PostCard.
+                Choose a factual source when accuracy and a source-based PostCard matter, or give PostCraft instructions for an original LinkedIn post.
               </p>
             </div>
 
@@ -199,7 +217,14 @@ export default function CreatePostPage() {
                 onClick={() => setSourceMode("paste")}
                 className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${sourceMode === "paste" ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white" : "text-neutral-500"}`}
               >
-                Paste source material
+                Paste source
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceMode("instructions")}
+                className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${sourceMode === "instructions" ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white" : "text-neutral-500"}`}
+              >
+                Write instructions
               </button>
             </div>
 
@@ -215,7 +240,7 @@ export default function CreatePostPage() {
                 />
                 <p className="mt-2 text-xs leading-5 text-neutral-400">PostCraft will verify and read the original publisher page.</p>
               </div>
-            ) : (
+            ) : sourceMode === "paste" ? (
               <div className="mt-5">
                 <label htmlFor="source-material" className="text-sm font-medium">Article or source material</label>
                 <textarea
@@ -227,9 +252,23 @@ export default function CreatePostPage() {
                   className="mt-2 w-full resize-y rounded-xl border border-[#e3dfd6] bg-[#fdfcf9] px-4 py-4 text-sm leading-6 outline-none focus:border-[#9c8b6e] focus:ring-2 focus:ring-[#9c8b6e]/15 dark:border-white/15 dark:bg-neutral-950 dark:placeholder:text-neutral-600"
                 />
               </div>
+            ) : (
+              <div className="mt-5">
+                <label htmlFor="post-instructions" className="text-sm font-medium">Your topic or instructions</label>
+                <textarea
+                  id="post-instructions"
+                  value={instructions}
+                  onChange={(event) => setInstructions(event.target.value)}
+                  placeholder={"For example: Write a LinkedIn post about how AI is changing education in India. Explain the opportunities for students and teachers, keep the language simple, and end with a thoughtful question."}
+                  rows={12}
+                  maxLength={12000}
+                  className="mt-2 w-full resize-y rounded-xl border border-[#e3dfd6] bg-[#fdfcf9] px-4 py-4 text-sm leading-6 outline-none focus:border-[#9c8b6e] focus:ring-2 focus:ring-[#9c8b6e]/15 dark:border-white/15 dark:bg-neutral-950 dark:placeholder:text-neutral-600"
+                />
+                <p className="mt-2 text-xs leading-5 text-neutral-400">Describe the topic, point of view, audience, tone, or structure. You do not need to provide an article.</p>
+              </div>
             )}
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {sourceMode !== "instructions" && <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium">
                 Article title <span className="font-normal text-neutral-400">Optional</span>
                 <input
@@ -248,26 +287,26 @@ export default function CreatePostPage() {
                   className="mt-2 w-full rounded-lg border border-[#dedbd3] bg-white px-3 py-2.5 text-sm outline-none dark:border-white/15 dark:bg-neutral-950"
                 />
               </label>
-            </div>
+            </div>}
 
             <button
               type="button"
               onClick={buildPost}
-              disabled={busy || (sourceMode === "url" ? !sourceUrl.trim() : !sourceText.trim())}
+              disabled={busy || (sourceMode === "url" ? !sourceUrl.trim() : sourceMode === "paste" ? !sourceText.trim() : !instructions.trim())}
               className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-[#292a24] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#414239] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
             >
               {busy ? (
                 <>
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-neutral-500 dark:border-t-neutral-900" />
-                  Reading source and building your post…
+                  {sourceMode === "instructions" ? "Writing your LinkedIn post…" : "Reading source and building your post…"}
                 </>
               ) : (
-                <>Build my LinkedIn post <span aria-hidden="true">→</span></>
+                <>{sourceMode === "instructions" ? "Generate LinkedIn post" : "Build my LinkedIn post"} <span aria-hidden="true">→</span></>
               )}
             </button>
 
             <p className="mt-3 text-center text-xs leading-5 text-neutral-400">
-              LinkedIn = your perspective. PostCard = facts from the source.
+              {sourceMode === "instructions" ? "PostCraft will follow your instructions. No source article or factual PostCard is required." : "LinkedIn = your perspective. PostCard = facts from the source."}
             </p>
           </section>
 
@@ -276,7 +315,7 @@ export default function CreatePostPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8b795c]">02 / Your perspective</p>
                 <h2 className="mt-2 font-serif text-2xl">Your LinkedIn post</h2>
-                <p className="mt-1 text-sm text-neutral-500">The post is an interpretation of the source, not a copy of it.</p>
+                <p className="mt-1 text-sm text-neutral-500">{sourceMode === "instructions" ? "Created from your topic and instructions." : "The post is an interpretation of the source, not a copy of it."}</p>
               </div>
               {qualityPassed && (
                 <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
@@ -313,7 +352,7 @@ export default function CreatePostPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={buildPost} disabled={busy || (sourceMode === "url" ? !sourceUrl.trim() : !sourceText.trim())} className="rounded-lg border border-[#d7d2c7] bg-white px-4 py-2.5 text-sm font-medium hover:bg-[#faf9f6] disabled:opacity-50 dark:border-white/15 dark:bg-neutral-950">
+              <button type="button" onClick={buildPost} disabled={busy || (sourceMode === "url" ? !sourceUrl.trim() : sourceMode === "paste" ? !sourceText.trim() : !instructions.trim())} className="rounded-lg border border-[#d7d2c7] bg-white px-4 py-2.5 text-sm font-medium hover:bg-[#faf9f6] disabled:opacity-50 dark:border-white/15 dark:bg-neutral-950">
                 Regenerate
               </button>
               <button type="button" onClick={copyPost} disabled={!post.trim()} className="rounded-lg bg-[#292a24] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#414239] disabled:opacity-50 dark:bg-white dark:text-neutral-900">
@@ -324,7 +363,12 @@ export default function CreatePostPage() {
               </button>
             </div>
 
-            <div className="mt-6 border-t border-[#d8d4cb] pt-5 dark:border-white/10">
+            {sourceMode === "instructions" ? (
+              <div className="mt-6 border-t border-[#d8d4cb] pt-5 text-sm leading-6 text-neutral-500 dark:border-white/10">
+                <p className="font-semibold text-neutral-700 dark:text-neutral-200">PostCard needs a factual source.</p>
+                <p className="mt-1">You can create a LinkedIn post directly from instructions. To build a factual PostCard, switch to Public article URL or Paste source.</p>
+              </div>
+            ) : <div className="mt-6 border-t border-[#d8d4cb] pt-5 dark:border-white/10">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8b795c]">03 / PostCard</p>
@@ -356,7 +400,7 @@ export default function CreatePostPage() {
                   </p>
                 </div>
               )}
-            </div>
+            </div>}
           </section>
         </div>
 
