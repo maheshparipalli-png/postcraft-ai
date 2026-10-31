@@ -22,6 +22,7 @@ export default function CreatePostPage() {
   const [articleSource, setArticleSource] = useState("");
   const [articleUrl, setArticleUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [postcardBusy, setPostcardBusy] = useState(false);
   const [error, setError] = useState("");
   const [qualityPassed, setQualityPassed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -126,6 +127,51 @@ export default function CreatePostPage() {
     );
 
     router.push("/postcard");
+  }
+
+  async function sendInstructionPostToPostCard() {
+    if (!post.trim() || postcardBusy) return;
+
+    setError("");
+    setPostcardBusy(true);
+    try {
+      const response = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "postcardFromLinkedIn",
+          post: post.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      const points = Array.isArray(data?.points)
+        ? data.points.filter((point: unknown): point is string => typeof point === "string" && point.trim().length > 0).slice(0, 3)
+        : [];
+
+      if (!response.ok || typeof data?.headline !== "string" || points.length !== 3 || typeof data?.closing !== "string") {
+        throw new Error(data?.error || "PostCraft could not prepare the PostCard layout. Please try again.");
+      }
+
+      window.sessionStorage.setItem(
+        "postcraft-idea-radar-postcard",
+        JSON.stringify({
+          headline: data.headline.trim(),
+          body: points.map((point: string) => point.trim()).join("\n"),
+          linkedinPost: post.trim(),
+          closing: data.closing.trim(),
+          template: "story",
+          source: "Source: Your LinkedIn draft",
+          sourceUrl: "",
+          origin: "create",
+        }),
+      );
+
+      router.push("/postcard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send this post to PostCard.");
+    } finally {
+      setPostcardBusy(false);
+    }
   }
 
   async function copyPost() {
@@ -380,9 +426,21 @@ export default function CreatePostPage() {
             </div>
 
             {sourceMode === "instructions" ? (
-              <div className="mt-6 border-t border-[#d8d4cb] pt-5 text-sm leading-6 text-neutral-500 dark:border-white/10">
-                <p className="font-semibold text-neutral-700 dark:text-neutral-200">PostCard needs a factual source.</p>
-                <p className="mt-1">You can create a LinkedIn post directly from instructions. To build a factual PostCard, switch to Public article URL or Paste source.</p>
+              <div className="mt-6 border-t border-[#d8d4cb] pt-5 dark:border-white/10">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="max-w-xl text-sm leading-6 text-neutral-500">
+                    <p className="font-semibold text-neutral-700 dark:text-neutral-200">Turn this post into a visual PostCard.</p>
+                    <p className="mt-1">PostCraft will create a short title, three key points and a takeaway for the card. Your complete LinkedIn post will remain in the editable text-behind-the-PostCard field.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={sendInstructionPostToPostCard}
+                    disabled={!post.trim() || postcardBusy}
+                    className="shrink-0 rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {postcardBusy ? "Preparing PostCard..." : "Send it to the PostCard →"}
+                  </button>
+                </div>
               </div>
             ) : <div className="mt-6 border-t border-[#d8d4cb] pt-5 dark:border-white/10">
               <div className="flex flex-wrap items-end justify-between gap-4">

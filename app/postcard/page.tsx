@@ -118,6 +118,7 @@ function initial(name: string) {
 export default function PostCardPage() {
   const [template, setTemplate] = useState<Template>("quote");
   const [isDiscoverImport, setIsDiscoverImport] = useState(false);
+  const [isCreateImport, setIsCreateImport] = useState(false);
   const [name, setName] = useState("Your Name");
   const [profileLocked, setProfileLocked] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -299,6 +300,9 @@ export default function PostCardPage() {
         if (imported.origin === "discover") {
           setIsDiscoverImport(true);
         }
+        if (imported.origin === "create") {
+          setIsCreateImport(true);
+        }
         if (imported.headline) setHeadline(imported.headline);
         if (imported.body) setBody(imported.body);
         if (imported.linkedinPost) {
@@ -311,7 +315,9 @@ export default function PostCardPage() {
           setGenerateMessage(
             imported.origin === "discover"
               ? "Imported from Discover. Your PostCard preview is ready — refine the visual, then save or publish."
-              : "Imported from Idea Radar. Refine the visual, then save or publish."
+              : imported.origin === "create"
+                ? "Your LinkedIn post has been formatted for PostCard. Edit the title, key points and takeaway, then refine the visual."
+                : "Imported from Idea Radar. Refine the visual, then save or publish."
           );
         }
 
@@ -419,7 +425,7 @@ export default function PostCardPage() {
       const lessonY = dividerY + 50;
 
       content = `
-        <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">${isDiscoverImport ? "A NEWS ARTICLE" : "A SHORT STORY"}</text>
+        <text x="68" y="215" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="${mutedColor}">${isDiscoverImport ? "A NEWS ARTICLE" : isCreateImport ? "A LINKEDIN IDEA" : "A SHORT STORY"}</text>
         ${textLines(titleFit.lines, 68, titleY, titleFit.size, 600, titleFit.gap)}
         ${bodyMarkup}
         <line x1="68" y1="${dividerY}" x2="193" y2="${dividerY}" stroke="${textColor}" stroke-width="7" stroke-linecap="round"/>
@@ -1028,13 +1034,15 @@ export default function PostCardPage() {
                 </div>
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label={isDiscoverImport ? "Article headline" : "Story title"} value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} />
+                  <Field label={isDiscoverImport ? "Article headline" : isCreateImport ? "Post title" : "Story title"} value={headline} onChange={(value) => { setHeadline(value); if (!isCreateImport && !isDiscoverImport) setLinkedinPost(""); }} />
                   <Field label="Key points" value={body} onChange={(value) => { setBody(value); }} textarea />
-                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); if (!isCreateImport && !isDiscoverImport) setLinkedinPost(""); }} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     {isDiscoverImport
                       ? "Imported from Discover as a news article. The visual uses concise key points and a takeaway, while the complete LinkedIn post stays editable below."
-                      : "PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving."}
+                      : isCreateImport
+                        ? "Created from your LinkedIn post. The visual uses a title, three concise key points and a takeaway. Your full LinkedIn post remains editable below."
+                        : "PostCard reads current RSS feed items, then creates an original short story from the source material. The same source story is excluded for you for 90 days after saving."}
                   </p>
                   {storySourceName && (
                     <p className="text-[11px] leading-5 text-neutral-500">

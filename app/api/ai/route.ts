@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (!prompt && action !== "postcard" && action !== "quoteStory" && action !== "manualEditorial" && action !== "manualInstruction") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+    if (!prompt && action !== "postcard" && action !== "quoteStory" && action !== "manualEditorial" && action !== "manualInstruction" && action !== "postcardFromLinkedIn") return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     if (prompt.length > 12000) return NextResponse.json({ error: "prompt is too long" }, { status: 400 });
 
     if (action === "postcard") {
@@ -286,6 +286,65 @@ Regenerate from a genuinely different angle. Fix every failed parameter. Keep th
       throw new Error(
         `Could not create a LinkedIn story that passes all quality parameters after ${maxAttempts} attempts. Failed checks: ${bestReasons.join(", ")}.`,
       );
+    }
+
+    if (action === "postcardFromLinkedIn") {
+      const post = typeof body?.post === "string" ? body.post.trim() : "";
+      if (!post) {
+        return NextResponse.json({ error: "Add a LinkedIn post before sending it to PostCard." }, { status: 400 });
+      }
+      if (post.length > 12000) {
+        return NextResponse.json({ error: "This LinkedIn post is too long to prepare as a PostCard." }, { status: 400 });
+      }
+
+      const provider = await getAIProvider();
+      const prompt = `You are PostCraft's PostCard layout editor.
+
+Convert the user's complete LinkedIn post into concise visual copy for the existing PostCard STORY template.
+
+The PostCard template has exactly these fields:
+1. headline: the visual card title (4-9 words)
+2. points: exactly 3 short key points, each a separate bullet on the visual card (ideally 6-14 words each; keep each point concise enough to fit in at most two lines)
+3. closing: one memorable takeaway (6-14 words)
+
+The complete LinkedIn post is stored separately in the PostCard's "The text behind your PostCard" field. Do not rewrite, shorten, or replace that full post.
+
+RULES:
+- Extract the central idea and the three most useful supporting points from the supplied post.
+- Stay faithful to the author's meaning, position, facts, names, figures, examples, and level of certainty.
+- Do not invent details, claims, statistics, examples, or a new angle.
+- Do not copy long sentences verbatim; express the key points as clean, readable visual copy.
+- Make the headline clear and specific, not generic.
+- Make the three points distinct, parallel where practical, and suitable for a square social graphic.
+- Make the closing a concise takeaway grounded in the post, not a new claim.
+- Return valid JSON only, with no Markdown fences or extra commentary.
+- JSON schema:
+{
+  "headline": "4-9 word title",
+  "points": ["key point one", "key point two", "key point three"],
+  "closing": "short takeaway"
+}
+
+LINKEDIN POST:
+${post}`;
+
+      const raw = await provider.generateText(prompt, {
+        temperature: 0.2,
+        numPredict: 700,
+        format: "json",
+      });
+      const generated = parseJsonObject(raw, "PostCard layout");
+      const headline = typeof generated.headline === "string" ? generated.headline.trim() : "";
+      const points = Array.isArray(generated.points)
+        ? generated.points.filter((point: unknown): point is string => typeof point === "string" && point.trim().length > 0).slice(0, 3).map((point: string) => point.trim())
+        : [];
+      const closing = typeof generated.closing === "string" ? generated.closing.trim() : "";
+
+      if (!headline || points.length !== 3 || !closing) {
+        throw new Error("PostCraft could not create all three PostCard points. Please try again.");
+      }
+
+      return NextResponse.json({ headline, points, closing });
     }
 
     if (action === "manualInstruction") {
