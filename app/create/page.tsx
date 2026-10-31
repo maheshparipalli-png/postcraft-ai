@@ -252,7 +252,7 @@ export default function CreatePostPage() {
                   className="mt-2 w-full resize-y rounded-xl border border-[#e3dfd6] bg-[#fdfcf9] px-4 py-4 text-sm leading-6 outline-none focus:border-[#9c8b6e] focus:ring-2 focus:ring-[#9c8b6e]/15 dark:border-white/15 dark:bg-neutral-950 dark:placeholder:text-neutral-600"
                 />
               </div>
-            )} : (
+            ) : (
               <div className="mt-5">
                 <label htmlFor="post-instructions" className="text-sm font-medium">Your topic or instructions</label>
                 <textarea
