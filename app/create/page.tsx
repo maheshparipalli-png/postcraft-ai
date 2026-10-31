@@ -156,7 +156,7 @@ export default function CreatePostPage() {
         "postcraft-idea-radar-postcard",
         JSON.stringify({
           headline: data.headline.trim(),
-          body: points.map((point: string) => point.trim()).join("\\n"),
+          body: points.map((point: string) => point.trim()).join("\n"),
           linkedinPost: post.trim(),
           closing: data.closing.trim(),
           template: "story",
