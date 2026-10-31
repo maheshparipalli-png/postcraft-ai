@@ -135,11 +135,11 @@ export default function CreatePostPage() {
     // Match the proven Discover -> PostCard flow: write the handoff payload,
     // then perform a full-page navigation so PostCard reads it on first mount.
     const sentences = fullPost
-      .split(/(?<=[.!?])\\s+/)
+      .split(/(?<=[.!?])\s+/)
       .map((sentence) => sentence.trim())
-      .filter((sentence) => sentence && !/^#[\\w]+(?:\\s+#[\\w]+)*$/.test(sentence));
+      .filter((sentence) => sentence && !/^#[\w]+(?:\s+#[\w]+)*$/.test(sentence));
     const firstSentence = sentences[0] || fullPost;
-    const headline = firstSentence.split(/\\s+/).slice(0, 9).join(" ");
+    const headline = firstSentence.split(/\s+/).slice(0, 9).join(" ");
     const keyPoints = sentences.slice(1, 4);
     const closing = sentences.length > 4
       ? sentences[sentences.length - 1]
@@ -149,7 +149,7 @@ export default function CreatePostPage() {
       "postcraft-idea-radar-postcard",
       JSON.stringify({
         headline: headline || "A LinkedIn perspective",
-        body: keyPoints.join("\\n") || fullPost,
+        body: keyPoints.join("\n") || fullPost,
         linkedinPost: fullPost,
         closing,
         template: "story",
