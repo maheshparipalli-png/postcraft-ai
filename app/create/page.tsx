@@ -319,6 +319,16 @@ export default function CreatePostPage() {
               <button type="button" onClick={copyPost} disabled={!post.trim()} className="rounded-lg bg-[#292a24] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#414239] disabled:opacity-50 dark:bg-white dark:text-neutral-900">
                 {copied ? "Copied" : "Copy post"}
               </button>
+              <a
+                href={post.trim() ? `https://wa.me/?text=${encodeURIComponent(post.trim())}` : undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-disabled={!post.trim()}
+                onClick={(event) => { if (!post.trim()) event.preventDefault(); }}
+                className={`rounded-lg border border-[#d7d2c7] px-4 py-2.5 text-sm font-medium hover:bg-white dark:border-white/15 dark:hover:bg-white/5 ${!post.trim() ? "pointer-events-none opacity-50" : ""}`}
+              >
+                Share on WhatsApp
+              </a>
               <button type="button" onClick={clearAll} className="rounded-lg border border-[#d7d2c7] px-4 py-2.5 text-sm font-medium hover:bg-white dark:border-white/15 dark:hover:bg-white/5">
                 Clear
               </button>
@@ -339,7 +349,7 @@ export default function CreatePostPage() {
                   disabled={!qualityPassed || cardPoints.length !== 3 || !cardTakeaway}
                   className="shrink-0 rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Open in PostCard →
+                  Open in Postcraft →
                 </button>
               </div>
 
