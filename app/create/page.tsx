@@ -12,6 +12,7 @@ export default function CreatePostPage() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [reduceInstructionLength, setReduceInstructionLength] = useState(false);
   const [title, setTitle] = useState("");
   const [source, setSource] = useState("");
   const [post, setPost] = useState("");
@@ -53,6 +54,7 @@ export default function CreatePostPage() {
         body: JSON.stringify({
           action: sourceMode === "instructions" ? "manualInstruction" : "manualEditorial",
           instructions: sourceMode === "instructions" ? instructions.trim() : "",
+          reduceLength: sourceMode === "instructions" ? reduceInstructionLength : false,
           sourceUrl: sourceMode === "url" ? sourceUrl.trim() : "",
           content: sourceMode === "paste" ? sourceText.trim() : "",
           title: title.trim(),
@@ -142,6 +144,7 @@ export default function CreatePostPage() {
     setSourceUrl("");
     setSourceText("");
     setInstructions("");
+    setReduceInstructionLength(false);
     setTitle("");
     setSource("");
     setPost("");
@@ -254,17 +257,30 @@ export default function CreatePostPage() {
               </div>
             ) : (
               <div className="mt-5">
-                <label htmlFor="post-instructions" className="text-sm font-medium">Your topic or instructions</label>
+                <label htmlFor="post-instructions" className="text-sm font-medium">Text to polish or instructions</label>
                 <textarea
                   id="post-instructions"
                   value={instructions}
                   onChange={(event) => setInstructions(event.target.value)}
-                  placeholder={"For example: Write a LinkedIn post about how AI is changing education in India. Explain the opportunities for students and teachers, keep the language simple, and end with a thoughtful question."}
+                  placeholder={"Paste your draft and ask PostCraft to correct spelling, improve grammar and formatting, and make it sound natural for LinkedIn. Your original content and length will be preserved unless you choose to shorten it."}
                   rows={12}
                   maxLength={12000}
                   className="mt-2 w-full resize-y rounded-xl border border-[#e3dfd6] bg-[#fdfcf9] px-4 py-4 text-sm leading-6 outline-none focus:border-[#9c8b6e] focus:ring-2 focus:ring-[#9c8b6e]/15 dark:border-white/15 dark:bg-neutral-950 dark:placeholder:text-neutral-600"
                 />
-                <p className="mt-2 text-xs leading-5 text-neutral-400">Describe the topic, point of view, audience, tone, or structure. You do not need to provide an article.</p>
+                <div className="mt-3 flex items-start gap-3 rounded-xl border border-[#e3dfd6] bg-[#f7f5f0] p-3 dark:border-white/10 dark:bg-neutral-900">
+                  <input
+                    id="reduce-instruction-length"
+                    type="checkbox"
+                    checked={reduceInstructionLength}
+                    onChange={(event) => setReduceInstructionLength(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[#292a24]"
+                  />
+                  <label htmlFor="reduce-instruction-length" className="cursor-pointer text-sm leading-5">
+                    <span className="font-medium">Reduce content size</span>
+                    <span className="mt-0.5 block text-xs text-neutral-500">Optional. Condense the draft while retaining its main message and important details.</span>
+                  </label>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-neutral-400">Paste a draft for proofreading and LinkedIn formatting, or give PostCraft specific editing instructions. By default, your content length and meaning are preserved.</p>
               </div>
             )}
 
