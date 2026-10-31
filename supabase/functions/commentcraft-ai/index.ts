@@ -129,7 +129,10 @@ Your previous response was not complete valid JSON. Return a compact, complete J
       const responseContent = data?.choices?.[0]?.message?.content;
       const text = typeof responseContent === 'string'
         ? responseContent
-        : Array.isArray(responseContent) ? responseContent.map((part: any) => typeof part?.text === 'string' ? part.text : '').join('') : '';
+        : Array.isArray(responseContent) ? responseContent.map((part: unknown) => {
+          if (typeof part !== 'object' || part === null || !('text' in part)) return '';
+          return typeof part.text === 'string' ? part.text : '';
+        }).join('') : '';
       if (!text.trim()) throw new Error('FreeLLMAPI returned no text.');
       if (!jsonMode) return text.trim();
       try {
@@ -175,9 +178,6 @@ const platformGuidance: Record<SocialPlatform, string> = {
   reddit: 'Substantive and specific. Explain reasoning when useful, acknowledge context and trade-offs, and avoid promotional language or shallow agreement.',
   threads: 'Conversational and opinion-driven. Sound like someone naturally joining an ongoing discussion.',
   tiktok: 'Immediate, punchy, relatable, and conversational. Get to the point quickly. Humor can work when it naturally fits.',
-};
-const platformLabels: Record<SocialPlatform, string> = {
-  linkedin: 'LinkedIn', x: 'X', instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', reddit: 'Reddit', threads: 'Threads', tiktok: 'TikTok',
 };
 
 const clean = (value: string) => value.replace(/\s+/g, ' ').trim();
@@ -402,15 +402,17 @@ function parseJson(text: string) {
 
 function normalizeComments(value: unknown): Comment[] {
   if (!Array.isArray(value)) throw new Error('AI returned an invalid comment format');
-  return value.map((item: any) => {
-    const commentText = clean(String(item?.comment_text ?? ''));
+  return value.map((item: unknown) => {
+    const record: Record<string, unknown> =
+      typeof item === 'object' && item !== null ? item as Record<string, unknown> : {};
+    const commentText = clean(String(record.comment_text ?? ''));
     if (!commentText) throw new Error('AI returned an empty comment');
-    let score = Number(item?.quality_score);
+    let score = Number(record.quality_score);
     if (!Number.isFinite(score)) score = 82;
     if (score > 0 && score <= 10) score *= 10;
     // Keep model scores useful and conservative.
     score = Math.max(50, Math.min(95, Math.round(score)));
-    return { comment_text: commentText, quality_score: score, why_it_works: clean(String(item?.why_it_works ?? '')), generation_angle: null };
+    return { comment_text: commentText, quality_score: score, why_it_works: clean(String(record.why_it_works ?? '')), generation_angle: null };
   });
 }
 
