@@ -22,7 +22,6 @@ export default function CreatePostPage() {
   const [articleSource, setArticleSource] = useState("");
   const [articleUrl, setArticleUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const [postcardBusy, setPostcardBusy] = useState(false);
   const [error, setError] = useState("");
   const [qualityPassed, setQualityPassed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -129,49 +128,38 @@ export default function CreatePostPage() {
     router.push("/postcard");
   }
 
-  async function sendInstructionPostToPostCard() {
-    if (!post.trim() || postcardBusy) return;
+  function sendInstructionPostToPostCard() {
+    const fullPost = post.trim();
+    if (!fullPost) return;
 
-    setError("");
-    setPostcardBusy(true);
-    try {
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "postcardFromLinkedIn",
-          post: post.trim(),
-        }),
-      });
-      const data = await response.json().catch(() => null);
-      const points = Array.isArray(data?.points)
-        ? data.points.filter((point: unknown): point is string => typeof point === "string" && point.trim().length > 0).slice(0, 3)
-        : [];
+    // Match the proven Discover -> PostCard flow: write the handoff payload,
+    // then perform a full-page navigation so PostCard reads it on first mount.
+    const sentences = fullPost
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence && !/^#[\w]+(?:\s+#[\w]+)*$/.test(sentence));
+    const firstSentence = sentences[0] || fullPost;
+    const headline = firstSentence.split(/\s+/).slice(0, 9).join(" ");
+    const keyPoints = sentences.slice(1, 4);
+    const closing = sentences.length > 4
+      ? sentences[sentences.length - 1]
+      : "A perspective worth considering.";
 
-      if (!response.ok || typeof data?.headline !== "string" || points.length !== 3 || typeof data?.closing !== "string") {
-        throw new Error(data?.error || "PostCraft could not prepare the PostCard layout. Please try again.");
-      }
+    window.sessionStorage.setItem(
+      "postcraft-idea-radar-postcard",
+      JSON.stringify({
+        headline: headline || "A LinkedIn perspective",
+        body: keyPoints.join("\n") || fullPost,
+        linkedinPost: fullPost,
+        closing,
+        template: "story",
+        source: "Your LinkedIn draft",
+        sourceUrl: "",
+        origin: "create",
+      }),
+    );
 
-      window.sessionStorage.setItem(
-        "postcraft-idea-radar-postcard",
-        JSON.stringify({
-          headline: data.headline.trim(),
-          body: points.map((point: string) => point.trim()).join("\n"),
-          linkedinPost: post.trim(),
-          closing: data.closing.trim(),
-          template: "story",
-          source: "Source: Your LinkedIn draft",
-          sourceUrl: "",
-          origin: "create",
-        }),
-      );
-
-      router.push("/postcard");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send this post to PostCard.");
-    } finally {
-      setPostcardBusy(false);
-    }
+    window.location.href = "/postcard?source=create";
   }
 
   async function copyPost() {
@@ -435,10 +423,10 @@ export default function CreatePostPage() {
                   <button
                     type="button"
                     onClick={sendInstructionPostToPostCard}
-                    disabled={!post.trim() || postcardBusy}
+                    disabled={!post.trim()}
                     className="shrink-0 rounded-full bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {postcardBusy ? "Preparing PostCard..." : "Send it to the PostCard →"}
+                    Send it to the PostCard →
                   </button>
                 </div>
               </div>
