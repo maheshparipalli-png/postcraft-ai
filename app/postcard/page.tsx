@@ -1034,9 +1034,9 @@ export default function PostCardPage() {
                 </div>
               ) : template === "story" ? (
                 <div className="mt-5 space-y-5">
-                  <Field label={isDiscoverImport ? "Article headline" : isCreateImport ? "Post title" : "Story title"} value={headline} onChange={(value) => { setHeadline(value); setLinkedinPost(""); }} />
+                  <Field label={isDiscoverImport ? "Article headline" : isCreateImport ? "Post title" : "Story title"} value={headline} onChange={(value) => { setHeadline(value); if (!isCreateImport && !isDiscoverImport) setLinkedinPost(""); }} />
                   <Field label="Key points" value={body} onChange={(value) => { setBody(value); }} textarea />
-                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); setLinkedinPost(""); }} textarea />
+                  <Field label="Lesson" value={closing} onChange={(value) => { setClosing(value); if (!isCreateImport && !isDiscoverImport) setLinkedinPost(""); }} textarea />
                   <p className="text-[11px] leading-5 text-neutral-500">
                     {isDiscoverImport
                       ? "Imported from Discover as a news article. The visual uses concise key points and a takeaway, while the complete LinkedIn post stays editable below."
